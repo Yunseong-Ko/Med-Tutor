@@ -41,22 +41,37 @@ st.set_page_config(page_title="의대생 AI 튜터", page_icon="🧬", layout="w
 QUESTION_BANK_FILE = "questions.json"
 EXAM_HISTORY_FILE = "exam_history.json"
 USER_SETTINGS_FILE = "user_settings.json"
-SAFE_MODE = False
-try:
-    SAFE_MODE = st.experimental_get_query_params().get("safe", ["0"])[0] == "1"
-except Exception:
-    SAFE_MODE = False
-DEBUG_MODE = False
-try:
-    DEBUG_MODE = st.experimental_get_query_params().get("ping", ["0"])[0] == "1"
-except Exception:
-    DEBUG_MODE = False
+def get_query_param(name, default=None):
+    try:
+        params = st.query_params
+        if name in params:
+            val = params[name]
+            if isinstance(val, list):
+                return val[0] if val else default
+            return val
+        return default
+    except Exception:
+        try:
+            params = st.experimental_get_query_params()
+            return params.get(name, [default])[0]
+        except Exception:
+            return default
 
+safe_param = get_query_param("safe", None)
+ping_param = get_query_param("ping", "0")
+
+DEBUG_MODE = str(ping_param) == "1"
 if DEBUG_MODE:
     st.write("✅ DEBUG: app.py loaded")
     st.write(f"Streamlit version: {st.__version__}")
-    st.write(f"SAFE_MODE={SAFE_MODE}")
+    st.write(f"safe_param={safe_param}")
     st.stop()
+
+LOCK_SAFE = str(safe_param) == "1"
+LOCK_THEME = str(safe_param) == "0"
+
+if "theme_enabled" not in st.session_state:
+    st.session_state.theme_enabled = False if safe_param is None else LOCK_THEME
 
 # Session State 초기화
 if "current_question_idx" not in st.session_state:
@@ -2102,6 +2117,15 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("🎨 테마")
+    if not LOCK_SAFE and not LOCK_THEME:
+        st.session_state.theme_enabled = st.toggle("커스텀 테마 사용", value=st.session_state.theme_enabled)
+    elif LOCK_SAFE:
+        st.info("Safe mode 활성화됨 (URL에 ?safe=1).")
+        st.session_state.theme_enabled = False
+    elif LOCK_THEME:
+        st.info("테마 강제 활성화됨 (URL에 ?safe=0).")
+        st.session_state.theme_enabled = True
+
     if hasattr(st, "toggle"):
         dark_on = st.toggle("다크 모드", value=(st.session_state.theme_mode == "Dark"))
     else:
@@ -2119,8 +2143,9 @@ enable_filter = st.session_state.get("enable_filter", True)
 min_length = st.session_state.get("min_length", 30)
 auto_tag_enabled = st.session_state.get("auto_tag_enabled", True)
 
-# Apply theme (skip in safe mode)
-if not SAFE_MODE:
+# Apply theme (skip if disabled)
+THEME_ENABLED = bool(st.session_state.get("theme_enabled"))
+if THEME_ENABLED:
     apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
 
 # ============================================================================
@@ -2141,8 +2166,8 @@ with tab_home:
     acc = compute_overall_accuracy(all_questions)
     acc_text = f"{acc['accuracy']:.1f}%" if acc else "—"
 
-    if SAFE_MODE:
-        st.info("Safe mode: 커스텀 테마/히어로를 비활성화했습니다. 정상 화면 확인 후 `?safe=0`으로 복귀하세요.")
+    if not THEME_ENABLED:
+        st.info("Safe mode: 커스텀 테마/히어로를 비활성화했습니다. 사이드바에서 '커스텀 테마 사용'을 켜면 적용됩니다.")
         st.header("밤하늘처럼 맑은 의대 학습 흐름")
         st.write("강의록과 기출문제를 연결해, 학습-시험-복습을 하나의 흐름으로 만듭니다.")
         st.write(f"전체 정답률: {acc_text}")
