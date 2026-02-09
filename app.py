@@ -1136,7 +1136,6 @@ def apply_theme(theme_mode, bg_mode):
         }}
         .block-container {{
             padding-top: 1.5rem;
-            animation: fadeIn 400ms ease-out;
             position: relative;
             z-index: 1;
         }}
@@ -1346,10 +1345,6 @@ def apply_theme(theme_mode, bg_mode):
             .hero {{
                 grid-template-columns: 1fr;
             }}
-        }}
-        @keyframes fadeIn {{
-            from {{ opacity: 0; transform: translateY(4px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
         }}
         .section-title {{
             font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
