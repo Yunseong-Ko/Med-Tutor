@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtualenv
+venv/
+.venv/
+
+# Local data
+questions.json
+exam_history.json
+
+# Secrets
+Gemini_API_Key.md
+
+# Backups
+app_backup_*.py
+app_old*.py
+
+# Misc
+.DS_Store
+*.log
