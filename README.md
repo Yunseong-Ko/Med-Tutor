@@ -136,5 +136,5 @@ MIT License
 
 ---
 
-**제작자**: Yun Seong Goyun  
+**제작자**: Yunseong Ko (Noah)
 **마지막 업데이트**: 2026년 2월 8일
