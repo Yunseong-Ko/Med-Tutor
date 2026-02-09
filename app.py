@@ -190,7 +190,7 @@ def ensure_question_ids(data: dict) -> dict:
         save_questions(data)
     return data
 
-def add_questions_to_bank(questions_data, mode, subject="General", quality_filter=True, min_length=20):
+def add_questions_to_bank(questions_data, mode, subject="General", quality_filter=True, min_length=20, batch_id=None):
     """생성된 문제를 question bank에 추가 (구조화된 JSON 형식)
     
     Args:
@@ -214,6 +214,9 @@ def add_questions_to_bank(questions_data, mode, subject="General", quality_filte
         parsed_questions = questions_data if isinstance(questions_data, list) else [questions_data]
     
     added_count = 0
+    if not batch_id:
+        batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+
     for q_data in parsed_questions:
         if not q_data:
             continue
@@ -234,6 +237,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", quality_filte
         q_data["date_added"] = datetime.now().isoformat()
         if "id" not in q_data:
             q_data["id"] = str(uuid.uuid4())
+        q_data["batch_id"] = q_data.get("batch_id") or batch_id
         
         if mode == "📝 객관식 문제 (Case Study)":
             bank["text"].append(q_data)
@@ -245,23 +249,26 @@ def add_questions_to_bank(questions_data, mode, subject="General", quality_filte
     save_questions(bank)
     return added_count
 
-def add_questions_to_bank_auto(items, subject="General", quality_filter=True, min_length=20):
+def add_questions_to_bank_auto(items, subject="General", quality_filter=True, min_length=20, batch_id=None):
     """MCQ/Cloze 혼합 입력 자동 분류 후 저장"""
+    if not batch_id:
+        batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
     mcq_items = []
     cloze_items = []
     for item in items:
         if not isinstance(item, dict):
             continue
         item["subject"] = item.get("subject") or subject
+        item["batch_id"] = item.get("batch_id") or batch_id
         if item.get("type") == "cloze":
             cloze_items.append(item)
         else:
             mcq_items.append(item)
     added = 0
     if mcq_items:
-        added += add_questions_to_bank(mcq_items, "📝 객관식 문제 (Case Study)", subject, quality_filter, min_length)
+        added += add_questions_to_bank(mcq_items, "📝 객관식 문제 (Case Study)", subject, quality_filter, min_length, batch_id=batch_id)
     if cloze_items:
-        added += add_questions_to_bank(cloze_items, "🧩 빈칸 뚫기 (Anki Cloze)", subject, quality_filter, min_length)
+        added += add_questions_to_bank(cloze_items, "🧩 빈칸 뚫기 (Anki Cloze)", subject, quality_filter, min_length, batch_id=batch_id)
     return added
 
 
@@ -662,6 +669,31 @@ def update_question_note(q_id, note_text):
                 save_questions(bank)
                 return True
     return False
+
+def delete_mcq_by_ids(ids):
+    if not ids:
+        return 0
+    data = load_questions()
+    before = len(data.get("text", []))
+    data["text"] = [q for q in data.get("text", []) if q.get("id") not in ids]
+    save_questions(data)
+    return before - len(data.get("text", []))
+
+def delete_mcq_by_batch(batch_id):
+    if not batch_id:
+        return 0
+    data = load_questions()
+    before = len(data.get("text", []))
+    data["text"] = [q for q in data.get("text", []) if (q.get("batch_id") or "legacy") != batch_id]
+    save_questions(data)
+    return before - len(data.get("text", []))
+
+def get_mcq_batches(questions):
+    batches = {}
+    for q in questions:
+        b = q.get("batch_id") or "legacy"
+        batches[b] = batches.get(b, 0) + 1
+    return batches
 
 def get_wrong_note_stats(questions):
     wrong_items = []
@@ -1699,6 +1731,57 @@ with tab_home:
         if st.button("시험 기록 삭제", use_container_width=True, disabled=not confirm):
             clear_exam_history()
             st.success("시험 기록을 삭제했습니다.")
+
+    with st.expander("🗑️ 객관식 선택 삭제", expanded=False):
+        bank_now = load_questions()
+        mcq_list = bank_now.get("text", [])
+        if not mcq_list:
+            st.info("객관식 문항이 없습니다.")
+        else:
+            st.caption("세트(문제 생성 단위) 또는 개별 문항을 선택해 삭제할 수 있습니다.")
+            batches = get_mcq_batches(mcq_list)
+            batch_labels = [f"{bid} ({cnt}문항)" for bid, cnt in batches.items()]
+            batch_map = {label: bid for label, bid in zip(batch_labels, batches.keys())}
+            selected_batch_label = st.selectbox("세트 삭제", ["선택 안함"] + batch_labels)
+            confirm_batch = st.checkbox("세트 삭제 확인", key="confirm_batch_delete")
+            if selected_batch_label != "선택 안함":
+                if st.button("선택 세트 삭제", disabled=not confirm_batch):
+                    deleted = delete_mcq_by_batch(batch_map[selected_batch_label])
+                    st.success(f"{deleted}개 문항 삭제됨")
+
+            st.markdown("---")
+            subj = st.selectbox(
+                "분과 필터",
+                ["전체"] + sorted({(q.get("subject") or "General") for q in mcq_list})
+            )
+            search = st.text_input("문항 검색", value="")
+            filtered = []
+            for q in mcq_list:
+                if subj != "전체" and (q.get("subject") or "General") != subj:
+                    continue
+                text = q.get("problem", "")
+                if search and search.lower() not in text.lower():
+                    continue
+                filtered.append(q)
+            filtered = filtered[:200]
+
+            options = []
+            id_map = {}
+            for q in filtered:
+                qid = q.get("id")
+                if not qid:
+                    continue
+                label = f"{qid[:6]} | {(q.get('subject') or 'General')} | {q.get('problem','')[:60]}"
+                options.append(label)
+                id_map[label] = qid
+
+            selected_labels = st.multiselect("개별 문항 선택", options)
+            confirm_sel = st.checkbox("개별 삭제 확인", key="confirm_item_delete")
+            if selected_labels:
+                if st.button("선택 문항 삭제", disabled=not confirm_sel):
+                    ids = [id_map[l] for l in selected_labels]
+                    deleted = delete_mcq_by_ids(ids)
+                    st.success(f"{deleted}개 문항 삭제됨")
     
     st.markdown("---")
 
