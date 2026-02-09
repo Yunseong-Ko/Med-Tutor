@@ -18,6 +18,7 @@ from pptx import Presentation
 from difflib import SequenceMatcher
 import subprocess
 import shutil
+import base64
 
 # Optional markdown renderer for Obsidian view
 try:
@@ -1043,9 +1044,9 @@ def apply_theme(theme_mode, bg_mode):
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap');
         html, body, [class*="css"] {{
-            font-family: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
         }}
         .stApp {{
             background-color: {base_bg};
@@ -1076,6 +1077,7 @@ def apply_theme(theme_mode, bg_mode):
             border: none;
             border-radius: 12px;
             padding: 0.6rem 1rem;
+            font-weight: 600;
         }}
         .stButton>button:hover {{
             background: {accent2};
@@ -1096,6 +1098,74 @@ def apply_theme(theme_mode, bg_mode):
             border-radius: 16px;
             padding: 18px 20px;
             box-shadow: 0 10px 22px rgba(0,0,0,0.06);
+        }}
+        .hero {{
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 32px;
+            align-items: center;
+            padding: 28px 0 12px 0;
+        }}
+        .hero h1 {{
+            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
+            font-size: 46px;
+            line-height: 1.1;
+            margin-bottom: 14px;
+        }}
+        .hero p {{
+            color: {subtext};
+            font-size: 18px;
+        }}
+        .pill {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(14,165,164,0.12);
+            color: {accent};
+            border: 1px solid rgba(14,165,164,0.24);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }}
+        .hero-card {{
+            background: rgba(255,255,255,0.85);
+            border: 1px solid {border};
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+        }}
+        .hero-image {{
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.15);
+        }}
+        .btn-outline {{
+            border: 1px solid {border};
+            background: {surface};
+            color: {text};
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-weight: 600;
+        }}
+        .btn-primary {{
+            background: {accent};
+            color: white;
+            border-radius: 999px;
+            padding: 10px 18px;
+            font-weight: 700;
+            box-shadow: 0 10px 20px rgba(14,165,164,0.25);
+        }}
+        .section-title {{
+            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 18px 0 8px 0;
+        }}
+        .section-sub {{
+            color: {subtext};
         }}
         </style>
         """,
@@ -1123,6 +1193,17 @@ def render_obsidian_html(content):
         height=480,
         scrolling=True
     )
+
+def image_to_data_uri(path):
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+        b64 = base64.b64encode(data).decode("utf-8")
+        ext = os.path.splitext(path)[1].lower().replace(".", "")
+        mime = "image/png" if ext == "png" else "image/jpeg"
+        return f"data:{mime};base64,{b64}"
+    except Exception:
+        return ""
 
 def compute_activity_heatmap(questions, days=365, now=None):
     check_time = now or datetime.now(timezone.utc)
@@ -1764,6 +1845,34 @@ tab_home, tab_gen, tab_exam, tab_notes = st.tabs(["🏠 홈", "📚 문제 생�
 with tab_home:
     st.title("🏠 홈")
     show_action_notice()
+
+    hero_path = os.path.join(os.path.dirname(__file__), "assets", "hero-medical.png")
+    hero_img = image_to_data_uri(hero_path)
+    st.markdown(
+        f"""
+        <div class="hero">
+          <div>
+            <div class="pill">New: AI-Powered Case Simulations</div>
+            <h1>Master Clinical Reasoning with <span style="background: linear-gradient(90deg,#0ea5a4,#14b8a6); -webkit-background-clip:text; color:transparent;">Confidence</span></h1>
+            <p>Bridge the gap between textbook knowledge and clinical practice. Experience realistic patient encounters, receive instant feedback, and track your diagnostic accuracy.</p>
+            <div style="display:flex; gap:12px; margin-top:16px;">
+              <div class="btn-primary">Start Learning</div>
+              <div class="btn-outline">View Demo</div>
+            </div>
+            <div style="display:flex; gap:18px; margin-top:16px; color:#8b97a6; font-size:13px;">
+              <span>Evidence Based</span>
+              <span>USMLE Aligned</span>
+            </div>
+          </div>
+          <div>
+            <div class="hero-image">
+              <img src="{hero_img}" style="width:100%; height:100%; object-fit:cover;" />
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # 통계
     stats = get_question_stats()
