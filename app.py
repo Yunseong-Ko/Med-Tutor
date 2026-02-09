@@ -915,6 +915,23 @@ def apply_mcq_shortcut(idx):
     if sel is not None and 0 <= sel < len(labels):
         st.session_state[f"q_{idx}"] = labels[sel]
 
+def handle_nav_change():
+    labels = st.session_state.get("nav_labels") or []
+    selected = st.session_state.get("nav_select")
+    if selected in labels:
+        st.session_state.current_question_idx = labels.index(selected)
+
+def goto_prev_question():
+    st.session_state.current_question_idx = max(0, st.session_state.current_question_idx - 1)
+
+def goto_next_question():
+    total = len(st.session_state.get("exam_questions", []))
+    if total:
+        st.session_state.current_question_idx = min(total - 1, st.session_state.current_question_idx + 1)
+
+def finish_exam_session():
+    st.session_state.exam_finished = True
+
 def get_unique_subjects(questions):
     subjects = sorted({(q.get("subject") or "General") for q in questions})
     return subjects
@@ -2217,19 +2234,23 @@ with tab_home:
     st.subheader("학습 시각화")
     colp1, colp2, colp3 = st.columns([1, 1, 1])
     with colp1:
-        st.session_state.profile_name = st.text_input("프로필 이름", value=st.session_state.profile_name)
+        st.session_state.profile_name = st.text_input(
+            "설정 프리셋 이름",
+            value=st.session_state.profile_name,
+            help="히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.",
+        )
     with colp2:
-        if st.button("프로필 불러오기"):
+        if st.button("불러오기"):
             loaded = apply_profile_settings(st.session_state.profile_name)
             st.session_state.last_action_notice = "프로필 설정을 불러왔습니다." if loaded else "해당 프로필이 없습니다."
             st.rerun()
     with colp3:
-        if st.button("프로필 저장"):
+        if st.button("저장"):
             persist_profile_settings(st.session_state.profile_name)
             st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
             st.rerun()
 
-    st.caption("프로필은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.")
+    st.caption("프리셋은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다. 이름을 적고 저장/불러오기를 눌러주세요.")
     acc = compute_overall_accuracy(all_questions)
     heat = compute_activity_heatmap(all_questions, days=365)
     with st.expander("히트맵 구간/색상 설정", expanded=False):
@@ -2763,13 +2784,16 @@ with tab_exam:
                     else:
                         wrong_indices.append(i)
 
-                # 통계 업데이트 (시험 결과 1회만)
+                # 통계 업데이트 (시험 결과 1회만, 이미 반영된 문항은 제외)
                 if not st.session_state.exam_stats_applied:
                     for i, q in enumerate(exam_qs):
                         if i in st.session_state.user_answers and q.get("id"):
+                            if q.get("id") in st.session_state.graded_questions:
+                                continue
                             user_ans = st.session_state.user_answers[i]
                             is_correct = is_answer_correct(q, user_ans)
                             update_question_stats(q["id"], is_correct)
+                            st.session_state.graded_questions.add(q.get("id"))
                     st.session_state.exam_stats_applied = True
 
                 # 시험 기록 저장 (시험모드만)
@@ -2903,24 +2927,8 @@ with tab_exam:
                     q = exam_qs[idx]
                     st.progress((idx + 1) / len(exam_qs))
                     st.caption(f"USMLE 스타일 | Question {idx + 1} of {len(exam_qs)}")
-
-                    # 문항 이동/미응답
-                    answered_idx = set(st.session_state.user_answers.keys())
-                    nav_labels = []
-                    for i in range(len(exam_qs)):
-                        status = "✅" if i in answered_idx else "○"
-                        nav_labels.append(f"{i + 1} {status}")
-                    # do not mutate session_state after widget creation
-                    nav_label = st.selectbox("문항 이동", nav_labels, index=idx, key="nav_select")
-                    new_idx = nav_labels.index(nav_label)
-                    if new_idx != idx:
-                        st.session_state.current_question_idx = new_idx
-                        st.rerun()
-
-                    unanswered = [str(i + 1) for i in range(len(exam_qs)) if i not in answered_idx]
-                    if unanswered:
-                        st.caption(f"미응답: {', '.join(unanswered)}")
-
+                    nav_slot = st.empty()
+                    unanswered_slot = st.empty()
                     st.markdown(f"### Question {idx + 1}")
 
                     # 입력
@@ -2976,6 +2984,27 @@ with tab_exam:
                                 is_correct = is_answer_correct(q, user_input)
                                 update_question_stats(q["id"], is_correct)
                                 st.session_state.graded_questions.add(q.get("id"))
+
+                    # 문항 이동/미응답 (답안 반영 후 갱신)
+                    answered_idx = set(st.session_state.user_answers.keys())
+                    nav_labels = []
+                    for i in range(len(exam_qs)):
+                        status = "✅" if i in answered_idx else "○"
+                        nav_labels.append(f"{i + 1} {status}")
+                    st.session_state.nav_labels = nav_labels
+                    current_label = nav_labels[idx]
+                    if st.session_state.get("nav_select") != current_label:
+                        st.session_state.nav_select = current_label
+                    nav_slot.selectbox(
+                        "문항 이동",
+                        nav_labels,
+                        index=idx,
+                        key="nav_select",
+                        on_change=handle_nav_change,
+                    )
+                    unanswered = [str(i + 1) for i in range(len(exam_qs)) if i not in answered_idx]
+                    if unanswered:
+                        unanswered_slot.caption(f"미응답: {', '.join(unanswered)}")
 
                     # 메모
                     if q.get("id"):
@@ -3055,22 +3084,16 @@ with tab_exam:
                     # 네비게이션
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        if idx > 0 and st.button("⬅️ 이전"):
-                            st.session_state.current_question_idx -= 1
-                            st.rerun()
+                        st.button("⬅️ 이전", on_click=goto_prev_question, disabled=idx <= 0)
                     with col2:
-                        if idx < len(exam_qs) - 1 and st.button("다음 ➡️"):
-                            st.session_state.current_question_idx += 1
-                            st.rerun()
+                        st.button("다음 ➡️", on_click=goto_next_question, disabled=idx >= len(exam_qs) - 1)
                     with col3:
                         if st.session_state.exam_mode == "시험모드":
-                            if idx == len(exam_qs) - 1 and st.button("✅ 채점"):
-                                st.session_state.exam_finished = True
-                                st.rerun()
+                            if idx == len(exam_qs) - 1:
+                                st.button("✅ 채점", on_click=finish_exam_session)
                         else:
-                            if idx == len(exam_qs) - 1 and st.button("✅ 세션 종료"):
-                                st.session_state.exam_finished = True
-                                st.rerun()
+                            if idx == len(exam_qs) - 1:
+                                st.button("✅ 세션 종료", on_click=finish_exam_session)
 
 # ============================================================================
 # TAB: 노트
