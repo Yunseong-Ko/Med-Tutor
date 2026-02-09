@@ -46,6 +46,17 @@ try:
     SAFE_MODE = st.experimental_get_query_params().get("safe", ["0"])[0] == "1"
 except Exception:
     SAFE_MODE = False
+DEBUG_MODE = False
+try:
+    DEBUG_MODE = st.experimental_get_query_params().get("ping", ["0"])[0] == "1"
+except Exception:
+    DEBUG_MODE = False
+
+if DEBUG_MODE:
+    st.write("✅ DEBUG: app.py loaded")
+    st.write(f"Streamlit version: {st.__version__}")
+    st.write(f"SAFE_MODE={SAFE_MODE}")
+    st.stop()
 
 # Session State 초기화
 if "current_question_idx" not in st.session_state:
