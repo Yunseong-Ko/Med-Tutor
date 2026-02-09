@@ -1127,20 +1127,6 @@ def apply_theme(theme_mode, bg_mode):
             background-size: {bg_size};
             color: var(--text);
         }}
-        .stApp::before {{
-            content: "";
-            position: fixed;
-            top: -140px;
-            left: 50%;
-            width: 520px;
-            height: 260px;
-            transform: translateX(-50%);
-            background: {lamp_glow};
-            filter: blur(8px);
-            opacity: 0.9;
-            pointer-events: none;
-            z-index: 0;
-        }}
         [data-testid="stHeader"] {{
             background: transparent;
         }}
@@ -1229,6 +1215,19 @@ def apply_theme(theme_mode, bg_mode):
             border-radius: 18px;
             padding: 16px;
             box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+        }}
+        .lamp-glow {{
+            position: absolute;
+            top: -120px;
+            left: 50%;
+            width: 520px;
+            height: 260px;
+            transform: translateX(-50%);
+            background: {lamp_glow};
+            filter: blur(8px);
+            opacity: 0.85;
+            pointer-events: none;
+            z-index: 0;
         }}
         .hero-stack {{
             display: grid;
@@ -2092,7 +2091,10 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("🎨 테마")
-    dark_on = st.toggle("다크 모드", value=(st.session_state.theme_mode == "Dark"))
+    if hasattr(st, "toggle"):
+        dark_on = st.toggle("다크 모드", value=(st.session_state.theme_mode == "Dark"))
+    else:
+        dark_on = st.checkbox("다크 모드", value=(st.session_state.theme_mode == "Dark"))
     st.session_state.theme_mode = "Dark" if dark_on else "Light"
     st.session_state.theme_bg = "Gradient"
 
@@ -2129,6 +2131,7 @@ with tab_home:
 
     st.markdown(
         f"""
+        <div class="lamp-glow"></div>
         <div class="hero">
           <div>
             <div class="pill">Milky Way Mode · 차분한 몰입</div>
