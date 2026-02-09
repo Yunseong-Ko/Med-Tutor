@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import fitz  # PyMuPDF
 import google.generativeai as genai
 import re
@@ -17,6 +18,13 @@ from pptx import Presentation
 from difflib import SequenceMatcher
 import subprocess
 import shutil
+
+# Optional markdown renderer for Obsidian view
+try:
+    import markdown as md
+    MARKDOWN_AVAILABLE = True
+except Exception:
+    MARKDOWN_AVAILABLE = False
 
 # FSRS (optional)
 try:
@@ -73,6 +81,12 @@ if "wrong_weight_recent" not in st.session_state:
     st.session_state.wrong_weight_recent = 0.7
 if "wrong_weight_count" not in st.session_state:
     st.session_state.wrong_weight_count = 0.3
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "Light"
+if "theme_bg" not in st.session_state:
+    st.session_state.theme_bg = "Gradient"
+if "last_action_notice" not in st.session_state:
+    st.session_state.last_action_notice = ""
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -968,6 +982,158 @@ def parse_qa_to_cloze(text):
             buffer_lines.append(line)
     return results
 
+def apply_theme(theme_mode, bg_mode):
+    # color palette
+    if theme_mode == "Dark":
+        base_bg = "#0f1417"
+        surface = "#151b20"
+        text = "#e8eef2"
+        subtext = "#a9b3bd"
+        accent = "#2dd4bf"
+        accent2 = "#f59e0b"
+        border = "#22303a"
+    else:
+        base_bg = "#f7f5f2"
+        surface = "#ffffff"
+        text = "#1f2937"
+        subtext = "#6b7280"
+        accent = "#0ea5a4"
+        accent2 = "#d97706"
+        border = "#e5e7eb"
+
+    if bg_mode == "Grid":
+        bg = "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.03) 100%)"
+        bg_size = "24px 24px, auto"
+    elif bg_mode == "Paper":
+        bg = "linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.03) 100%), repeating-linear-gradient(0deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 1px, transparent 1px, transparent 28px)"
+        bg_size = "auto, auto"
+    elif bg_mode == "None":
+        bg = "none"
+        bg_size = "auto"
+    else:  # Gradient
+        bg = "radial-gradient(1200px 600px at 10% 0%, rgba(14,165,164,0.18), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(217,119,6,0.14), transparent 55%)"
+        bg_size = "auto"
+
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap');
+        html, body, [class*="css"] {{
+            font-family: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
+        }}
+        .stApp {{
+            background-color: {base_bg};
+            background-image: {bg};
+            background-size: {bg_size};
+            color: {text};
+        }}
+        [data-testid="stHeader"] {{
+            background: transparent;
+        }}
+        [data-testid="stSidebar"] {{
+            background: {surface};
+            border-right: 1px solid {border};
+        }}
+        .block-container {{
+            padding-top: 1.5rem;
+        }}
+        .stMetric {{
+            background: {surface};
+            border: 1px solid {border};
+            border-radius: 14px;
+            padding: 12px 14px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        }}
+        .stButton>button {{
+            background: {accent};
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+        }}
+        .stButton>button:hover {{
+            background: {accent2};
+            color: white;
+        }}
+        .stMarkdown, .stText, .stCaption {{
+            color: {text};
+        }}
+        .caption-muted {{
+            color: {subtext};
+        }}
+        .obsidian-note {{
+            font-family: 'Source Serif 4', 'Noto Serif KR', serif;
+            color: {text};
+            line-height: 1.7;
+            background: {surface};
+            border: 1px solid {border};
+            border-radius: 16px;
+            padding: 18px 20px;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.06);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+def show_action_notice():
+    msg = st.session_state.get("last_action_notice", "")
+    if msg:
+        st.success(msg)
+        st.session_state.last_action_notice = ""
+
+def render_obsidian_html(content):
+    if MARKDOWN_AVAILABLE:
+        html = md.markdown(content, extensions=["fenced_code", "tables"])
+    else:
+        escaped = (
+            content.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        html = f"<pre>{escaped}</pre>"
+    components.html(
+        f"<div class='obsidian-note'>{html}</div>",
+        height=480,
+        scrolling=True
+    )
+
+def compute_activity_heatmap(questions, days=90, now=None):
+    check_time = now or datetime.now(timezone.utc)
+    start = (check_time - timedelta(days=days - 1)).date()
+    buckets = {}
+    for i in range(days):
+        d = start + timedelta(days=i)
+        buckets[d.isoformat()] = {"count": 0, "correct": 0, "total": 0}
+    for q in questions:
+        stats = q.get("stats") or {}
+        hist = stats.get("history") or []
+        for entry in hist:
+            if not isinstance(entry, dict):
+                continue
+            dt = parse_iso_datetime(entry.get("time"))
+            if not dt:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dkey = dt.date().isoformat()
+            if dkey in buckets:
+                buckets[dkey]["count"] += 1
+                buckets[dkey]["total"] += 1
+                if entry.get("correct") is True:
+                    buckets[dkey]["correct"] += 1
+    rows = []
+    for dkey, val in buckets.items():
+        d = datetime.fromisoformat(dkey).date()
+        rows.append({
+            "date": d,
+            "dow": d.weekday(),
+            "week": d.isocalendar().week,
+            "count": val["count"],
+            "accuracy": (val["correct"] / val["total"] * 100) if val["total"] > 0 else 0
+        })
+    return rows
+
 def fsrs_due(item, now=None):
     if not FSRS_AVAILABLE:
         return True
@@ -1542,6 +1708,11 @@ with st.sidebar:
     st.session_state.auto_tag_enabled = st.checkbox("자동 난이도/카테고리 태깅", value=True)
     st.session_state.explanation_default = st.checkbox("해설 기본 열기", value=st.session_state.explanation_default)
 
+    st.markdown("---")
+    st.subheader("🎨 테마")
+    st.session_state.theme_mode = st.selectbox("모드", ["Light", "Dark"], index=0 if st.session_state.theme_mode == "Light" else 1)
+    st.session_state.theme_bg = st.selectbox("배경", ["Gradient", "Grid", "Paper", "None"], index=["Gradient","Grid","Paper","None"].index(st.session_state.theme_bg))
+
 # 블록 외에서도 접근 가능하도록 로컬 변수에 할당
 ai_model = st.session_state.get("ai_model", "🔵 Google Gemini")
 api_key = st.session_state.get("api_key")
@@ -1551,6 +1722,9 @@ overlap = st.session_state.get("overlap", 500)
 enable_filter = st.session_state.get("enable_filter", True)
 min_length = st.session_state.get("min_length", 30)
 auto_tag_enabled = st.session_state.get("auto_tag_enabled", True)
+
+# Apply theme
+apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
 
 # ============================================================================
 # 메인 UI: 탭 구조
@@ -1562,6 +1736,7 @@ tab_home, tab_gen, tab_exam, tab_notes = st.tabs(["🏠 홈", "📚 문제 생�
 # ============================================================================
 with tab_home:
     st.title("🏠 홈")
+    show_action_notice()
 
     # 통계
     stats = get_question_stats()
@@ -1648,6 +1823,35 @@ with tab_home:
         st.markdown(f"**최근 {st.session_state.trend_days}일 정답률 추이**")
         st.line_chart(trend, x="date", y="accuracy")
 
+    heat = compute_activity_heatmap(all_questions, days=90)
+    if heat:
+        st.markdown("**학습 활동 히트맵 (최근 90일)**")
+        try:
+            import pandas as pd
+            import altair as alt
+
+            df = pd.DataFrame(heat)
+            # Map weekday to label
+            df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
+            df["week"] = df["week"].astype(str)
+            chart = (
+                alt.Chart(df)
+                .mark_rect(cornerRadius=4)
+                .encode(
+                    x=alt.X("week:O", title="Week"),
+                    y=alt.Y("dow_label:O", title="Day"),
+                    color=alt.Color("count:Q", scale=alt.Scale(scheme="tealblues"), title="Solved"),
+                    tooltip=["date:T", "count:Q", "accuracy:Q"]
+                )
+                .properties(height=170)
+            )
+            st.altair_chart(chart, use_container_width=True)
+        except Exception:
+            st.dataframe(heat, use_container_width=True, hide_index=True)
+
+    # FSRS / SRS 상태
+    st.caption(f"복습 엔진: {'FSRS' if FSRS_AVAILABLE else '기본 SRS'}")
+
     if FSRS_AVAILABLE and all_questions:
         with st.expander("📊 FSRS 분과/난이도 리포트", expanded=False):
             subject_rows = fsrs_group_report(all_questions, "subject")
@@ -1659,7 +1863,7 @@ with tab_home:
                 st.markdown("**난이도별**")
                 st.dataframe(difficulty_rows, use_container_width=True, hide_index=True)
     elif not FSRS_AVAILABLE:
-        st.info("FSRS 리포트 사용을 위해서는 `fsrs` 패키지 설치가 필요합니다.")
+        st.info("FSRS 미설치: 기본 SRS로 동작 중입니다.")
 
     st.markdown("---")
     st.subheader("🧾 시험 기록")
@@ -1719,18 +1923,37 @@ with tab_home:
         with col1:
             if st.button("객관식 전체 삭제", use_container_width=True, disabled=not confirm):
                 clear_question_bank(mode="mcq")
-                st.success("객관식 문항을 삭제했습니다.")
+                st.session_state.last_action_notice = "객관식 문항을 삭제했습니다."
+                st.rerun()
         with col2:
             if st.button("빈칸 전체 삭제", use_container_width=True, disabled=not confirm):
                 clear_question_bank(mode="cloze")
-                st.success("빈칸 문항을 삭제했습니다.")
+                st.session_state.last_action_notice = "빈칸 문항을 삭제했습니다."
+                st.rerun()
         with col3:
             if st.button("전체 문항 삭제", use_container_width=True, disabled=not confirm):
                 clear_question_bank(mode="all")
-                st.success("모든 문항을 삭제했습니다.")
+                st.session_state.last_action_notice = "모든 문항을 삭제했습니다."
+                st.rerun()
         if st.button("시험 기록 삭제", use_container_width=True, disabled=not confirm):
             clear_exam_history()
-            st.success("시험 기록을 삭제했습니다.")
+            st.session_state.last_action_notice = "시험 기록을 삭제했습니다."
+            st.rerun()
+
+        st.markdown("---")
+        subjects = sorted({(q.get("subject") or "General") for q in all_questions}) if all_questions else []
+        sel_subjects_del = st.multiselect("분과별 삭제", subjects)
+        if sel_subjects_del:
+            if st.button("선택 분과 삭제", use_container_width=True, disabled=not confirm):
+                data = load_questions()
+                before_text = len(data.get("text", []))
+                before_cloze = len(data.get("cloze", []))
+                data["text"] = [q for q in data.get("text", []) if (q.get("subject") or "General") not in sel_subjects_del]
+                data["cloze"] = [q for q in data.get("cloze", []) if (q.get("subject") or "General") not in sel_subjects_del]
+                save_questions(data)
+                deleted = (before_text - len(data.get("text", []))) + (before_cloze - len(data.get("cloze", [])))
+                st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨 (분과: {', '.join(sel_subjects_del)})"
+                st.rerun()
 
     with st.expander("🗑️ 객관식 선택 삭제", expanded=False):
         bank_now = load_questions()
@@ -1738,17 +1961,7 @@ with tab_home:
         if not mcq_list:
             st.info("객관식 문항이 없습니다.")
         else:
-            st.caption("세트(문제 생성 단위) 또는 개별 문항을 선택해 삭제할 수 있습니다.")
-            batches = get_mcq_batches(mcq_list)
-            batch_labels = [f"{bid} ({cnt}문항)" for bid, cnt in batches.items()]
-            batch_map = {label: bid for label, bid in zip(batch_labels, batches.keys())}
-            selected_batch_label = st.selectbox("세트 삭제", ["선택 안함"] + batch_labels)
-            confirm_batch = st.checkbox("세트 삭제 확인", key="confirm_batch_delete")
-            if selected_batch_label != "선택 안함":
-                if st.button("선택 세트 삭제", disabled=not confirm_batch):
-                    deleted = delete_mcq_by_batch(batch_map[selected_batch_label])
-                    st.success(f"{deleted}개 문항 삭제됨")
-
+            st.caption("개별 문항을 선택해 삭제할 수 있습니다.")
             st.markdown("---")
             subj = st.selectbox(
                 "분과 필터",
@@ -1781,7 +1994,8 @@ with tab_home:
                 if st.button("선택 문항 삭제", disabled=not confirm_sel):
                     ids = [id_map[l] for l in selected_labels]
                     deleted = delete_mcq_by_ids(ids)
-                    st.success(f"{deleted}개 문항 삭제됨")
+                    st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨"
+                    st.rerun()
     
     st.markdown("---")
 
@@ -2566,7 +2780,13 @@ with tab_notes:
                     content = f.read()
 
             st.markdown("**노트 미리보기**")
-            st.text_area("내용", value=content, height=300)
+            view_mode = st.selectbox("보기 모드", ["Obsidian 스타일", "일반"], index=0)
+            if view_mode == "Obsidian 스타일":
+                render_obsidian_html(content)
+                if not MARKDOWN_AVAILABLE:
+                    st.info("더 나은 렌더링을 위해 `markdown` 패키지를 설치하세요.")
+            else:
+                st.text_area("내용", value=content, height=300)
 
             st.markdown("---")
             st.subheader("📌 노트로 문제 생성")
