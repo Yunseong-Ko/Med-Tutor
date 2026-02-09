@@ -915,12 +915,6 @@ def apply_mcq_shortcut(idx):
     if sel is not None and 0 <= sel < len(labels):
         st.session_state[f"q_{idx}"] = labels[sel]
 
-def handle_nav_change():
-    labels = st.session_state.get("nav_labels") or []
-    selected = st.session_state.get("nav_select")
-    if selected in labels:
-        st.session_state.current_question_idx = labels.index(selected)
-
 def goto_prev_question():
     st.session_state.current_question_idx = max(0, st.session_state.current_question_idx - 1)
 
@@ -1063,16 +1057,18 @@ def parse_qa_to_cloze(text):
 def apply_theme(theme_mode, bg_mode):
     # color palette
     if theme_mode == "Dark":
-        base_bg = "#0b1020"
-        surface = "#141a2b"
-        text = "#e6ebff"
-        subtext = "#b2bdd9"
-        accent = "#7dd3fc"
-        accent2 = "#fbbf24"
-        border = "#22304a"
+        base_bg = "#0b1220"
+        surface = "#111827"
+        surface_2 = "#0f1b30"
+        text = "#e5e7eb"
+        subtext = "#9aa6c0"
+        accent = "#38bdf8"
+        accent2 = "#f59e0b"
+        border = "#1f2a44"
     else:
         base_bg = "#f7f5f2"
         surface = "#ffffff"
+        surface_2 = "#f1f5f9"
         text = "#1f2937"
         subtext = "#6b7280"
         accent = "#0ea5a4"
@@ -1108,56 +1104,69 @@ def apply_theme(theme_mode, bg_mode):
         f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap');
+        :root {{
+            --bg: {base_bg};
+            --surface: {surface};
+            --surface-2: {surface_2};
+            --text: {text};
+            --muted: {subtext};
+            --accent: {accent};
+            --accent-2: {accent2};
+            --border: {border};
+            --radius: 14px;
+        }}
         html, body, [class*="css"] {{
-            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans KR', sans-serif;
         }}
         .stApp {{
-            background-color: {base_bg};
+            background-color: var(--bg);
             background-image: {bg};
             background-size: {bg_size};
-            color: {text};
+            color: var(--text);
         }}
         [data-testid="stHeader"] {{
             background: transparent;
         }}
         [data-testid="stSidebar"] {{
-            background: {surface};
-            border-right: 1px solid {border};
+            background: var(--surface);
+            border-right: 1px solid var(--border);
         }}
         .block-container {{
             padding-top: 1.5rem;
+            animation: fadeIn 400ms ease-out;
         }}
         .stMetric {{
-            background: {surface};
-            border: 1px solid {border};
-            border-radius: 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 12px 14px;
             box-shadow: 0 6px 16px rgba(0,0,0,0.04);
         }}
         .stButton>button {{
-            background: {accent};
+            background: var(--accent);
             color: white;
             border: none;
             border-radius: 12px;
             padding: 0.6rem 1rem;
             font-weight: 600;
+            box-shadow: 0 10px 18px rgba(14,165,164,0.18);
         }}
         .stButton>button:hover {{
-            background: {accent2};
+            background: var(--accent-2);
             color: white;
         }}
         .stMarkdown, .stText, .stCaption {{
-            color: {text};
+            color: var(--text);
         }}
         .caption-muted {{
-            color: {subtext};
+            color: var(--muted);
         }}
         .obsidian-note {{
             font-family: 'Source Serif 4', 'Noto Serif KR', serif;
-            color: {text};
+            color: var(--text);
             line-height: 1.7;
-            background: {surface};
-            border: 1px solid {border};
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 18px 20px;
             box-shadow: 0 10px 22px rgba(0,0,0,0.06);
@@ -1176,7 +1185,7 @@ def apply_theme(theme_mode, bg_mode):
             margin-bottom: 14px;
         }}
         .hero p {{
-            color: {subtext};
+            color: var(--muted);
             font-size: 18px;
         }}
         .pill {{
@@ -1186,15 +1195,15 @@ def apply_theme(theme_mode, bg_mode):
             padding: 6px 12px;
             border-radius: 999px;
             background: rgba(14,165,164,0.12);
-            color: {accent};
+            color: var(--accent);
             border: 1px solid rgba(14,165,164,0.24);
             font-size: 12px;
             font-weight: 600;
             margin-bottom: 12px;
         }}
         .hero-card {{
-            background: rgba(255,255,255,0.85);
-            border: 1px solid {border};
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 18px;
             padding: 16px;
             box-shadow: 0 12px 24px rgba(0,0,0,0.12);
@@ -1206,20 +1215,68 @@ def apply_theme(theme_mode, bg_mode):
             box-shadow: 0 20px 30px rgba(0,0,0,0.15);
         }}
         .btn-outline {{
-            border: 1px solid {border};
-            background: {surface};
-            color: {text};
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
             border-radius: 999px;
             padding: 10px 16px;
             font-weight: 600;
         }}
         .btn-primary {{
-            background: {accent};
+            background: var(--accent);
             color: white;
             border-radius: 999px;
             padding: 10px 18px;
             font-weight: 700;
             box-shadow: 0 10px 20px rgba(14,165,164,0.25);
+        }}
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 6px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 6px;
+            border-radius: 12px;
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-weight: 600;
+        }}
+        .stTabs [aria-selected="true"] {{
+            background: var(--accent);
+            color: white !important;
+        }}
+        div[data-baseweb="input"] > div {{
+            background: var(--surface-2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }}
+        textarea, input {{
+            color: var(--text) !important;
+        }}
+        div[data-baseweb="select"] > div {{
+            background: var(--surface-2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }}
+        .stTextArea textarea {{
+            background: var(--surface-2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }}
+        .stExpander {{
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }}
+        .stAlert {{
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }}
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(4px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
         .section-title {{
             font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
@@ -2745,7 +2802,6 @@ with tab_exam:
                 st.session_state.exam_finished = False
                 st.session_state.exam_mode = mode_choice
                 st.session_state.exam_type = exam_type
-                st.session_state.nav_select = None
                 st.session_state.auto_advance_guard = None
                 st.session_state.revealed_answers = set()
                 st.session_state.exam_stats_applied = False
@@ -2987,20 +3043,23 @@ with tab_exam:
 
                     # 문항 이동/미응답 (답안 반영 후 갱신)
                     answered_idx = set(st.session_state.user_answers.keys())
-                    nav_labels = []
-                    for i in range(len(exam_qs)):
+                    nav_options = list(range(len(exam_qs)))
+
+                    def nav_format(i):
                         status = "✅" if i in answered_idx else "○"
-                        nav_labels.append(f"{i + 1} {status}")
-                    st.session_state.nav_labels = nav_labels
-                    current_label = nav_labels[idx]
-                    if st.session_state.get("nav_select") not in nav_labels or st.session_state.get("nav_select") != current_label:
-                        st.session_state.nav_select = current_label
-                    nav_slot.selectbox(
+                        return f"{i + 1} {status}"
+
+                    nav_idx = nav_slot.selectbox(
                         "문항 이동",
-                        nav_labels,
+                        nav_options,
+                        index=idx,
+                        format_func=nav_format,
                         key="nav_select",
-                        on_change=handle_nav_change,
                     )
+                    if nav_idx != idx:
+                        st.session_state.current_question_idx = nav_idx
+                        st.rerun()
+
                     unanswered = [str(i + 1) for i in range(len(exam_qs)) if i not in answered_idx]
                     if unanswered:
                         unanswered_slot.caption(f"미응답: {', '.join(unanswered)}")
