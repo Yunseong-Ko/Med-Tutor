@@ -67,6 +67,7 @@ if "exam_stats_applied" not in st.session_state:
     st.session_state.exam_stats_applied = False
 if "graded_questions" not in st.session_state:
     st.session_state.graded_questions = set()
+# (trend_days retained for future use)
 if "trend_days" not in st.session_state:
     st.session_state.trend_days = 14
 if "wrong_priority" not in st.session_state:
@@ -808,6 +809,19 @@ def compute_accuracy_trend(questions, days=14, now=None):
         series.append({"date": dkey, "accuracy": acc})
     return series
 
+def compute_overall_accuracy(questions):
+    right = 0
+    wrong = 0
+    for q in questions:
+        stats = q.get("stats") or {}
+        right += int(stats.get("right", 0))
+        wrong += int(stats.get("wrong", 0))
+    total = right + wrong
+    if total == 0:
+        return None
+    accuracy = right / total * 100
+    return {"correct": right, "wrong": wrong, "total": total, "accuracy": accuracy}
+
 def fsrs_group_report(questions, group_key, now=None):
     if not FSRS_AVAILABLE:
         return []
@@ -985,13 +999,13 @@ def parse_qa_to_cloze(text):
 def apply_theme(theme_mode, bg_mode):
     # color palette
     if theme_mode == "Dark":
-        base_bg = "#0f1417"
-        surface = "#151b20"
-        text = "#e8eef2"
-        subtext = "#a9b3bd"
-        accent = "#2dd4bf"
-        accent2 = "#f59e0b"
-        border = "#22303a"
+        base_bg = "#0b1020"
+        surface = "#141a2b"
+        text = "#e6ebff"
+        subtext = "#b2bdd9"
+        accent = "#7dd3fc"
+        accent2 = "#fbbf24"
+        border = "#22304a"
     else:
         base_bg = "#f7f5f2"
         surface = "#ffffff"
@@ -1011,8 +1025,20 @@ def apply_theme(theme_mode, bg_mode):
         bg = "none"
         bg_size = "auto"
     else:  # Gradient
-        bg = "radial-gradient(1200px 600px at 10% 0%, rgba(14,165,164,0.18), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(217,119,6,0.14), transparent 55%)"
-        bg_size = "auto"
+        if theme_mode == "Dark":
+            bg = (
+                "radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8) 0, transparent 60%),"
+                "radial-gradient(1px 1px at 80% 40%, rgba(255,255,255,0.6) 0, transparent 60%),"
+                "radial-gradient(1.2px 1.2px at 60% 15%, rgba(255,255,255,0.7) 0, transparent 60%),"
+                "radial-gradient(1px 1px at 35% 70%, rgba(255,255,255,0.5) 0, transparent 60%),"
+                "radial-gradient(900px 500px at 10% 0%, rgba(29,78,216,0.25), transparent 60%),"
+                "radial-gradient(800px 480px at 90% 10%, rgba(56,189,248,0.18), transparent 55%),"
+                "linear-gradient(180deg, rgba(9,12,24,1) 0%, rgba(12,18,40,1) 100%)"
+            )
+            bg_size = "auto"
+        else:
+            bg = "radial-gradient(1200px 600px at 10% 0%, rgba(14,165,164,0.18), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(217,119,6,0.14), transparent 55%)"
+            bg_size = "auto"
 
     st.markdown(
         f"""
@@ -1098,7 +1124,7 @@ def render_obsidian_html(content):
         scrolling=True
     )
 
-def compute_activity_heatmap(questions, days=90, now=None):
+def compute_activity_heatmap(questions, days=365, now=None):
     check_time = now or datetime.now(timezone.utc)
     start = (check_time - timedelta(days=days - 1)).date()
     buckets = {}
@@ -1125,10 +1151,11 @@ def compute_activity_heatmap(questions, days=90, now=None):
     rows = []
     for dkey, val in buckets.items():
         d = datetime.fromisoformat(dkey).date()
+        week_index = (d - start).days // 7
         rows.append({
             "date": d,
             "dow": d.weekday(),
-            "week": d.isocalendar().week,
+            "week_index": week_index,
             "count": val["count"],
             "accuracy": (val["correct"] / val["total"] * 100) if val["total"] > 0 else 0
         })
@@ -1810,45 +1837,6 @@ with tab_home:
     else:
         st.info("선택한 필터에 해당하는 오답 문항이 없습니다.")
 
-    st.session_state.trend_days = st.selectbox(
-        "정답률 추이 기간",
-        [7, 14, 30],
-        index=[7, 14, 30].index(st.session_state.trend_days)
-    )
-    recent = compute_recent_accuracy(all_questions, days=7)
-    if recent["accuracy"] is not None:
-        st.caption(f"최근 7일 정답률: {recent['accuracy']:.1f}% ({recent['correct']}/{recent['total']})")
-    trend = compute_accuracy_trend(all_questions, days=st.session_state.trend_days)
-    if trend:
-        st.markdown(f"**최근 {st.session_state.trend_days}일 정답률 추이**")
-        st.line_chart(trend, x="date", y="accuracy")
-
-    heat = compute_activity_heatmap(all_questions, days=90)
-    if heat:
-        st.markdown("**학습 활동 히트맵 (최근 90일)**")
-        try:
-            import pandas as pd
-            import altair as alt
-
-            df = pd.DataFrame(heat)
-            # Map weekday to label
-            df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
-            df["week"] = df["week"].astype(str)
-            chart = (
-                alt.Chart(df)
-                .mark_rect(cornerRadius=4)
-                .encode(
-                    x=alt.X("week:O", title="Week"),
-                    y=alt.Y("dow_label:O", title="Day"),
-                    color=alt.Color("count:Q", scale=alt.Scale(scheme="tealblues"), title="Solved"),
-                    tooltip=["date:T", "count:Q", "accuracy:Q"]
-                )
-                .properties(height=170)
-            )
-            st.altair_chart(chart, use_container_width=True)
-        except Exception:
-            st.dataframe(heat, use_container_width=True, hide_index=True)
-
     # FSRS / SRS 상태
     st.caption(f"복습 엔진: {'FSRS' if FSRS_AVAILABLE else '기본 SRS'}")
 
@@ -1996,8 +1984,62 @@ with tab_home:
                     deleted = delete_mcq_by_ids(ids)
                     st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨"
                     st.rerun()
-    
+
     st.markdown("---")
+    st.subheader("학습 시각화")
+    acc = compute_overall_accuracy(all_questions)
+    heat = compute_activity_heatmap(all_questions, days=365)
+    col_left, col_right = st.columns([1, 2])
+    with col_left:
+        st.markdown("**전체 정답률**")
+        if acc:
+            try:
+                import pandas as pd
+                import altair as alt
+
+                df = pd.DataFrame([
+                    {"label": "Correct", "value": acc["correct"]},
+                    {"label": "Wrong", "value": acc["wrong"]},
+                ])
+                base = alt.Chart(df).mark_arc(innerRadius=60, outerRadius=100).encode(
+                    theta=alt.Theta("value:Q"),
+                    color=alt.Color("label:N", scale=alt.Scale(range=["#34d399", "#f87171"]), legend=None),
+                    tooltip=["label:N", "value:Q"]
+                )
+                text = alt.Chart(pd.DataFrame([{"text": f"{acc['accuracy']:.1f}%"}])).mark_text(
+                    size=26, font="IBM Plex Sans", fontWeight="600"
+                ).encode(text="text:N")
+                st.altair_chart((base + text).properties(width=220, height=220), use_container_width=False)
+                st.caption(f"{acc['correct']}/{acc['total']} 정답")
+            except Exception:
+                st.metric("전체 정답률", f"{acc['accuracy']:.1f}%")
+        else:
+            st.info("아직 풀이 기록이 없습니다.")
+
+    with col_right:
+        st.markdown("**학습 활동 히트맵 (최근 365일)**")
+        if heat:
+            try:
+                import pandas as pd
+                import altair as alt
+
+                df = pd.DataFrame(heat)
+                df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
+                df["week_index"] = df["week_index"].astype(str)
+                heatmap = (
+                    alt.Chart(df)
+                    .mark_rect(cornerRadius=0)
+                    .encode(
+                        x=alt.X("week_index:O", axis=None),
+                        y=alt.Y("dow_label:O", sort=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], axis=None),
+                        color=alt.Color("count:Q", scale=alt.Scale(scheme="tealblues"), title=None),
+                        tooltip=["date:T", "count:Q", "accuracy:Q"]
+                    )
+                    .properties(width=alt.Step(12), height=alt.Step(12))
+                )
+                st.altair_chart(heatmap, use_container_width=True)
+            except Exception:
+                st.dataframe(heat, use_container_width=True, hide_index=True)
 
 # ============================================================================
 # TAB: 문제 생성
