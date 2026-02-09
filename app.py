@@ -865,7 +865,7 @@ def apply_mcq_shortcut(idx):
         n = int(val)
         if 1 <= n <= 5:
             sel = n - 1
-    labels = st.session_state.get(f"labels_{idx}") or []
+    labels = st.session_state.get(f"labels_real_{idx}") or []
     if sel is not None and 0 <= sel < len(labels):
         st.session_state[f"q_{idx}"] = labels[sel]
 
@@ -1101,7 +1101,7 @@ def apply_theme(theme_mode, bg_mode):
         }}
         .hero {{
             display: grid;
-            grid-template-columns: 1.2fr 1fr;
+            grid-template-columns: 1fr;
             gap: 32px;
             align-items: center;
             padding: 28px 0 12px 0;
@@ -1193,6 +1193,43 @@ def render_obsidian_html(content):
         height=480,
         scrolling=True
     )
+
+def resolve_obsidian_embeds(content, vault_path, note_path):
+    note_dir = os.path.dirname(note_path) if note_path else ""
+
+    def find_file(target):
+        candidates = []
+        if os.path.isabs(target):
+            candidates.append(target)
+        else:
+            if note_dir:
+                candidates.append(os.path.join(note_dir, target))
+            if vault_path:
+                candidates.append(os.path.join(vault_path, target))
+        # try common extensions if missing
+        if not os.path.splitext(target)[1]:
+            for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
+                if note_dir:
+                    candidates.append(os.path.join(note_dir, target + ext))
+                if vault_path:
+                    candidates.append(os.path.join(vault_path, target + ext))
+        for c in candidates:
+            if c and os.path.exists(c):
+                return c
+        return None
+
+    def repl(match):
+        raw = match.group(1)
+        target = raw.split("|")[0].strip()
+        path = find_file(target)
+        if not path:
+            return match.group(0)
+        data_uri = image_to_data_uri(path)
+        if not data_uri:
+            return match.group(0)
+        return f"<img src='{data_uri}' style='max-width:100%; border-radius:12px; margin:8px 0;'/>"
+
+    return re.sub(r"!\[\[(.*?)\]\]", repl, content)
 
 def image_to_data_uri(path):
     try:
@@ -1581,7 +1618,21 @@ PROMPT_CLOZE = """
 4. 불필요한 서론/결론 없이 변환된 문장만 나열하세요.
 """
 
-def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None):
+def build_style_instructions(style_text):
+    if not style_text:
+        return ""
+    excerpt = style_text[:8000]
+    return f"""
+[기출문제 스타일 참고]
+{excerpt}
+
+[스타일 지시]
+- 위 기출문제의 질문 구조, 난이도, 문장 길이, 선지 톤/표현을 최대한 모사
+- 내용은 강의록 기반으로 생성
+- 출력 형식 규칙은 반드시 유지
+"""
+
+def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None, style_text=None):
     """Gemini를 이용해 콘텐츠 생성"""
     if not api_key:
         return "⚠️ 왼쪽 사이드바에 Gemini API 키를 먼저 입력해주세요."
@@ -1589,10 +1640,11 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     if not text_content or len(text_content.strip()) < 10:
         return "⚠️ 추출된 텍스트가 너무 짧습니다. 다시 시도해주세요."
     
+    style_block = build_style_instructions(style_text)
     if selected_mode == "📝 객관식 문제 (Case Study)":
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제")
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
     else:
-        system_prompt = PROMPT_CLOZE + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     
     try:
         genai.configure(api_key=api_key)
@@ -1602,7 +1654,7 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     except Exception as e:
         return f"❌ Gemini 생성 실패: {str(e)}"
 
-def generate_content_openai(text_content, selected_mode, num_items=5, openai_api_key=None):
+def generate_content_openai(text_content, selected_mode, num_items=5, openai_api_key=None, style_text=None):
     """ChatGPT를 이용해 콘텐츠 생성"""
     if not openai_api_key:
         return "⚠️ 왼쪽 사이드바에 OpenAI API 키를 먼저 입력해주세요."
@@ -1610,10 +1662,11 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
     if not text_content or len(text_content.strip()) < 10:
         return "⚠️ 추출된 텍스트가 너무 짧습니다. 다시 시도해주세요."
     
+    style_block = build_style_instructions(style_text)
     if selected_mode == "📝 객관식 문제 (Case Study)":
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제")
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
     else:
-        system_prompt = PROMPT_CLOZE + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     
     try:
         import sys
@@ -1699,12 +1752,12 @@ def convert_json_mcq_to_text(json_text, num_items):
         return json_text
 
 
-def generate_content(text_content, selected_mode, ai_model, num_items=5, api_key=None, openai_api_key=None):
+def generate_content(text_content, selected_mode, ai_model, num_items=5, api_key=None, openai_api_key=None, style_text=None):
     """선택된 AI 모델을 사용해 콘텐츠 생성"""
     if ai_model == "🔵 Google Gemini":
-        return generate_content_gemini(text_content, selected_mode, num_items=num_items, api_key=api_key)
+        return generate_content_gemini(text_content, selected_mode, num_items=num_items, api_key=api_key, style_text=style_text)
     else:  # ChatGPT
-        return generate_content_openai(text_content, selected_mode, num_items=num_items, openai_api_key=openai_api_key)
+        return generate_content_openai(text_content, selected_mode, num_items=num_items, openai_api_key=openai_api_key, style_text=style_text)
 
 def split_text_into_chunks(text, chunk_size=8000, overlap=500):
     """문자 단위로 텍스트를 분할 (중첩 포함)"""
@@ -1722,7 +1775,7 @@ def split_text_into_chunks(text, chunk_size=8000, overlap=500):
         start = end - overlap if end - overlap > start else end
     return chunks
 
-def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=5, chunk_size=8000, overlap=500, api_key=None, openai_api_key=None):
+def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=5, chunk_size=8000, overlap=500, api_key=None, openai_api_key=None, style_text=None):
     """텍스트를 청크로 나누어 모델 호출을 여러 번 수행
     
     Returns:
@@ -1752,7 +1805,7 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
             if n <= 0:
                 results[idx] = ""
                 continue
-            futures[ex.submit(generate_content, chunk, selected_mode, ai_model, n, api_key, openai_api_key)] = idx
+            futures[ex.submit(generate_content, chunk, selected_mode, ai_model, n, api_key, openai_api_key, style_text)] = idx
 
         completed = 0
         for fut in concurrent.futures.as_completed(futures):
@@ -1846,8 +1899,6 @@ with tab_home:
     st.title("🏠 홈")
     show_action_notice()
 
-    hero_path = os.path.join(os.path.dirname(__file__), "assets", "hero-medical.png")
-    hero_img = image_to_data_uri(hero_path)
     st.markdown(
         f"""
         <div class="hero">
@@ -1862,11 +1913,6 @@ with tab_home:
             <div style="display:flex; gap:18px; margin-top:16px; color:#8b97a6; font-size:13px;">
               <span>Evidence Based</span>
               <span>USMLE Aligned</span>
-            </div>
-          </div>
-          <div>
-            <div class="hero-image">
-              <img src="{hero_img}" style="width:100%; height:100%; object-fit:cover;" />
             </div>
           </div>
         </div>
@@ -2126,29 +2172,42 @@ with tab_home:
             st.info("아직 풀이 기록이 없습니다.")
 
     with col_right:
-        st.markdown("**학습 활동 히트맵 (최근 365일)**")
-        if heat:
-            try:
-                import pandas as pd
-                import altair as alt
+                    st.markdown("**학습 활동 히트맵 (최근 365일)**")
+                    if heat:
+                        try:
+                            import pandas as pd
+                            import altair as alt
 
-                df = pd.DataFrame(heat)
-                df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
-                df["week_index"] = df["week_index"].astype(str)
-                heatmap = (
-                    alt.Chart(df)
-                    .mark_rect(cornerRadius=0)
-                    .encode(
-                        x=alt.X("week_index:O", axis=None),
-                        y=alt.Y("dow_label:O", sort=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], axis=None),
-                        color=alt.Color("count:Q", scale=alt.Scale(scheme="tealblues"), title=None),
-                        tooltip=["date:T", "count:Q", "accuracy:Q"]
-                    )
-                    .properties(width=alt.Step(12), height=alt.Step(12))
-                )
-                st.altair_chart(heatmap, use_container_width=True)
-            except Exception:
-                st.dataframe(heat, use_container_width=True, hide_index=True)
+                            df = pd.DataFrame(heat)
+                            df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
+                            df["week_index"] = df["week_index"].astype(str)
+                            # bucket counts for discrete colors (0 = white)
+                            df["bucket"] = pd.cut(
+                                df["count"],
+                                bins=[-0.1, 0, 1, 3, 6, 10, 9999],
+                                labels=["0", "1", "2-3", "4-6", "7-10", "11+"]
+                            )
+                            heatmap = (
+                                alt.Chart(df)
+                                .mark_rect(cornerRadius=0)
+                                .encode(
+                                    x=alt.X("week_index:O", axis=None),
+                                    y=alt.Y("dow_label:O", sort=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], axis=None),
+                                    color=alt.Color(
+                                        "bucket:N",
+                                        scale=alt.Scale(
+                                            domain=["0","1","2-3","4-6","7-10","11+"],
+                                            range=["#ffffff","#d7f3f0","#b2e9e3","#7fd6cc","#4fc1b6","#1f8e86"]
+                                        ),
+                                        legend=None
+                                    ),
+                                    tooltip=["date:T", "count:Q", "accuracy:Q"]
+                                )
+                                .properties(width=alt.Step(12), height=alt.Step(12))
+                            )
+                            st.altair_chart(heatmap, use_container_width=True)
+                        except Exception:
+                            st.dataframe(heat, use_container_width=True, hide_index=True)
 
 # ============================================================================
 # TAB: 문제 생성
@@ -2158,6 +2217,18 @@ with tab_gen:
     
     # 파일 업로드
     uploaded_file = st.file_uploader("강의 자료 업로드", type=["pdf", "docx", "pptx", "hwp"])
+    style_file = st.file_uploader("기출문제 스타일 업로드 (선택)", type=["pdf", "docx", "pptx", "hwp", "txt", "tsv", "json"], key="style_upload")
+    style_text = None
+    if style_file:
+        try:
+            if Path(style_file.name).suffix.lower() in [".txt", ".tsv"]:
+                style_text = style_file.read().decode("utf-8", errors="ignore")
+            elif Path(style_file.name).suffix.lower() == ".json":
+                style_text = style_file.read().decode("utf-8", errors="ignore")
+            else:
+                style_text = extract_text_from_file(style_file)
+        except Exception as e:
+            st.warning(f"기출문제 스타일 파일 처리 실패: {str(e)}")
     
     if uploaded_file:
         st.info(f"📄 **{uploaded_file.name}** ({uploaded_file.size:,} bytes)")
@@ -2188,6 +2259,7 @@ with tab_gen:
                         overlap=overlap,
                         api_key=api_key,
                         openai_api_key=openai_api_key,
+                        style_text=style_text,
                     )
                 
                 # result는 이제 구조화된 dict 리스트
@@ -2733,7 +2805,7 @@ with tab_exam:
                     for i in range(len(exam_qs)):
                         status = "✅" if i in answered_idx else "○"
                         nav_labels.append(f"{i + 1} {status}")
-                    if st.session_state.get("nav_select") not in nav_labels:
+                    if st.session_state.get("nav_select") != nav_labels[idx]:
                         st.session_state.nav_select = nav_labels[idx]
                     nav_label = st.selectbox("문항 이동", nav_labels, index=idx, key="nav_select")
                     new_idx = nav_labels.index(nav_label)
@@ -2755,24 +2827,21 @@ with tab_exam:
                         opts = q.get('options') or []
                         letters = ['A', 'B', 'C', 'D', 'E']
                         prev_ans = st.session_state.user_answers.get(idx)
-                        default_index = prev_ans - 1 if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else None
+                        default_index = prev_ans if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else 0
                         if opts:
-                            labels = [f"{letters[i]}. {opts[i]}" for i in range(min(len(opts), len(letters)))]
-                            st.session_state[f"labels_{idx}"] = labels
-                            if default_index is None:
-                                user_choice_label = st.radio("정답 선택:", labels, key=f"q_{idx}")
-                            else:
-                                user_choice_label = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
-                            chosen_num = letters.index(user_choice_label.split(".")[0]) + 1 if user_choice_label else None
-                            if chosen_num:
+                            labels_real = [f"{letters[i]}. {opts[i]}" for i in range(min(len(opts), len(letters)))]
+                            labels = ["선택하세요"] + labels_real
+                            st.session_state[f"labels_real_{idx}"] = labels_real
+                            user_choice_label = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
+                            if user_choice_label != "선택하세요":
+                                chosen_num = letters.index(user_choice_label.split(".")[0]) + 1
                                 st.session_state.user_answers[idx] = chosen_num
                         else:
-                            if default_index is None:
-                                user_choice = st.radio("정답 선택:", letters, key=f"q_{idx}")
-                            else:
-                                user_choice = st.radio("정답 선택:", letters, index=default_index, key=f"q_{idx}")
-                            chosen_num = letters.index(user_choice) + 1 if user_choice else None
-                            if chosen_num:
+                            labels = ["선택하세요"] + letters
+                            st.session_state[f"labels_real_{idx}"] = letters
+                            user_choice = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
+                            if user_choice != "선택하세요":
+                                chosen_num = letters.index(user_choice) + 1
                                 st.session_state.user_answers[idx] = chosen_num
                         st.text_input(
                             "키보드 입력 (A-E 또는 1-5)",
@@ -2872,10 +2941,12 @@ with tab_exam:
                     with col1:
                         if idx > 0 and st.button("⬅️ 이전"):
                             st.session_state.current_question_idx -= 1
+                            st.session_state.nav_select = nav_labels[st.session_state.current_question_idx]
                             st.rerun()
                     with col2:
                         if idx < len(exam_qs) - 1 and st.button("다음 ➡️"):
                             st.session_state.current_question_idx += 1
+                            st.session_state.nav_select = nav_labels[st.session_state.current_question_idx]
                             st.rerun()
                     with col3:
                         if st.session_state.exam_mode == "시험모드":
@@ -2933,7 +3004,8 @@ with tab_notes:
             st.markdown("**노트 미리보기**")
             view_mode = st.selectbox("보기 모드", ["Obsidian 스타일", "일반"], index=0)
             if view_mode == "Obsidian 스타일":
-                render_obsidian_html(content)
+                rendered = resolve_obsidian_embeds(content, vault_path, full_path)
+                render_obsidian_html(rendered)
                 if not MARKDOWN_AVAILABLE:
                     st.info("더 나은 렌더링을 위해 `markdown` 패키지를 설치하세요.")
             else:
@@ -2973,6 +3045,7 @@ with tab_notes:
                             overlap=overlap,
                             api_key=api_key,
                             openai_api_key=openai_api_key,
+                            style_text=None,
                         )
                         if result:
                             added = add_questions_to_bank(result, mode, note_subject, quality_filter=enable_filter, min_length=min_length)
