@@ -2092,8 +2092,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("🎨 테마")
-    st.session_state.theme_mode = st.selectbox("모드", ["Light", "Dark"], index=0 if st.session_state.theme_mode == "Light" else 1)
-    st.session_state.theme_bg = st.selectbox("배경", ["Gradient", "Grid", "Paper", "None"], index=["Gradient","Grid","Paper","None"].index(st.session_state.theme_bg))
+    dark_on = st.toggle("다크 모드", value=(st.session_state.theme_mode == "Dark"))
+    st.session_state.theme_mode = "Dark" if dark_on else "Light"
+    st.session_state.theme_bg = "Gradient"
 
 # 블록 외에서도 접근 가능하도록 로컬 변수에 할당
 ai_model = st.session_state.get("ai_model", "🔵 Google Gemini")
