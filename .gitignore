@@ -23,3 +23,5 @@ app_old*.py
 # Misc
 .DS_Store
 *.log
+
+user_settings.json

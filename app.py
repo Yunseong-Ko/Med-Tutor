@@ -2229,11 +2229,7 @@ with tab_home:
             st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
             st.rerun()
 
-    colph1, colph2 = st.columns(2)
-    with colph1:
-        st.session_state.select_placeholder_exam = st.text_input("미선택 표시(시험)", value=st.session_state.select_placeholder_exam)
-    with colph2:
-        st.session_state.select_placeholder_study = st.text_input("미선택 표시(학습)", value=st.session_state.select_placeholder_study)
+    st.caption("프로필은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.")
     acc = compute_overall_accuracy(all_questions)
     heat = compute_activity_heatmap(all_questions, days=365)
     with st.expander("히트맵 구간/색상 설정", expanded=False):
@@ -2914,8 +2910,7 @@ with tab_exam:
                     for i in range(len(exam_qs)):
                         status = "✅" if i in answered_idx else "○"
                         nav_labels.append(f"{i + 1} {status}")
-                    if st.session_state.get("nav_select") != nav_labels[idx]:
-                        st.session_state.nav_select = nav_labels[idx]
+                    # do not mutate session_state after widget creation
                     nav_label = st.selectbox("문항 이동", nav_labels, index=idx, key="nav_select")
                     new_idx = nav_labels.index(nav_label)
                     if new_idx != idx:
@@ -2936,23 +2931,30 @@ with tab_exam:
                         opts = q.get('options') or []
                         letters = ['A', 'B', 'C', 'D', 'E']
                         prev_ans = st.session_state.user_answers.get(idx)
-                        default_index = prev_ans if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else 0
-                        placeholder = st.session_state.select_placeholder_exam if st.session_state.exam_mode == "시험모드" else st.session_state.select_placeholder_study
+                        default_index = (prev_ans - 1) if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else None
                         if opts:
                             labels_real = [f"{letters[i]}. {opts[i]}" for i in range(min(len(opts), len(letters)))]
-                            labels = [placeholder] + labels_real
                             st.session_state[f"labels_real_{idx}"] = labels_real
-                            user_choice_label = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
-                            if user_choice_label != placeholder:
+                            user_choice_label = st.radio("정답 선택:", labels_real, index=default_index, key=f"q_{idx}")
+                            if user_choice_label:
                                 chosen_num = letters.index(user_choice_label.split(".")[0]) + 1
                                 st.session_state.user_answers[idx] = chosen_num
+                            else:
+                                st.session_state.user_answers.pop(idx, None)
                         else:
-                            labels = [placeholder] + letters
                             st.session_state[f"labels_real_{idx}"] = letters
-                            user_choice = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
-                            if user_choice != placeholder:
+                            user_choice = st.radio("정답 선택:", letters, index=default_index, key=f"q_{idx}")
+                            if user_choice:
                                 chosen_num = letters.index(user_choice) + 1
                                 st.session_state.user_answers[idx] = chosen_num
+                            else:
+                                st.session_state.user_answers.pop(idx, None)
+
+                        # 기록 즉시 반영 (최초 1회)
+                        if q.get("id") and idx in st.session_state.user_answers and q.get("id") not in st.session_state.graded_questions:
+                            is_correct = is_answer_correct(q, st.session_state.user_answers.get(idx))
+                            update_question_stats(q["id"], is_correct)
+                            st.session_state.graded_questions.add(q.get("id"))
                         st.text_input(
                             "키보드 입력 (A-E 또는 1-5)",
                             key=f"shortcut_{idx}",
@@ -2970,6 +2972,10 @@ with tab_exam:
                         user_input = st.text_input("정답 입력 (한글/영문):", value=prev_text, key=f"cloze_{idx}")
                         if user_input:
                             st.session_state.user_answers[idx] = user_input
+                            if q.get("id") and q.get("id") not in st.session_state.graded_questions:
+                                is_correct = is_answer_correct(q, user_input)
+                                update_question_stats(q["id"], is_correct)
+                                st.session_state.graded_questions.add(q.get("id"))
 
                     # 메모
                     if q.get("id"):
@@ -3051,12 +3057,10 @@ with tab_exam:
                     with col1:
                         if idx > 0 and st.button("⬅️ 이전"):
                             st.session_state.current_question_idx -= 1
-                            st.session_state.nav_select = nav_labels[st.session_state.current_question_idx]
                             st.rerun()
                     with col2:
                         if idx < len(exam_qs) - 1 and st.button("다음 ➡️"):
                             st.session_state.current_question_idx += 1
-                            st.session_state.nav_select = nav_labels[st.session_state.current_question_idx]
                             st.rerun()
                     with col3:
                         if st.session_state.exam_mode == "시험모드":
