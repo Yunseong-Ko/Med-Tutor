@@ -1060,11 +1060,12 @@ def apply_theme(theme_mode, bg_mode):
         base_bg = "#0b1220"
         surface = "#111827"
         surface_2 = "#0f1b30"
-        text = "#e5e7eb"
-        subtext = "#9aa6c0"
-        accent = "#38bdf8"
-        accent2 = "#f59e0b"
+        text = "#f8fafc"
+        subtext = "#cbd5f5"
+        accent = "#7dd3fc"
+        accent2 = "#fbbf24"
         border = "#1f2a44"
+        lamp_glow = "radial-gradient(ellipse at center, rgba(255,204,138,0.62) 0%, rgba(255,204,138,0.35) 35%, rgba(255,204,138,0) 70%)"
     else:
         base_bg = "#f7f5f2"
         surface = "#ffffff"
@@ -1074,6 +1075,7 @@ def apply_theme(theme_mode, bg_mode):
         accent = "#0ea5a4"
         accent2 = "#d97706"
         border = "#e5e7eb"
+        lamp_glow = "radial-gradient(ellipse at center, rgba(255,204,138,0.0) 0%, rgba(255,204,138,0.0) 70%)"
 
     if bg_mode == "Grid":
         bg = "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.03) 100%)"
@@ -1119,10 +1121,25 @@ def apply_theme(theme_mode, bg_mode):
             font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans KR', sans-serif;
         }}
         .stApp {{
+            position: relative;
             background-color: var(--bg);
             background-image: {bg};
             background-size: {bg_size};
             color: var(--text);
+        }}
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            top: -140px;
+            left: 50%;
+            width: 520px;
+            height: 260px;
+            transform: translateX(-50%);
+            background: {lamp_glow};
+            filter: blur(8px);
+            opacity: 0.9;
+            pointer-events: none;
+            z-index: 0;
         }}
         [data-testid="stHeader"] {{
             background: transparent;
@@ -1134,6 +1151,8 @@ def apply_theme(theme_mode, bg_mode):
         .block-container {{
             padding-top: 1.5rem;
             animation: fadeIn 400ms ease-out;
+            position: relative;
+            z-index: 1;
         }}
         .stMetric {{
             background: var(--surface);
@@ -1161,6 +1180,9 @@ def apply_theme(theme_mode, bg_mode):
         .caption-muted {{
             color: var(--muted);
         }}
+        a {{
+            color: var(--accent);
+        }}
         .obsidian-note {{
             font-family: 'Source Serif 4', 'Noto Serif KR', serif;
             color: var(--text);
@@ -1173,8 +1195,8 @@ def apply_theme(theme_mode, bg_mode):
         }}
         .hero {{
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 32px;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 28px;
             align-items: center;
             padding: 28px 0 12px 0;
         }}
@@ -1207,6 +1229,53 @@ def apply_theme(theme_mode, bg_mode):
             border-radius: 18px;
             padding: 16px;
             box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+        }}
+        .hero-stack {{
+            display: grid;
+            gap: 14px;
+        }}
+        .card-title {{
+            font-weight: 700;
+            margin-bottom: 6px;
+        }}
+        .card-sub {{
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }}
+        .stat-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px dashed rgba(148,163,184,0.2);
+        }}
+        .stat-row:last-child {{
+            border-bottom: none;
+        }}
+        .hero-actions {{
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }}
+        .hero-meta {{
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 13px;
+        }}
+        .tag-row {{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }}
+        .tag {{
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(125, 211, 252, 0.12);
+            border: 1px solid rgba(125, 211, 252, 0.25);
+            font-size: 12px;
+            color: var(--accent);
         }}
         .hero-image {{
             border-radius: 18px;
@@ -1274,6 +1343,11 @@ def apply_theme(theme_mode, bg_mode):
             border: 1px solid var(--border);
             background: var(--surface);
         }}
+        @media (max-width: 900px) {{
+            .hero {{
+                grid-template-columns: 1fr;
+            }}
+        }}
         @keyframes fadeIn {{
             from {{ opacity: 0; transform: translateY(4px); }}
             to {{ opacity: 1; transform: translateY(0); }}
@@ -1285,7 +1359,7 @@ def apply_theme(theme_mode, bg_mode):
             margin: 18px 0 8px 0;
         }}
         .section-sub {{
-            color: {subtext};
+            color: var(--muted);
         }}
         </style>
         """,
@@ -2046,20 +2120,44 @@ with tab_home:
     st.title("🏠 홈")
     show_action_notice()
 
+    stats = get_question_stats()
+    bank = load_questions()
+    all_questions = bank.get("text", []) + bank.get("cloze", [])
+    acc = compute_overall_accuracy(all_questions)
+    acc_text = f"{acc['accuracy']:.1f}%" if acc else "—"
+
     st.markdown(
         f"""
         <div class="hero">
           <div>
-            <div class="pill">New: AI-Powered Case Simulations</div>
-            <h1>Master Clinical Reasoning with <span style="background: linear-gradient(90deg,#0ea5a4,#14b8a6); -webkit-background-clip:text; color:transparent;">Confidence</span></h1>
-            <p>Bridge the gap between textbook knowledge and clinical practice. Experience realistic patient encounters, receive instant feedback, and track your diagnostic accuracy.</p>
-            <div style="display:flex; gap:12px; margin-top:16px;">
-              <div class="btn-primary">Start Learning</div>
-              <div class="btn-outline">View Demo</div>
+            <div class="pill">Milky Way Mode · 차분한 몰입</div>
+            <h1>밤하늘처럼 맑은<br/>의대 학습 흐름</h1>
+            <p>AMBOSS 스타일의 구조와 알렌의 서재처럼 고요한 몰입감. 강의록과 기출문제를 연결해, 학습-시험-복습을 하나의 흐름으로 만듭니다.</p>
+            <div class="hero-actions">
+              <div class="btn-primary">문제 생성 시작</div>
+              <div class="btn-outline">실전 시험 모드</div>
             </div>
-            <div style="display:flex; gap:18px; margin-top:16px; color:#8b97a6; font-size:13px;">
-              <span>Evidence Based</span>
-              <span>USMLE Aligned</span>
+            <div class="hero-meta">
+              <span>USMLE 스타일</span>
+              <span>FSRS 복습</span>
+              <span>Obsidian 연동</span>
+            </div>
+          </div>
+          <div class="hero-stack">
+            <div class="hero-card">
+              <div class="card-title">오늘의 흐름</div>
+              <div class="stat-row"><span>전체 정답률</span><strong>{acc_text}</strong></div>
+              <div class="stat-row"><span>저장된 객관식</span><strong>{stats["total_text"]}</strong></div>
+              <div class="stat-row"><span>저장된 빈칸</span><strong>{stats["total_cloze"]}</strong></div>
+            </div>
+            <div class="hero-card">
+              <div class="card-title">빠른 시작</div>
+              <div class="card-sub">강의록 → 문제 생성 → 복습</div>
+              <div class="tag-row">
+                <span class="tag">Case Study</span>
+                <span class="tag">Cloze</span>
+                <span class="tag">FSRS</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2068,7 +2166,6 @@ with tab_home:
     )
 
     # 통계
-    stats = get_question_stats()
     col1, col2 = st.columns(2)
     with col1:
         st.metric("저장된 객관식", stats["total_text"])
@@ -2077,8 +2174,6 @@ with tab_home:
 
     st.markdown("---")
     st.subheader("학습 대시보드")
-    bank = load_questions()
-    all_questions = bank.get("text", []) + bank.get("cloze", [])
     wrong_items, total_wrong = get_wrong_note_stats(all_questions)
     col1, col2, col3 = st.columns(3)
     with col1:
