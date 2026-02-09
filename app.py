@@ -2993,12 +2993,11 @@ with tab_exam:
                         nav_labels.append(f"{i + 1} {status}")
                     st.session_state.nav_labels = nav_labels
                     current_label = nav_labels[idx]
-                    if st.session_state.get("nav_select") != current_label:
+                    if st.session_state.get("nav_select") not in nav_labels or st.session_state.get("nav_select") != current_label:
                         st.session_state.nav_select = current_label
                     nav_slot.selectbox(
                         "문항 이동",
                         nav_labels,
-                        index=idx,
                         key="nav_select",
                         on_change=handle_nav_change,
                     )
