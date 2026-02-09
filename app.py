@@ -89,6 +89,10 @@ if "theme_bg" not in st.session_state:
     st.session_state.theme_bg = "Gradient"
 if "last_action_notice" not in st.session_state:
     st.session_state.last_action_notice = ""
+if "heatmap_bins" not in st.session_state:
+    st.session_state.heatmap_bins = [0, 1, 3, 6, 10]
+if "heatmap_colors" not in st.session_state:
+    st.session_state.heatmap_colors = ["#ffffff", "#d7f3f0", "#b2e9e3", "#7fd6cc", "#4fc1b6", "#1f8e86"]
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -1224,10 +1228,15 @@ def resolve_obsidian_embeds(content, vault_path, note_path):
         path = find_file(target)
         if not path:
             return match.group(0)
-        data_uri = image_to_data_uri(path)
-        if not data_uri:
-            return match.group(0)
-        return f"<img src='{data_uri}' style='max-width:100%; border-radius:12px; margin:8px 0;'/>"
+        ext = os.path.splitext(path)[1].lower()
+        if ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
+            data_uri = image_to_data_uri(path)
+            if not data_uri:
+                return match.group(0)
+            return f"<img src='{data_uri}' style='max-width:100%; border-radius:12px; margin:8px 0;'/>"
+        if ext == ".pdf":
+            return f"<div style='margin:8px 0; padding:8px 12px; border:1px solid #e5e7eb; border-radius:10px;'>첨부 PDF: {os.path.basename(path)}</div>"
+        return match.group(0)
 
     return re.sub(r"!\[\[(.*?)\]\]", repl, content)
 
@@ -2142,8 +2151,24 @@ with tab_home:
 
     st.markdown("---")
     st.subheader("학습 시각화")
+    st.session_state.select_placeholder = st.text_input("미선택 표시 문구", value=st.session_state.get("select_placeholder", "선택하세요"))
     acc = compute_overall_accuracy(all_questions)
     heat = compute_activity_heatmap(all_questions, days=365)
+    with st.expander("히트맵 구간/색상 설정", expanded=False):
+        st.caption("문항 수 구간을 조정하면 색 농도가 바뀝니다.")
+        b1 = st.number_input("구간 1 (1회)", min_value=1, value=1)
+        b2 = st.number_input("구간 2 (2~)", min_value=2, value=3)
+        b3 = st.number_input("구간 3 (4~)", min_value=3, value=6)
+        b4 = st.number_input("구간 4 (7~)", min_value=4, value=10)
+        st.session_state.heatmap_bins = [0, b1, b2, b3, b4]
+        st.session_state.heatmap_colors = [
+            "#ffffff",
+            st.color_picker("색상 1", value=st.session_state.heatmap_colors[1]),
+            st.color_picker("색상 2", value=st.session_state.heatmap_colors[2]),
+            st.color_picker("색상 3", value=st.session_state.heatmap_colors[3]),
+            st.color_picker("색상 4", value=st.session_state.heatmap_colors[4]),
+            st.color_picker("색상 5", value=st.session_state.heatmap_colors[5]),
+        ]
     col_left, col_right = st.columns([1, 2])
     with col_left:
         st.markdown("**전체 정답률**")
@@ -2182,10 +2207,12 @@ with tab_home:
                             df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
                             df["week_index"] = df["week_index"].astype(str)
                             # bucket counts for discrete colors (0 = white)
+                            b = st.session_state.heatmap_bins
+                            labels = ["0", f"1-{b[1]}", f"{b[1]+1}-{b[2]}", f"{b[2]+1}-{b[3]}", f"{b[3]+1}-{b[4]}", f"{b[4]+1}+"]
                             df["bucket"] = pd.cut(
                                 df["count"],
-                                bins=[-0.1, 0, 1, 3, 6, 10, 9999],
-                                labels=["0", "1", "2-3", "4-6", "7-10", "11+"]
+                                bins=[-0.1, 0, b[1], b[2], b[3], b[4], 9999],
+                                labels=labels
                             )
                             heatmap = (
                                 alt.Chart(df)
@@ -2196,8 +2223,8 @@ with tab_home:
                                     color=alt.Color(
                                         "bucket:N",
                                         scale=alt.Scale(
-                                            domain=["0","1","2-3","4-6","7-10","11+"],
-                                            range=["#ffffff","#d7f3f0","#b2e9e3","#7fd6cc","#4fc1b6","#1f8e86"]
+                                            domain=labels,
+                                            range=st.session_state.heatmap_colors
                                         ),
                                         legend=None
                                     ),
@@ -2828,19 +2855,20 @@ with tab_exam:
                         letters = ['A', 'B', 'C', 'D', 'E']
                         prev_ans = st.session_state.user_answers.get(idx)
                         default_index = prev_ans if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else 0
+                        placeholder = st.session_state.get("select_placeholder", "선택하세요")
                         if opts:
                             labels_real = [f"{letters[i]}. {opts[i]}" for i in range(min(len(opts), len(letters)))]
-                            labels = ["선택하세요"] + labels_real
+                            labels = [placeholder] + labels_real
                             st.session_state[f"labels_real_{idx}"] = labels_real
                             user_choice_label = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
-                            if user_choice_label != "선택하세요":
+                            if user_choice_label != placeholder:
                                 chosen_num = letters.index(user_choice_label.split(".")[0]) + 1
                                 st.session_state.user_answers[idx] = chosen_num
                         else:
-                            labels = ["선택하세요"] + letters
+                            labels = [placeholder] + letters
                             st.session_state[f"labels_real_{idx}"] = letters
                             user_choice = st.radio("정답 선택:", labels, index=default_index, key=f"q_{idx}")
-                            if user_choice != "선택하세요":
+                            if user_choice != placeholder:
                                 chosen_num = letters.index(user_choice) + 1
                                 st.session_state.user_answers[idx] = chosen_num
                         st.text_input(
