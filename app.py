@@ -40,6 +40,7 @@ except Exception:
 st.set_page_config(page_title="의대생 AI 튜터", page_icon="🧬", layout="wide")
 QUESTION_BANK_FILE = "questions.json"
 EXAM_HISTORY_FILE = "exam_history.json"
+USER_SETTINGS_FILE = "user_settings.json"
 
 # Session State 초기화
 if "current_question_idx" not in st.session_state:
@@ -93,6 +94,12 @@ if "heatmap_bins" not in st.session_state:
     st.session_state.heatmap_bins = [0, 1, 3, 6, 10]
 if "heatmap_colors" not in st.session_state:
     st.session_state.heatmap_colors = ["#ffffff", "#d7f3f0", "#b2e9e3", "#7fd6cc", "#4fc1b6", "#1f8e86"]
+if "profile_name" not in st.session_state:
+    st.session_state.profile_name = "default"
+if "select_placeholder_exam" not in st.session_state:
+    st.session_state.select_placeholder_exam = "선택하세요"
+if "select_placeholder_study" not in st.session_state:
+    st.session_state.select_placeholder_study = "선택하세요"
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -198,6 +205,41 @@ def clear_question_bank(mode="all"):
 
 def clear_exam_history():
     save_exam_history([])
+
+def load_user_settings():
+    if os.path.exists(USER_SETTINGS_FILE):
+        try:
+            with open(USER_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+def save_user_settings(data):
+    with open(USER_SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def apply_profile_settings(profile_name):
+    data = load_user_settings()
+    prof = data.get(profile_name)
+    if not prof:
+        return False
+    st.session_state.heatmap_bins = prof.get("heatmap_bins", st.session_state.heatmap_bins)
+    st.session_state.heatmap_colors = prof.get("heatmap_colors", st.session_state.heatmap_colors)
+    st.session_state.select_placeholder_exam = prof.get("select_placeholder_exam", st.session_state.select_placeholder_exam)
+    st.session_state.select_placeholder_study = prof.get("select_placeholder_study", st.session_state.select_placeholder_study)
+    return True
+
+def persist_profile_settings(profile_name):
+    data = load_user_settings()
+    data[profile_name] = {
+        "heatmap_bins": st.session_state.heatmap_bins,
+        "heatmap_colors": st.session_state.heatmap_colors,
+        "select_placeholder_exam": st.session_state.select_placeholder_exam,
+        "select_placeholder_study": st.session_state.select_placeholder_study,
+    }
+    save_user_settings(data)
 
 def ensure_question_ids(data: dict) -> dict:
     """모든 문항에 고유 ID 부여"""
@@ -1235,6 +1277,14 @@ def resolve_obsidian_embeds(content, vault_path, note_path):
                 return match.group(0)
             return f"<img src='{data_uri}' style='max-width:100%; border-radius:12px; margin:8px 0;'/>"
         if ext == ".pdf":
+            preview = pdf_first_page_to_data_uri(path)
+            if preview:
+                return (
+                    f"<div style='margin:8px 0;'>"
+                    f"<img src='{preview}' style='max-width:100%; border-radius:12px; border:1px solid #e5e7eb;'/>"
+                    f"<div style='font-size:12px; color:#6b7280; margin-top:4px;'>첨부 PDF: {os.path.basename(path)}</div>"
+                    f"</div>"
+                )
             return f"<div style='margin:8px 0; padding:8px 12px; border:1px solid #e5e7eb; border-radius:10px;'>첨부 PDF: {os.path.basename(path)}</div>"
         return match.group(0)
 
@@ -1248,6 +1298,20 @@ def image_to_data_uri(path):
         ext = os.path.splitext(path)[1].lower().replace(".", "")
         mime = "image/png" if ext == "png" else "image/jpeg"
         return f"data:{mime};base64,{b64}"
+    except Exception:
+        return ""
+
+def pdf_first_page_to_data_uri(path):
+    try:
+        doc = fitz.open(path)
+        if doc.page_count == 0:
+            return ""
+        page = doc.load_page(0)
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+        data = pix.tobytes("png")
+        doc.close()
+        b64 = base64.b64encode(data).decode("utf-8")
+        return f"data:image/png;base64,{b64}"
     except Exception:
         return ""
 
@@ -2151,7 +2215,25 @@ with tab_home:
 
     st.markdown("---")
     st.subheader("학습 시각화")
-    st.session_state.select_placeholder = st.text_input("미선택 표시 문구", value=st.session_state.get("select_placeholder", "선택하세요"))
+    colp1, colp2, colp3 = st.columns([1, 1, 1])
+    with colp1:
+        st.session_state.profile_name = st.text_input("프로필 이름", value=st.session_state.profile_name)
+    with colp2:
+        if st.button("프로필 불러오기"):
+            loaded = apply_profile_settings(st.session_state.profile_name)
+            st.session_state.last_action_notice = "프로필 설정을 불러왔습니다." if loaded else "해당 프로필이 없습니다."
+            st.rerun()
+    with colp3:
+        if st.button("프로필 저장"):
+            persist_profile_settings(st.session_state.profile_name)
+            st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
+            st.rerun()
+
+    colph1, colph2 = st.columns(2)
+    with colph1:
+        st.session_state.select_placeholder_exam = st.text_input("미선택 표시(시험)", value=st.session_state.select_placeholder_exam)
+    with colph2:
+        st.session_state.select_placeholder_study = st.text_input("미선택 표시(학습)", value=st.session_state.select_placeholder_study)
     acc = compute_overall_accuracy(all_questions)
     heat = compute_activity_heatmap(all_questions, days=365)
     with st.expander("히트맵 구간/색상 설정", expanded=False):
@@ -2855,7 +2937,7 @@ with tab_exam:
                         letters = ['A', 'B', 'C', 'D', 'E']
                         prev_ans = st.session_state.user_answers.get(idx)
                         default_index = prev_ans if isinstance(prev_ans, int) and 1 <= prev_ans <= 5 else 0
-                        placeholder = st.session_state.get("select_placeholder", "선택하세요")
+                        placeholder = st.session_state.select_placeholder_exam if st.session_state.exam_mode == "시험모드" else st.session_state.select_placeholder_study
                         if opts:
                             labels_real = [f"{letters[i]}. {opts[i]}" for i in range(min(len(opts), len(letters)))]
                             labels = [placeholder] + labels_real
