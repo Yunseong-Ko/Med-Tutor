@@ -10,6 +10,7 @@ import os
 import uuid
 import concurrent.futures
 import random
+import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from openai import OpenAI
@@ -283,7 +284,7 @@ def ensure_question_ids(data: dict) -> dict:
         save_questions(data)
     return data
 
-def add_questions_to_bank(questions_data, mode, subject="General", quality_filter=True, min_length=20, batch_id=None):
+def add_questions_to_bank(questions_data, mode, subject="General", unit="미분류", quality_filter=True, min_length=20, batch_id=None):
     """생성된 문제를 question bank에 추가 (구조화된 JSON 형식)
     
     Args:
@@ -327,6 +328,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", quality_filte
         
         # 메타데이터 추가
         q_data["subject"] = q_data.get("subject") or subject
+        q_data["unit"] = q_data.get("unit") or unit
         q_data["date_added"] = datetime.now().isoformat()
         if "id" not in q_data:
             q_data["id"] = str(uuid.uuid4())
@@ -342,7 +344,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", quality_filte
     save_questions(bank)
     return added_count
 
-def add_questions_to_bank_auto(items, subject="General", quality_filter=True, min_length=20, batch_id=None):
+def add_questions_to_bank_auto(items, subject="General", unit="미분류", quality_filter=True, min_length=20, batch_id=None):
     """MCQ/Cloze 혼합 입력 자동 분류 후 저장"""
     if not batch_id:
         batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
@@ -352,6 +354,7 @@ def add_questions_to_bank_auto(items, subject="General", quality_filter=True, mi
         if not isinstance(item, dict):
             continue
         item["subject"] = item.get("subject") or subject
+        item["unit"] = item.get("unit") or unit
         item["batch_id"] = item.get("batch_id") or batch_id
         if item.get("type") == "cloze":
             cloze_items.append(item)
@@ -359,9 +362,9 @@ def add_questions_to_bank_auto(items, subject="General", quality_filter=True, mi
             mcq_items.append(item)
     added = 0
     if mcq_items:
-        added += add_questions_to_bank(mcq_items, "📝 객관식 문제 (Case Study)", subject, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(mcq_items, "📝 객관식 문제 (Case Study)", subject, unit, quality_filter, min_length, batch_id=batch_id)
     if cloze_items:
-        added += add_questions_to_bank(cloze_items, "🧩 빈칸 뚫기 (Anki Cloze)", subject, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(cloze_items, "🧩 빈칸 뚫기 (Anki Cloze)", subject, unit, quality_filter, min_length, batch_id=batch_id)
     return added
 
 
@@ -543,6 +546,7 @@ def parse_mcq_content(q_data: dict) -> dict:
         "correct": q_data.get("answer"),  # 숫자 형식: 1-5
         "explanation": q_data.get("explanation", ""),
         "subject": q_data.get("subject"),
+        "unit": q_data.get("unit"),
         "difficulty": q_data.get("difficulty"),
         "id": q_data.get("id"),
         "fsrs": q_data.get("fsrs"),
@@ -565,6 +569,7 @@ def parse_cloze_content(q_data: dict) -> dict:
         "answer": q_data.get("answer", ""),
         "explanation": q_data.get("explanation", ""),
         "subject": q_data.get("subject"),
+        "unit": q_data.get("unit"),
         "difficulty": q_data.get("difficulty"),
         "id": q_data.get("id"),
         "fsrs": q_data.get("fsrs"),
@@ -961,10 +966,35 @@ def get_unique_subjects(questions):
     subjects = sorted({(q.get("subject") or "General") for q in questions})
     return subjects
 
+def get_unit_name(q):
+    return q.get("unit") or q.get("chapter") or q.get("topic") or "미분류"
+
+def get_units_by_subject(questions):
+    mapping = {}
+    for q in questions:
+        subj = (q.get("subject") or "General")
+        unit = get_unit_name(q)
+        mapping.setdefault(subj, set()).add(unit)
+    return {k: sorted(v) for k, v in mapping.items()}
+
 def filter_questions_by_subject(questions, selected_subjects):
     if not selected_subjects:
         return questions
     return [q for q in questions if (q.get("subject") or "General") in selected_subjects]
+
+def filter_questions_by_subject_unit(questions, selected_subjects, selected_units):
+    if not selected_subjects and not selected_units:
+        return questions
+    filtered = []
+    for q in questions:
+        subj = q.get("subject") or "General"
+        unit = get_unit_name(q)
+        if selected_subjects and subj not in selected_subjects:
+            continue
+        if selected_units and unit not in selected_units:
+            continue
+        filtered.append(q)
+    return filtered
 
 def normalize_mcq_item(item):
     if not isinstance(item, dict):
@@ -974,6 +1004,7 @@ def normalize_mcq_item(item):
         if parsed:
             parsed["explanation"] = item.get("explanation", "")
             parsed["subject"] = item.get("subject")
+            parsed["unit"] = item.get("unit")
             parsed["difficulty"] = item.get("difficulty")
             parsed["id"] = item.get("id")
             parsed["fsrs"] = item.get("fsrs")
@@ -1002,6 +1033,7 @@ def normalize_mcq_item(item):
         "answer": answer_num,
         "explanation": explanation,
         "subject": item.get("subject"),
+        "unit": item.get("unit"),
         "difficulty": item.get("difficulty"),
         "id": item.get("id"),
         "fsrs": item.get("fsrs"),
@@ -1024,6 +1056,7 @@ def normalize_cloze_item(item):
                     "answer": answer,
                     "explanation": item.get("explanation", ""),
                     "subject": item.get("subject"),
+                    "unit": item.get("unit"),
                     "difficulty": item.get("difficulty"),
                     "id": item.get("id"),
                     "fsrs": item.get("fsrs"),
@@ -1040,6 +1073,7 @@ def normalize_cloze_item(item):
         "answer": answer,
         "explanation": explanation,
         "subject": item.get("subject"),
+        "unit": item.get("unit"),
         "difficulty": item.get("difficulty"),
         "id": item.get("id"),
         "fsrs": item.get("fsrs"),
@@ -1727,9 +1761,9 @@ def extract_text_from_hwp(uploaded_file):
             tmp.write(data)
             tmp_path = tmp.name
 
-        if shutil.which("hwp5txt"):
+        def run_hwp5txt(cmd):
             result = subprocess.run(
-                ["hwp5txt", tmp_path],
+                cmd,
                 capture_output=True,
                 text=True
             )
@@ -1740,7 +1774,21 @@ def extract_text_from_hwp(uploaded_file):
                 raise ValueError("HWP 텍스트가 비어있습니다.")
             return text
 
-        raise ValueError("hwp5txt 실행 파일을 찾을 수 없습니다. pyhwp 설치가 필요합니다.")
+        if shutil.which("hwp5txt"):
+            return run_hwp5txt(["hwp5txt", tmp_path])
+
+        # fallback: python -m hwp5.hwp5txt (pyhwp 설치되어 있으나 PATH에 없을 때)
+        try:
+            import importlib.util
+            if importlib.util.find_spec("hwp5.hwp5txt") is not None:
+                return run_hwp5txt([sys.executable, "-m", "hwp5.hwp5txt", tmp_path])
+        except Exception:
+            pass
+
+        raise ValueError(
+            "hwp5txt 실행 파일을 찾을 수 없습니다. "
+            "pyhwp 설치 후 다시 시도하세요. (예: `python -m pip install pyhwp`)"
+        )
     except Exception as e:
         raise ValueError(f"HWP 처리 실패: {str(e)}")
     finally:
@@ -2315,6 +2363,8 @@ with tab_home:
         st.write(f"문항 수: {h.get('num_questions')} / 정답: {h.get('correct')} / 정확도: {h.get('accuracy')}%")
         if h.get("subjects"):
             st.caption(f"분과: {', '.join(h.get('subjects'))}")
+        if h.get("units"):
+            st.caption(f"단원: {', '.join(h.get('units'))}")
 
         for i, item in enumerate(h.get("items", []), 1):
             status_icon = "✅" if item.get("is_correct") else "❌"
@@ -2566,8 +2616,12 @@ with tab_gen:
         with col2:
             num_items = st.slider("생성 개수", 1, 50, 10)
         
-        # 저장할 과목명
-        subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
+        # 저장할 과목/단원명
+        col_subj, col_unit = st.columns(2)
+        with col_subj:
+            subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
+        with col_unit:
+            unit_input = st.text_input("단원명 (선택)", value="미분류")
         
         if st.button("🚀 문제 생성 시작", use_container_width=True):
             try:
@@ -2591,7 +2645,7 @@ with tab_gen:
                 # result는 이제 구조화된 dict 리스트
                 if result and isinstance(result, list) and len(result) > 0:
                     # JSON에 저장
-                    saved_count = add_questions_to_bank(result, mode, subject_input, quality_filter=enable_filter, min_length=min_length)
+                    saved_count = add_questions_to_bank(result, mode, subject_input, unit_input, quality_filter=enable_filter, min_length=min_length)
                     st.success(f"✅ **{saved_count}개 문제** 생성 및 저장 완료!")
                     
                     # 통계 업데이트
@@ -2654,7 +2708,8 @@ with tab_gen:
                     "options": ["아스피린 투여", "기관지확장제", "수액 제한", "PPI 투여", "진정제 투여"],
                     "answer": 1,
                     "explanation": "ST 상승 심근경색에서는 항혈소판 치료가 우선이다.",
-                    "subject": "Cardiology"
+                    "subject": "Cardiology",
+                    "unit": "미분류"
                 }
             ],
             "cloze": [
@@ -2663,7 +2718,8 @@ with tab_gen:
                     "front": "ST elevation MI의 1차 치료는 ____이다.",
                     "answer": "아스피린",
                     "explanation": "항혈소판이 1차 치료다.",
-                    "subject": "Cardiology"
+                    "subject": "Cardiology",
+                    "unit": "미분류"
                 }
             ]
         }
@@ -2713,6 +2769,7 @@ with tab_gen:
             q_mode_hint = st.selectbox("문항 유형", ["자동", "객관식", "빈칸"], key="q_mode_hint")
         with col2:
             q_subject_default = st.text_input("기본 과목명", value="General", key="q_subject_default")
+        q_unit_default = st.text_input("기본 단원명 (선택)", value="미분류", key="q_unit_default")
 
         if st.button("📥 문항 가져오기", use_container_width=True, key="import_q_btn"):
             try:
@@ -2728,6 +2785,7 @@ with tab_gen:
                     added_count = add_questions_to_bank_auto(
                         parsed_items,
                         subject=q_subject_default,
+                        unit=q_unit_default,
                         quality_filter=enable_filter,
                         min_length=min_length
                     )
@@ -2758,7 +2816,8 @@ with tab_exam:
                         "options": ["아스피린 투여", "기관지확장제", "수액 제한", "PPI 투여", "진정제 투여"],
                         "answer": 1,
                         "explanation": "ST 상승 심근경색에서는 항혈소판 치료가 우선이다.",
-                        "subject": "Cardiology"
+                        "subject": "Cardiology",
+                        "unit": "미분류"
                     }
                 ],
                 "cloze": [
@@ -2767,7 +2826,8 @@ with tab_exam:
                         "front": "ST elevation MI의 1차 치료는 ____이다.",
                         "answer": "아스피린",
                         "explanation": "항혈소판이 1차 치료다.",
-                        "subject": "Cardiology"
+                        "subject": "Cardiology",
+                        "unit": "미분류"
                     }
                 ]
             }
@@ -2817,6 +2877,7 @@ with tab_exam:
                     q_mode_hint2 = st.selectbox("문항 유형", ["자동", "객관식", "빈칸"], key="q_mode_hint_tab2")
                 with col2:
                     q_subject_default2 = st.text_input("기본 과목명", value="General", key="q_subject_default_tab2")
+                q_unit_default2 = st.text_input("기본 단원명 (선택)", value="미분류", key="q_unit_default_tab2")
                 if st.button("📥 문항 가져오기", use_container_width=True, key="import_q_btn_tab2"):
                     try:
                         mode_map = {
@@ -2831,6 +2892,7 @@ with tab_exam:
                             added_count = add_questions_to_bank_auto(
                                 parsed_items,
                                 subject=q_subject_default2,
+                                unit=q_unit_default2,
                                 quality_filter=enable_filter,
                                 min_length=min_length
                             )
@@ -2848,12 +2910,23 @@ with tab_exam:
 
         questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
         subjects = get_unique_subjects(questions_all)
+        units_by_subject = get_units_by_subject(questions_all)
         if subjects:
-            selected_subjects = st.multiselect("분과 선택", subjects, default=subjects)
+            col_subj, col_unit = st.columns(2)
+            with col_subj:
+                subject_options = ["전체"] + subjects
+                selected_subject = st.radio("과목 선택", subject_options, index=0, key="exam_subject_radio")
+                selected_subjects = subjects if selected_subject == "전체" else [selected_subject]
+            with col_unit:
+                unit_options = sorted({u for s in selected_subjects for u in units_by_subject.get(s, [])})
+                if not unit_options:
+                    unit_options = ["미분류"]
+                selected_units = st.multiselect("단원 선택", unit_options, default=unit_options, key="exam_unit_multi")
         else:
             selected_subjects = []
+            selected_units = []
 
-        filtered_questions = filter_questions_by_subject(questions_all, selected_subjects) if subjects else questions_all
+        filtered_questions = filter_questions_by_subject_unit(questions_all, selected_subjects, selected_units) if subjects else questions_all
 
         if mode_choice == "학습모드":
             due_only = st.checkbox("오늘 복습만", value=False)
@@ -2954,6 +3027,7 @@ with tab_exam:
                     "mode": mode_choice,
                     "type": exam_type,
                     "subjects": selected_subjects,
+                    "units": selected_units,
                     "num_questions": len(parsed_selected),
                     "started_at": datetime.now(timezone.utc).isoformat()
                 }
@@ -3084,6 +3158,8 @@ with tab_exam:
                                 st.markdown(format_explanation_text(q.get('explanation')))
                         if q.get("subject"):
                             st.caption(f"📌 {q['subject']}")
+                        if q.get("unit"):
+                            st.caption(f"단원: {q.get('unit')}")
                         if q.get("difficulty"):
                             st.caption(f"난이도: {q.get('difficulty', '?')}")
                         if q.get("id"):
@@ -3351,11 +3427,13 @@ with tab_notes:
 
             st.markdown("---")
             st.subheader("📌 노트로 문제 생성")
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 note_mode = st.selectbox("생성 방식", ["Cloze 자동(정답:)","AI 객관식","AI Cloze"])
             with col2:
                 note_subject = st.text_input("과목명", value="General", key="note_subject")
+            with col3:
+                note_unit = st.text_input("단원명(선택)", value="미분류", key="note_unit")
             note_num = st.slider("문항 수", 1, 30, 10)
 
             if st.button("노트에서 문제 생성", use_container_width=True, key="note_generate"):
@@ -3367,7 +3445,7 @@ with tab_notes:
                     if not items:
                         st.error("자동 변환에 실패했습니다. `정답:` 형식인지 확인해주세요.")
                     else:
-                        added = add_questions_to_bank_auto(items, subject=note_subject, quality_filter=enable_filter, min_length=min_length)
+                        added = add_questions_to_bank_auto(items, subject=note_subject, unit=note_unit, quality_filter=enable_filter, min_length=min_length)
                         st.success(f"✅ {added}개 문항 저장 완료")
                 else:
                     if (note_mode.startswith("AI") and st.session_state.ai_model == "🔵 Google Gemini" and not api_key) or (note_mode.startswith("AI") and st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key):
@@ -3386,7 +3464,7 @@ with tab_notes:
                             style_text=None,
                         )
                         if result:
-                            added = add_questions_to_bank(result, mode, note_subject, quality_filter=enable_filter, min_length=min_length)
+                            added = add_questions_to_bank(result, mode, note_subject, note_unit, quality_filter=enable_filter, min_length=min_length)
                             st.success(f"✅ {added}개 문항 저장 완료")
                         else:
                             st.error("문항 생성 실패")
