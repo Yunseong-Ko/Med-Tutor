@@ -1088,6 +1088,110 @@ def format_explanation_text(text):
             return "\n".join([f"- {p}" for p in parts])
     return text
 
+def _answer_token_to_num(token):
+    token = str(token).strip()
+    circled = {"①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5}
+    if token in circled:
+        return circled[token]
+    if token.isdigit():
+        n = int(token)
+        if 1 <= n <= 5:
+            return n
+    token = token.upper()
+    if token in ["A", "B", "C", "D", "E"]:
+        return ord(token) - ord("A") + 1
+    return None
+
+def parse_exam_text_fuzzy(text):
+    """기출문제 원문을 최대한 파싱해 MCQ/Cloze로 변환 (베타)"""
+    if not text:
+        return []
+
+    def split_blocks(raw):
+        pattern = re.compile(r"(?m)^\s*(?:문항\s*)?(\d{1,3})\s*[).]\s+")
+        matches = list(pattern.finditer(raw))
+        if matches:
+            blocks = []
+            for i, m in enumerate(matches):
+                start = m.start()
+                end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+                blocks.append(raw[start:end].strip())
+            return blocks
+        # fallback: split by long dashes or blank lines
+        blocks = [b.strip() for b in re.split(r"\n-{3,}\n", raw) if b.strip()]
+        return blocks if blocks else [raw.strip()]
+
+    def extract_answer_and_explanation(block):
+        ans = None
+        exp = ""
+        for line in block.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            m = re.match(r"^(정답|답)\s*[:：]?\s*(.+)$", line)
+            if m:
+                ans = m.group(2).strip()
+            m2 = re.match(r"^(해설|설명)\s*[:：]?\s*(.+)$", line)
+            if m2:
+                exp = m2.group(2).strip()
+        return ans, exp
+
+    items = []
+    for block in split_blocks(text):
+        if not block:
+            continue
+        ans_token, explanation = extract_answer_and_explanation(block)
+        # remove answer/explanation lines for stem/options parsing
+        cleaned = "\n".join(
+            [ln for ln in block.splitlines() if not re.match(r"^\s*(정답|답|해설|설명)\s*[:：]", ln.strip())]
+        ).strip()
+
+        # try circled options
+        if "①" in cleaned:
+            parts = re.split(r"[①②③④⑤]", cleaned)
+            stem = parts[0].strip()
+            stem = re.sub(r"^\s*(?:문항\s*)?\d+\s*[).]\s*", "", stem).strip()
+            options = [p.strip() for p in parts[1:] if p.strip()]
+            if len(options) >= 3:
+                answer_num = _answer_token_to_num(ans_token) or 1
+                items.append({
+                    "type": "mcq",
+                    "problem": stem,
+                    "options": options[:5],
+                    "answer": answer_num,
+                    "explanation": explanation,
+                })
+                continue
+
+        # try numbered options (1) 2) ...
+        opt_lines = re.findall(r"(?m)^\s*[1-5][).]\s*(.+)$", cleaned)
+        if len(opt_lines) >= 3:
+            stem = re.split(r"(?m)^\s*[1-5][).]\s*", cleaned)[0].strip()
+            stem = re.sub(r"^\s*(?:문항\s*)?\d+\s*[).]\s*", "", stem).strip()
+            answer_num = _answer_token_to_num(ans_token) or 1
+            items.append({
+                "type": "mcq",
+                "problem": stem,
+                "options": [o.strip() for o in opt_lines][:5],
+                "answer": answer_num,
+                "explanation": explanation,
+            })
+            continue
+
+        # fallback to cloze if answer exists
+        if ans_token:
+            answer_text = str(ans_token).strip()
+            stem = re.sub(r"^\s*(?:문항\s*)?\d+\s*[).]\s*", "", cleaned).strip()
+            if stem and answer_text:
+                items.append({
+                    "type": "cloze",
+                    "front": stem,
+                    "answer": answer_text,
+                    "explanation": explanation,
+                })
+                continue
+    return items
+
 def parse_qa_to_cloze(text):
     """정답: 패턴을 이용해 Q/A를 Cloze 형태로 변환"""
     results = []
@@ -1864,7 +1968,11 @@ def parse_uploaded_question_file(uploaded_file, mode_hint="auto"):
         if qa_parsed:
             return qa_parsed
     parsed = parse_generated_text_to_structured(text, mode_hint)
-    return parsed if isinstance(parsed, list) else []
+    if isinstance(parsed, list) and parsed:
+        return parsed
+    # fallback: fuzzy parser for messy past exam text
+    fuzzy = parse_exam_text_fuzzy(text)
+    return fuzzy if isinstance(fuzzy, list) else []
 
 # ============================================================================
 # AI 콘텐츠 생성
@@ -2792,6 +2900,12 @@ with tab_gen:
                     st.success(f"✅ **{added_count}개 문항** 가져오기 완료!")
             except Exception as e:
                 st.error(f"❌ 문항 업로드 오류: {str(e)}")
+        with st.expander("추출 텍스트 미리보기", expanded=False):
+            try:
+                preview_text = extract_text_from_file(uploaded_q_file)
+                st.text_area("추출된 원문 (앞 3000자)", value=preview_text[:3000], height=200)
+            except Exception as e:
+                st.warning(f"미리보기 실패: {str(e)}")
 
 # ============================================================================
 # TAB: 실전 시험
@@ -2900,6 +3014,12 @@ with tab_exam:
                             bank = load_questions()
                     except Exception as e:
                         st.error(f"❌ 문항 업로드 오류: {str(e)}")
+                with st.expander("추출 텍스트 미리보기", expanded=False):
+                    try:
+                        preview_text = extract_text_from_file(uploaded_q_file2)
+                        st.text_area("추출된 원문 (앞 3000자)", value=preview_text[:3000], height=200)
+                    except Exception as e:
+                        st.warning(f"미리보기 실패: {str(e)}")
 
         # 시험/학습 설정
         col1, col2 = st.columns(2)
