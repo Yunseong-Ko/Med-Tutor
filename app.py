@@ -132,6 +132,12 @@ if "select_placeholder_exam" not in st.session_state:
     st.session_state.select_placeholder_exam = "선택하세요"
 if "select_placeholder_study" not in st.session_state:
     st.session_state.select_placeholder_study = "선택하세요"
+if "past_exam_text" not in st.session_state:
+    st.session_state.past_exam_text = ""
+if "past_exam_items" not in st.session_state:
+    st.session_state.past_exam_items = []
+if "past_exam_file" not in st.session_state:
+    st.session_state.past_exam_file = ""
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -2307,7 +2313,7 @@ if THEME_ENABLED:
 # ============================================================================
 # 메인 UI: 탭 구조
 # ============================================================================
-tab_home, tab_gen, tab_exam, tab_notes = st.tabs(["🏠 홈", "📚 문제 생성", "🎯 실전 시험", "🗒️ 노트"])
+tab_home, tab_gen, tab_convert, tab_exam, tab_notes = st.tabs(["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험", "🗒️ 노트"])
 
 # ============================================================================
 # TAB: 홈
@@ -2805,111 +2811,117 @@ with tab_gen:
                 st.error(f"상세 오류:\n{traceback.format_exc()}")
 
     st.markdown("---")
-    st.subheader("📥 내 문항 파일 업로드")
-    st.caption("기출문제 텍스트에 `정답:` 라인이 있으면 자동으로 Cloze로 변환됩니다. (txt/tsv/hwp 지원)")
-    with st.expander("템플릿 다운로드", expanded=False):
-        sample_json = {
-            "text": [
-                {
-                    "type": "mcq",
-                    "problem": "[문제] 65세 남성이 흉통을 주소로 내원했다. 심전도에서 ST 상승이 보인다. 가장 적절한 처치는?",
-                    "options": ["아스피린 투여", "기관지확장제", "수액 제한", "PPI 투여", "진정제 투여"],
-                    "answer": 1,
-                    "explanation": "ST 상승 심근경색에서는 항혈소판 치료가 우선이다.",
-                    "subject": "Cardiology",
-                    "unit": "미분류"
-                }
-            ],
-            "cloze": [
-                {
-                    "type": "cloze",
-                    "front": "ST elevation MI의 1차 치료는 ____이다.",
-                    "answer": "아스피린",
-                    "explanation": "항혈소판이 1차 치료다.",
-                    "subject": "Cardiology",
-                    "unit": "미분류"
-                }
-            ]
-        }
-        sample_txt = (
-            "[문제] 25세 여성이 발열과 인후통으로 내원했다. 가장 가능성 높은 진단은?\n"
-            "① 전염성 단핵구증 ② 천식 ③ 위식도역류 ④ 심부전 ⑤ 폐렴\n"
-            "정답: {{c1::1}}\n"
-            "해설: EBV 감염이 흔하다.\n"
-            "---\n"
-            "[문제] 55세 남성이 흉통으로 내원. 심전도에서 ST 상승.\n"
-            "① 아스피린 투여 ② 수액 제한 ③ 기관지확장제 ④ PPI 투여 ⑤ 진정제 투여\n"
-            "정답: {{c1::1}}\n"
-            "해설: STEMI는 항혈소판 치료 우선."
-        )
-        sample_cloze_txt = (
-            "ST elevation MI의 1차 치료는 {{c1::아스피린}}이다.\n"
-            "폐렴의 대표적 원인균은 {{c1::Streptococcus pneumoniae}}이다."
-        )
-        st.download_button(
-            label="⬇️ JSON 템플릿",
-            data=json.dumps(sample_json, ensure_ascii=False, indent=2),
-            file_name="questions_template.json",
-            mime="application/json",
-            use_container_width=True,
-            key="template_json_tab1"
-        )
-        st.download_button(
-            label="⬇️ 객관식 TXT 템플릿",
-            data=sample_txt,
-            file_name="mcq_template.txt",
-            mime="text/plain",
-            use_container_width=True,
-            key="template_mcq_txt_tab1"
-        )
-        st.download_button(
-            label="⬇️ Cloze TXT 템플릿",
-            data=sample_cloze_txt,
-            file_name="cloze_template.txt",
-            mime="text/plain",
-            use_container_width=True,
-            key="template_cloze_txt_tab1"
-        )
-    uploaded_q_file = st.file_uploader("문항 파일 업로드 (json/txt/tsv/hwp)", type=["json", "txt", "tsv", "hwp"], key="q_upload_file")
-    if uploaded_q_file:
-        col1, col2 = st.columns(2)
-        with col1:
-            q_mode_hint = st.selectbox("문항 유형", ["자동", "객관식", "빈칸"], key="q_mode_hint")
-        with col2:
-            q_subject_default = st.text_input("기본 과목명", value="General", key="q_subject_default")
-        q_unit_default = st.text_input("기본 단원명 (선택)", value="미분류", key="q_unit_default")
-
-        if st.button("📥 문항 가져오기", use_container_width=True, key="import_q_btn"):
-            try:
-                mode_map = {
-                    "객관식": "📝 객관식 문제 (Case Study)",
-                    "빈칸": "🧩 빈칸 뚫기 (Anki Cloze)",
-                    "자동": "auto"
-                }
-                parsed_items = parse_uploaded_question_file(uploaded_q_file, mode_hint=mode_map.get(q_mode_hint, "auto"))
-                if not parsed_items:
-                    st.error("❌ 파싱된 문항이 없습니다. 파일 형식을 확인해주세요.")
-                else:
-                    added_count = add_questions_to_bank_auto(
-                        parsed_items,
-                        subject=q_subject_default,
-                        unit=q_unit_default,
-                        quality_filter=enable_filter,
-                        min_length=min_length
-                    )
-                    st.success(f"✅ **{added_count}개 문항** 가져오기 완료!")
-            except Exception as e:
-                st.error(f"❌ 문항 업로드 오류: {str(e)}")
-        with st.expander("추출 텍스트 미리보기", expanded=False):
-            try:
-                preview_text = extract_text_from_file(uploaded_q_file)
-                st.text_area("추출된 원문 (앞 3000자)", value=preview_text[:3000], height=200)
-            except Exception as e:
-                st.warning(f"미리보기 실패: {str(e)}")
+    st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
 
 # ============================================================================
 # TAB: 실전 시험
 # ============================================================================
+with tab_convert:
+    st.title("🧾 기출문제 전용 변환")
+    st.caption("HWP/PDF/DOCX/PPTX/TXT/TSV 파일을 기출문제 형식으로 변환하여 저장합니다.")
+
+    uploaded_exam = st.file_uploader(
+        "기출문제 파일 업로드",
+        type=["hwp", "pdf", "docx", "pptx", "txt", "tsv"],
+        key="past_exam_upload"
+    )
+
+    if uploaded_exam:
+        if st.session_state.past_exam_file != uploaded_exam.name:
+            st.session_state.past_exam_file = uploaded_exam.name
+            st.session_state.past_exam_text = ""
+            st.session_state.past_exam_items = []
+
+        if not st.session_state.past_exam_text:
+            try:
+                if hasattr(uploaded_exam, "seek"):
+                    uploaded_exam.seek(0)
+                st.session_state.past_exam_text = extract_text_from_file(uploaded_exam)
+            except Exception as e:
+                st.error(f"❌ 기출문제 파일 처리 실패: {str(e)}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            exam_subject = st.text_input("기본 과목명", value="General", key="past_exam_subject")
+        with col2:
+            default_unit = Path(uploaded_exam.name).stem[:50] if uploaded_exam else "미분류"
+            exam_unit = st.text_input("기본 단원명 (선택)", value=default_unit, key="past_exam_unit")
+
+        parse_mode = st.radio(
+            "변환 방식",
+            ["자동(기출 파서)", "Cloze(정답: 기반)", "객관식(선지 기준)"],
+            horizontal=True,
+            key="past_exam_mode"
+        )
+
+        st.text_area(
+            "추출된 원문 (필요시 수정 가능)",
+            value=st.session_state.past_exam_text,
+            height=240,
+            key="past_exam_text_area"
+        )
+
+        if st.button("🔎 변환 미리보기", use_container_width=True, key="past_exam_preview"):
+            source_text = st.session_state.get("past_exam_text_area", "").strip()
+            if not source_text:
+                st.error("추출된 텍스트가 비어 있습니다.")
+            else:
+                if parse_mode == "Cloze(정답: 기반)":
+                    items = parse_qa_to_cloze(source_text)
+                    if not items:
+                        items = parse_generated_text_to_structured(source_text, "🧩 빈칸 뚫기 (Anki Cloze)")
+                elif parse_mode == "객관식(선지 기준)":
+                    items = [i for i in parse_exam_text_fuzzy(source_text) if i.get("type") == "mcq"]
+                    if not items:
+                        items = parse_generated_text_to_structured(source_text, "📝 객관식 문제 (Case Study)")
+                else:
+                    items = parse_exam_text_fuzzy(source_text)
+                    if not items:
+                        items = parse_generated_text_to_structured(source_text, "📝 객관식 문제 (Case Study)")
+                        if not items:
+                            items = parse_qa_to_cloze(source_text)
+                st.session_state.past_exam_items = items if items else []
+
+        items = st.session_state.get("past_exam_items", [])
+        if items:
+            st.success(f"✅ 변환된 문항: {len(items)}개")
+            with st.expander("📋 변환 결과 미리보기 (상위 5개)", expanded=True):
+                for i, item_data in enumerate(items[:5], 1):
+                    if item_data.get("type") == "mcq":
+                        st.markdown(f"**문제 {i}** (객관식)")
+                        st.write(f"**문항:** {item_data.get('problem', '')[:150]}...")
+                        st.write(f"**선지:** {', '.join(item_data.get('options', [])[:3])}...")
+                        st.write(f"**정답:** {item_data.get('answer', '?')} 번")
+                    else:
+                        st.markdown(f"**문제 {i}** (빈칸)")
+                        st.write(f"**내용:** {item_data.get('front', '')[:150]}...")
+                        st.write(f"**정답:** {item_data.get('answer', '?')}")
+                    st.divider()
+
+            col_save, col_down = st.columns(2)
+            with col_save:
+                if st.button("💾 문항 저장", use_container_width=True, key="past_exam_save"):
+                    added = add_questions_to_bank_auto(
+                        items,
+                        subject=exam_subject,
+                        unit=exam_unit,
+                        quality_filter=enable_filter,
+                        min_length=min_length
+                    )
+                    st.success(f"✅ {added}개 문항 저장 완료")
+            with col_down:
+                download_data = json.dumps(items, ensure_ascii=False, indent=2)
+                st.download_button(
+                    label="📥 JSON으로 다운로드",
+                    data=download_data,
+                    file_name="converted_exam_questions.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="past_exam_download"
+                )
+        elif uploaded_exam:
+            st.info("변환 미리보기를 눌러 문항을 생성하세요.")
+
 with tab_exam:
     st.title("🎯 실전 모의고사")
     st.caption("이 탭은 API 키 없이도 저장된 문항으로 학습/시험이 가능합니다.")
@@ -2919,107 +2931,7 @@ with tab_exam:
     if not bank["text"] and not bank["cloze"]:
         st.warning("📌 저장된 문제가 없습니다. 먼저 **📚 문제 생성** 탭에서 문제를 생성하세요.")
     else:
-        with st.expander("📥 시험/학습용 문항 업로드", expanded=False):
-            st.caption("기출문제 텍스트에 `정답:` 라인이 있으면 자동으로 Cloze로 변환됩니다. (txt/tsv/hwp 지원)")
-            st.markdown("**템플릿 다운로드**")
-            sample_json = {
-                "text": [
-                    {
-                        "type": "mcq",
-                        "problem": "[문제] 65세 남성이 흉통을 주소로 내원했다. 심전도에서 ST 상승이 보인다. 가장 적절한 처치는?",
-                        "options": ["아스피린 투여", "기관지확장제", "수액 제한", "PPI 투여", "진정제 투여"],
-                        "answer": 1,
-                        "explanation": "ST 상승 심근경색에서는 항혈소판 치료가 우선이다.",
-                        "subject": "Cardiology",
-                        "unit": "미분류"
-                    }
-                ],
-                "cloze": [
-                    {
-                        "type": "cloze",
-                        "front": "ST elevation MI의 1차 치료는 ____이다.",
-                        "answer": "아스피린",
-                        "explanation": "항혈소판이 1차 치료다.",
-                        "subject": "Cardiology",
-                        "unit": "미분류"
-                    }
-                ]
-            }
-            sample_txt = (
-                "[문제] 25세 여성이 발열과 인후통으로 내원했다. 가장 가능성 높은 진단은?\n"
-                "① 전염성 단핵구증 ② 천식 ③ 위식도역류 ④ 심부전 ⑤ 폐렴\n"
-                "정답: {{c1::1}}\n"
-                "해설: EBV 감염이 흔하다.\n"
-                "---\n"
-                "[문제] 55세 남성이 흉통으로 내원. 심전도에서 ST 상승.\n"
-                "① 아스피린 투여 ② 수액 제한 ③ 기관지확장제 ④ PPI 투여 ⑤ 진정제 투여\n"
-                "정답: {{c1::1}}\n"
-                "해설: STEMI는 항혈소판 치료 우선."
-            )
-            sample_cloze_txt = (
-                "ST elevation MI의 1차 치료는 {{c1::아스피린}}이다.\n"
-                "폐렴의 대표적 원인균은 {{c1::Streptococcus pneumoniae}}이다."
-            )
-            st.download_button(
-                label="⬇️ JSON 템플릿",
-                data=json.dumps(sample_json, ensure_ascii=False, indent=2),
-                file_name="questions_template.json",
-                mime="application/json",
-                use_container_width=True,
-                key="template_json_tab2"
-            )
-            st.download_button(
-                label="⬇️ 객관식 TXT 템플릿",
-                data=sample_txt,
-                file_name="mcq_template.txt",
-                mime="text/plain",
-                use_container_width=True,
-                key="template_mcq_txt_tab2"
-            )
-            st.download_button(
-                label="⬇️ Cloze TXT 템플릿",
-                data=sample_cloze_txt,
-                file_name="cloze_template.txt",
-                mime="text/plain",
-                use_container_width=True,
-                key="template_cloze_txt_tab2"
-            )
-            uploaded_q_file2 = st.file_uploader("문항 파일 업로드 (json/txt/tsv/hwp)", type=["json", "txt", "tsv", "hwp"], key="q_upload_tab2")
-            if uploaded_q_file2:
-                col1, col2 = st.columns(2)
-                with col1:
-                    q_mode_hint2 = st.selectbox("문항 유형", ["자동", "객관식", "빈칸"], key="q_mode_hint_tab2")
-                with col2:
-                    q_subject_default2 = st.text_input("기본 과목명", value="General", key="q_subject_default_tab2")
-                q_unit_default2 = st.text_input("기본 단원명 (선택)", value="미분류", key="q_unit_default_tab2")
-                if st.button("📥 문항 가져오기", use_container_width=True, key="import_q_btn_tab2"):
-                    try:
-                        mode_map = {
-                            "객관식": "📝 객관식 문제 (Case Study)",
-                            "빈칸": "🧩 빈칸 뚫기 (Anki Cloze)",
-                            "자동": "auto"
-                        }
-                        parsed_items = parse_uploaded_question_file(uploaded_q_file2, mode_hint=mode_map.get(q_mode_hint2, "auto"))
-                        if not parsed_items:
-                            st.error("❌ 파싱된 문항이 없습니다. 파일 형식을 확인해주세요.")
-                        else:
-                            added_count = add_questions_to_bank_auto(
-                                parsed_items,
-                                subject=q_subject_default2,
-                                unit=q_unit_default2,
-                                quality_filter=enable_filter,
-                                min_length=min_length
-                            )
-                            st.success(f"✅ **{added_count}개 문항** 가져오기 완료!")
-                            bank = load_questions()
-                    except Exception as e:
-                        st.error(f"❌ 문항 업로드 오류: {str(e)}")
-                with st.expander("추출 텍스트 미리보기", expanded=False):
-                    try:
-                        preview_text = extract_text_from_file(uploaded_q_file2)
-                        st.text_area("추출된 원문 (앞 3000자)", value=preview_text[:3000], height=200)
-                    except Exception as e:
-                        st.warning(f"미리보기 실패: {str(e)}")
+        st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
 
         # 시험/학습 설정
         col1, col2 = st.columns(2)
