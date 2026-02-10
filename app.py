@@ -20,6 +20,10 @@ from difflib import SequenceMatcher
 import subprocess
 import shutil
 import base64
+import zipfile
+import xml.etree.ElementTree as ET
+import importlib.util
+import hashlib
 
 # Optional markdown renderer for Obsidian view
 try:
@@ -112,6 +116,14 @@ if "exam_history_saved" not in st.session_state:
     st.session_state.exam_history_saved = False
 if "obsidian_path" not in st.session_state:
     st.session_state.obsidian_path = ""
+if "dual_exam_text" not in st.session_state:
+    st.session_state.dual_exam_text = ""
+if "dual_exam_images" not in st.session_state:
+    st.session_state.dual_exam_images = []
+if "dual_exam_page_text" not in st.session_state:
+    st.session_state.dual_exam_page_text = []
+if "dual_match_scores" not in st.session_state:
+    st.session_state.dual_match_scores = {}
 if "wrong_weight_recent" not in st.session_state:
     st.session_state.wrong_weight_recent = 0.7
 if "wrong_weight_count" not in st.session_state:
@@ -138,6 +150,12 @@ if "past_exam_items" not in st.session_state:
     st.session_state.past_exam_items = []
 if "past_exam_file" not in st.session_state:
     st.session_state.past_exam_file = ""
+if "past_exam_images" not in st.session_state:
+    st.session_state.past_exam_images = []
+if "image_display_width" not in st.session_state:
+    st.session_state.image_display_width = 520
+if "past_exam_anchors" not in st.session_state:
+    st.session_state.past_exam_anchors = {}
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -557,6 +575,7 @@ def parse_mcq_content(q_data: dict) -> dict:
         "id": q_data.get("id"),
         "fsrs": q_data.get("fsrs"),
         "note": q_data.get("note", ""),
+        "images": q_data.get("images", []),
     }
 
 def parse_cloze_content(q_data: dict) -> dict:
@@ -580,6 +599,7 @@ def parse_cloze_content(q_data: dict) -> dict:
         "id": q_data.get("id"),
         "fsrs": q_data.get("fsrs"),
         "note": q_data.get("note", ""),
+        "images": q_data.get("images", []),
     }
 
 def get_question_stats():
@@ -1094,6 +1114,13 @@ def format_explanation_text(text):
             return "\n".join([f"- {p}" for p in parts])
     return text
 
+def _is_option_line(line):
+    if re.match(r"^\s*[①②③④⑤]", line):
+        return True
+    if re.match(r"^\s*[1-5][).]", line):
+        return True
+    return False
+
 def _answer_token_to_num(token):
     token = str(token).strip()
     circled = {"①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5}
@@ -1108,13 +1135,77 @@ def _answer_token_to_num(token):
         return ord(token) - ord("A") + 1
     return None
 
-def parse_exam_text_fuzzy(text):
+def preclean_exam_text(text):
+    if not text:
+        return ""
+    lines = [l.rstrip() for l in text.splitlines()]
+
+    # Find first probable question line
+    q_re = re.compile(r"^\s*(?:문항|문제|Question|Q)?\s*\d{1,3}\s*[).]")
+    q_alt = re.compile(r"[①②③④⑤]")
+    first_idx = None
+    for i, line in enumerate(lines):
+        if q_re.match(line.strip()) or q_alt.search(line):
+            first_idx = i
+            break
+    if first_idx is not None:
+        lines = lines[first_idx:]
+
+    # Remove page-only lines like "- 3 -" or empty separators
+    cleaned = []
+    for line in lines:
+        s = line.strip()
+        if not s:
+            cleaned.append("")
+            continue
+        if re.match(r"^[-–—]{2,}$", s):
+            cleaned.append("")
+            continue
+        if re.match(r"^[-–—]?\s*\d+\s*[-–—]?$", s):
+            # page number lines
+            cleaned.append("")
+            continue
+        cleaned.append(line)
+
+    # Merge standalone number lines with the following text line
+    merged = []
+    i = 0
+    num_re = re.compile(r"^\s*\d{1,3}\s*[).]?\s*$")
+    while i < len(cleaned):
+        line = cleaned[i]
+        if num_re.match(line.strip()):
+            j = i + 1
+            while j < len(cleaned) and not cleaned[j].strip():
+                j += 1
+            if j < len(cleaned):
+                merged.append(f"{line.strip()} {cleaned[j].strip()}".strip())
+                i = j + 1
+                continue
+        merged.append(line)
+        i += 1
+
+    # Normalize excessive spaces
+    merged = [re.sub(r"[ \t]+", " ", l).strip() for l in merged]
+    return "\n".join([l for l in merged if l is not None]).strip()
+
+def parse_exam_text_fuzzy(text, preclean=True):
     """기출문제 원문을 최대한 파싱해 MCQ/Cloze로 변환 (베타)"""
     if not text:
         return []
+    if preclean:
+        text = preclean_exam_text(text) or text
 
-    def split_blocks(raw):
-        pattern = re.compile(r"(?m)^\s*(?:문항\s*)?(\d{1,3})\s*[).]\s+")
+    def insert_breaks(raw):
+        # Insert line breaks before common question markers to improve splitting
+        raw = re.sub(r"(?<!\n)(Question\s*\d+\s*[).])", r"\n\1", raw, flags=re.IGNORECASE)
+        raw = re.sub(r"(?<!\n)(문항\s*\d+\s*[).])", r"\n\1", raw)
+        raw = re.sub(r"(?<!\n)(문제\s*\d+\s*[).])", r"\n\1", raw)
+        raw = re.sub(r"(?<!\n)(Q\s*\d+\s*[).])", r"\n\1", raw, flags=re.IGNORECASE)
+        return raw
+
+    def split_exam_blocks_simple(raw):
+        raw = insert_breaks(raw)
+        pattern = re.compile(r"(?m)^\s*(?:문항|문제|Question|Q)?\s*(\d{1,3})\s*[).]\s*", re.IGNORECASE)
         matches = list(pattern.finditer(raw))
         if matches:
             blocks = []
@@ -1123,29 +1214,61 @@ def parse_exam_text_fuzzy(text):
                 end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
                 blocks.append(raw[start:end].strip())
             return blocks
-        # fallback: split by long dashes or blank lines
         blocks = [b.strip() for b in re.split(r"\n-{3,}\n", raw) if b.strip()]
         return blocks if blocks else [raw.strip()]
 
+    def split_blocks(raw):
+        raw = insert_breaks(raw)
+        pattern = re.compile(r"(?m)^\s*(?:문항|문제|Question|Q)?\s*(\d{1,3})\s*[).]\s*", re.IGNORECASE)
+        matches = list(pattern.finditer(raw))
+        if matches:
+            blocks = []
+            for i, m in enumerate(matches):
+                start = m.start()
+                end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+                blocks.append((raw[start:end].strip(), int(m.group(1))))
+            return blocks
+        # fallback: split by long dashes or blank lines
+        blocks = [b.strip() for b in re.split(r"\n-{3,}\n", raw) if b.strip()]
+        return [(b, None) for b in blocks] if blocks else [(raw.strip(), None)]
+
     def extract_answer_and_explanation(block):
         ans = None
-        exp = ""
+        exp_lines = []
+        capturing = False
         for line in block.splitlines():
             line = line.strip()
             if not line:
                 continue
+            if re.match(r"^\s*(?:문항|문제|Question|Q)?\s*\d{1,3}\s*[).]\s*", line, re.IGNORECASE):
+                if capturing:
+                    break
             m = re.match(r"^(정답|답)\s*[:：]?\s*(.+)$", line)
             if m:
                 ans = m.group(2).strip()
+                capturing = True
+                continue
             m2 = re.match(r"^(해설|설명)\s*[:：]?\s*(.+)$", line)
             if m2:
-                exp = m2.group(2).strip()
+                capturing = True
+                exp_lines.append(m2.group(2).strip())
+                continue
+            if capturing:
+                if _is_option_line(line):
+                    continue
+                exp_lines.append(line)
+        exp = "\n".join([l for l in exp_lines if l]).strip()
         return ans, exp
 
     items = []
-    for block in split_blocks(text):
+    for block, qnum in split_blocks(text):
         if not block:
             continue
+        source_page = None
+        for line in block.splitlines():
+            m_page = re.match(r"^===\s*페이지\s*(\d+)\s*===", line.strip())
+            if m_page:
+                source_page = int(m_page.group(1))
         ans_token, explanation = extract_answer_and_explanation(block)
         # remove answer/explanation lines for stem/options parsing
         cleaned = "\n".join(
@@ -1166,6 +1289,8 @@ def parse_exam_text_fuzzy(text):
                     "options": options[:5],
                     "answer": answer_num,
                     "explanation": explanation,
+                    "page": source_page,
+                    "qnum": qnum,
                 })
                 continue
 
@@ -1181,6 +1306,8 @@ def parse_exam_text_fuzzy(text):
                 "options": [o.strip() for o in opt_lines][:5],
                 "answer": answer_num,
                 "explanation": explanation,
+                "page": source_page,
+                "qnum": qnum,
             })
             continue
 
@@ -1194,9 +1321,249 @@ def parse_exam_text_fuzzy(text):
                     "front": stem,
                     "answer": answer_text,
                     "explanation": explanation,
+                    "page": source_page,
+                    "qnum": qnum,
                 })
                 continue
-    return items
+    return clean_parsed_items(items)
+
+def split_exam_blocks(raw):
+    if not raw:
+        return []
+    raw = re.sub(r"(?<!\n)(Question\s*\d+\s*[).])", r"\n\1", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"(?<!\n)(문항\s*\d+\s*[).])", r"\n\1", raw)
+    raw = re.sub(r"(?<!\n)(문제\s*\d+\s*[).])", r"\n\1", raw)
+    raw = re.sub(r"(?<!\n)(Q\s*\d+\s*[).])", r"\n\1", raw, flags=re.IGNORECASE)
+    pattern = re.compile(r"(?m)^\s*(?:문항|문제|Question|Q)?\s*(\d{1,3})\s*[).]\s*", re.IGNORECASE)
+    matches = list(pattern.finditer(raw))
+    if matches:
+        blocks = []
+        for i, m in enumerate(matches):
+            start = m.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+            blocks.append(raw[start:end].strip())
+        return blocks
+    blocks = [b.strip() for b in re.split(r"\n-{3,}\n", raw) if b.strip()]
+    return blocks if blocks else [raw.strip()]
+
+def parse_answer_map_from_text(text):
+    answer_map = {}
+    for block in split_exam_blocks(text):
+        if not block:
+            continue
+        m = re.match(r"^\s*(?:문항|문제|Question|Q)?\s*(\d{1,3})\s*[).]", block.strip(), re.IGNORECASE)
+        qnum = int(m.group(1)) if m else None
+        ans = None
+        exp_lines = []
+        for line in block.splitlines():
+            l = line.strip()
+            if not l:
+                continue
+            m_ans = re.search(r"(정답|답)\s*[:：]?\s*([①②③④⑤1-5])", l)
+            if m_ans:
+                ans = m_ans.group(2)
+                rest = l[m_ans.end():].strip()
+                if rest:
+                    exp_lines.append(rest)
+                continue
+            m_ans2 = re.search(r"▶\s*([①②③④⑤1-5])", l)
+            if m_ans2 and ans is None:
+                ans = m_ans2.group(1)
+                rest = l[m_ans2.end():].strip()
+                if rest:
+                    exp_lines.append(rest)
+                continue
+            m_qans = re.match(r"^\s*\d{1,3}\s*[).]?\s*([①②③④⑤1-5])\b\s*(.*)$", l)
+            if m_qans and ans is None:
+                ans = m_qans.group(1)
+                if m_qans.group(2).strip():
+                    exp_lines.append(m_qans.group(2).strip())
+                continue
+            if ans is None and re.match(r"^[①②③④⑤1-5]$", l):
+                ans = l
+                continue
+            if ans is not None:
+                if re.match(r"^\s*(?:문항|문제|Question|Q)?\s*\d{1,3}\s*[).]", l, re.IGNORECASE):
+                    break
+                exp_lines.append(l)
+        if qnum and ans:
+            answer_map[qnum] = {"answer": ans, "explanation": "\n".join(exp_lines).strip()}
+    return answer_map
+
+def parse_pdf_layout(pdf_bytes):
+    items_all = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for page_idx in range(doc.page_count):
+            page = doc.load_page(page_idx)
+            width = page.rect.width
+            data = page.get_text("dict")
+            lines = []
+            for block in data.get("blocks", []):
+                for line in block.get("lines", []):
+                    text = "".join(span.get("text", "") for span in line.get("spans", []))
+                    text = text.strip()
+                    if not text:
+                        continue
+                    x0, y0, x1, y1 = line.get("bbox", [0, 0, 0, 0])
+                    lines.append({"text": text, "x0": x0, "x1": x1, "y0": y0})
+
+            if not lines:
+                continue
+
+            centers = [((l["x0"] + l["x1"]) / 2) for l in lines]
+            left_lines = [l for l, c in zip(lines, centers) if c < width * 0.45]
+            right_lines = [l for l, c in zip(lines, centers) if c > width * 0.55]
+            middle_lines = [l for l, c in zip(lines, centers) if width * 0.45 <= c <= width * 0.55]
+            marker_lines = [l for l in middle_lines if re.match(r"^\s*\d{1,3}\s*[).]?\s*$", l["text"])]
+            two_col = len(left_lines) >= 5 and len(right_lines) >= 5
+
+            def merge_number_lines(ls, tol=4.0):
+                num_re = re.compile(r"^\s*\d{1,3}\s*[).]?\s*$")
+                merged = set()
+                for i, num_line in enumerate(ls):
+                    if not num_re.match(num_line["text"]):
+                        continue
+                    # find closest non-number line within tolerance
+                    candidates = []
+                    for j, other in enumerate(ls):
+                        if i == j or num_re.match(other["text"]):
+                            continue
+                        dy = abs(other["y0"] - num_line["y0"])
+                        if dy <= tol:
+                            candidates.append((dy, j, other))
+                    if candidates:
+                        _, j, target = min(candidates, key=lambda x: x[0])
+                        prefix = num_line["text"].strip()
+                        if not target["text"].strip().startswith(prefix):
+                            target["text"] = f"{prefix} {target['text']}".strip()
+                        merged.add(i)
+                return [l for idx, l in enumerate(ls) if idx not in merged]
+
+            def build_text(ls):
+                ls_sorted = sorted(ls, key=lambda x: (x["y0"], x["x0"]))
+                text = "\n".join([l["text"] for l in ls_sorted])
+                return f"=== 페이지 {page_idx + 1} ===\n" + text
+
+            if two_col:
+                left_text = build_text(merge_number_lines(left_lines + marker_lines))
+                right_text = build_text(merge_number_lines(right_lines + marker_lines))
+                items = parse_exam_text_fuzzy(left_text)
+                ans_map = parse_answer_map_from_text(right_text)
+                for idx, it in enumerate(items):
+                    if not it.get("page"):
+                        it["page"] = page_idx + 1
+                    qnum = it.get("qnum")
+                    if qnum in ans_map:
+                        ans_token = ans_map[qnum].get("answer")
+                        exp = ans_map[qnum].get("explanation") or ""
+                    else:
+                        # fallback: 순서 기반 매칭
+                        keys = sorted(ans_map.keys())
+                        ans_token = ans_map.get(keys[idx], {}).get("answer") if idx < len(keys) else None
+                        exp = ans_map.get(keys[idx], {}).get("explanation") if idx < len(keys) else ""
+                    if it.get("type") == "mcq" and ans_token:
+                        it["answer"] = _answer_token_to_num(ans_token) or it.get("answer")
+                    elif it.get("type") == "cloze" and ans_token:
+                        it["answer"] = it.get("answer") or ans_token
+                    if exp and not it.get("explanation"):
+                        it["explanation"] = exp
+                items_all.extend(items)
+            else:
+                full_text = build_text(lines)
+                items = parse_exam_text_fuzzy(full_text)
+                for it in items:
+                    if not it.get("page"):
+                        it["page"] = page_idx + 1
+                items_all.extend(items)
+        doc.close()
+    except Exception:
+        return []
+    return clean_parsed_items(items_all)
+
+def parse_pdf_layout_ai(pdf_bytes, ai_model, api_key=None, openai_api_key=None, hint_text=""):
+    items_all = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for page_idx in range(doc.page_count):
+            page = doc.load_page(page_idx)
+            width = page.rect.width
+            data = page.get_text("dict")
+            lines = []
+            for block in data.get("blocks", []):
+                for line in block.get("lines", []):
+                    text = "".join(span.get("text", "") for span in line.get("spans", []))
+                    text = text.strip()
+                    if not text:
+                        continue
+                    x0, y0, x1, y1 = line.get("bbox", [0, 0, 0, 0])
+                    lines.append({"text": text, "x0": x0, "x1": x1, "y0": y0})
+            if not lines:
+                continue
+            centers = [((l["x0"] + l["x1"]) / 2) for l in lines]
+            left_lines = [l for l, c in zip(lines, centers) if c < width * 0.45]
+            right_lines = [l for l, c in zip(lines, centers) if c > width * 0.55]
+            middle_lines = [l for l, c in zip(lines, centers) if width * 0.45 <= c <= width * 0.55]
+            marker_lines = [l for l in middle_lines if re.match(r"^\s*\d{1,3}\s*[).]?\s*$", l["text"])]
+
+            def build_text(ls):
+                ls_sorted = sorted(ls, key=lambda x: (x["y0"], x["x0"]))
+                text = "\n".join([l["text"] for l in ls_sorted])
+                return f"=== 페이지 {page_idx + 1} ===\n" + text
+
+            left_text = build_text(left_lines + marker_lines)
+            right_text = build_text(right_lines + marker_lines)
+            ai_items = ai_parse_exam_layout(
+                left_text,
+                right_text,
+                ai_model=ai_model,
+                api_key=api_key,
+                openai_api_key=openai_api_key,
+                hint_text=hint_text
+            )
+            for it in ai_items:
+                it["page"] = page_idx + 1
+            items_all.extend(ai_items)
+        doc.close()
+    except Exception:
+        return []
+    return clean_parsed_items(items_all)
+
+def extract_pdf_page_texts(pdf_bytes):
+    texts = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for i in range(doc.page_count):
+            page = doc.load_page(i)
+            page_text = page.get_text().strip()
+            texts.append(page_text)
+        doc.close()
+    except Exception:
+        return []
+    return texts
+
+def match_questions_to_pages(items, page_texts):
+    scores = {}
+    if not items or not page_texts:
+        return scores
+    page_tokens = [_tokenize_for_match(t) for t in page_texts]
+    for idx, item in enumerate(items):
+        stem = (item.get("problem") or item.get("front") or "")
+        tokens = _tokenize_for_match(stem)
+        if not tokens:
+            continue
+        best_page = None
+        best_score = 0.0
+        for p_idx, pt in enumerate(page_tokens):
+            inter = tokens & pt
+            score = len(inter) / max(1, len(tokens))
+            if score > best_score:
+                best_score = score
+                best_page = p_idx + 1
+        if best_page:
+            scores[idx] = {"page": best_page, "score": best_score}
+            item["page"] = best_page
+    return scores
 
 def parse_qa_to_cloze(text):
     """정답: 패턴을 이용해 Q/A를 Cloze 형태로 변환"""
@@ -1818,15 +2185,806 @@ def apply_fsrs_rating(q_id, rating):
 # ============================================================================
 # 텍스트 추출 함수
 # ============================================================================
-def extract_text_from_pdf(uploaded_file):
+@st.cache_resource(show_spinner=False)
+def get_easyocr_reader(langs):
+    try:
+        import easyocr
+    except Exception:
+        return None
+    return easyocr.Reader(list(langs), gpu=False)
+
+def available_ocr_engines():
+    engines = []
+    if importlib.util.find_spec("easyocr") is not None:
+        engines.append("easyocr")
+    return engines
+
+def ocr_page_image_bytes(image_bytes, engine="easyocr", langs=("ko", "en")):
+    if engine != "easyocr":
+        raise ValueError(f"지원하지 않는 OCR 엔진: {engine}")
+    reader = get_easyocr_reader(tuple(langs))
+    if reader is None:
+        raise ValueError("easyocr 미설치")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        tmp.write(image_bytes)
+        tmp_path = tmp.name
+    try:
+        results = reader.readtext(tmp_path, detail=1, paragraph=False)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+    if not results:
+        return ""
+    def bbox_key(item):
+        bbox = item[0] if isinstance(item, (list, tuple)) and item else None
+        if not bbox:
+            return (0, 0)
+        ys = [p[1] for p in bbox]
+        xs = [p[0] for p in bbox]
+        return (min(ys), min(xs))
+    results = sorted(results, key=bbox_key)
+    lines = [r[1].strip() for r in results if len(r) > 1 and str(r[1]).strip()]
+    return "\n".join(lines)
+
+def ocr_pdf_bytes(pdf_bytes, engine="easyocr", langs=("ko", "en"), max_pages=0, zoom=2.0):
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    texts = []
+    total_pages = doc.page_count
+    limit = total_pages if max_pages in (0, None) else min(total_pages, max_pages)
+    for i in range(limit):
+        page = doc.load_page(i)
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        image_bytes = pix.tobytes("png")
+        page_text = ocr_page_image_bytes(image_bytes, engine=engine, langs=langs)
+        if page_text.strip():
+            texts.append(f"=== 페이지 {i + 1} ===")
+            texts.append(page_text)
+            texts.append("")
+    doc.close()
+    return "\n".join(texts).strip()
+
+def data_uri_from_bytes(data, ext):
+    ext = ext.lower().replace(".", "")
+    if ext in ("jpg", "jpeg"):
+        mime = "image/jpeg"
+    elif ext == "png":
+        mime = "image/png"
+    elif ext == "bmp":
+        mime = "image/bmp"
+    elif ext == "gif":
+        mime = "image/gif"
+    else:
+        mime = "application/octet-stream"
+    b64 = base64.b64encode(data).decode("utf-8")
+    return f"data:{mime};base64,{b64}"
+
+def data_uri_to_bytes(uri):
+    if not uri:
+        return b""
+    m = re.match(r"^data:.*?;base64,(.*)$", uri)
+    if not m:
+        return b""
+    try:
+        return base64.b64decode(m.group(1))
+    except Exception:
+        return b""
+
+def extract_images_from_pdf_bytes(pdf_bytes, max_images=80, min_kb=20):
+    images = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        seen = set()
+        for page_idx in range(doc.page_count):
+            page = doc.load_page(page_idx)
+            for img in page.get_images(full=True):
+                xref = img[0]
+                base = doc.extract_image(xref)
+                if not base or "image" not in base:
+                    continue
+                data = base["image"]
+                if len(data) < min_kb * 1024:
+                    continue
+                rect = None
+                try:
+                    rect = page.get_image_bbox(xref)
+                except Exception:
+                    rect = None
+                h = hashlib.sha1(data).hexdigest()
+                if h in seen:
+                    continue
+                seen.add(h)
+                ext = base.get("ext", "png")
+                images.append({
+                    "data_uri": data_uri_from_bytes(data, ext),
+                    "ext": ext,
+                    "page": page_idx + 1,
+                    "y": rect.y0 if rect else None,
+                    "y1": rect.y1 if rect else None,
+                })
+                if len(images) >= max_images:
+                    break
+            if len(images) >= max_images:
+                break
+        doc.close()
+    except Exception:
+        return []
+    return images
+
+def extract_pdf_question_anchors(pdf_bytes):
+    anchors = {}
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        q_pattern = re.compile(r"^\s*(?:문항\s*)?(\d{1,3})\s*[).]")
+        for page_idx in range(doc.page_count):
+            page = doc.load_page(page_idx)
+            page_anchors = []
+            data = page.get_text("dict")
+            for block in data.get("blocks", []):
+                for line in block.get("lines", []):
+                    line_text = "".join(span.get("text", "") for span in line.get("spans", []))
+                    if not line_text:
+                        continue
+                    m = q_pattern.match(line_text.strip())
+                    if m:
+                        qnum = int(m.group(1))
+                        y = line.get("bbox", [0, 0, 0, 0])[1]
+                        page_anchors.append({"qnum": qnum, "y": y})
+            if page_anchors:
+                # de-duplicate by qnum, keep first occurrence
+                seen = set()
+                uniq = []
+                for a in sorted(page_anchors, key=lambda x: x["y"]):
+                    if a["qnum"] in seen:
+                        continue
+                    seen.add(a["qnum"])
+                    uniq.append(a)
+                anchors[page_idx + 1] = uniq
+        doc.close()
+    except Exception:
+        return {}
+    return anchors
+
+def extract_images_from_hwp_bytes(hwp_bytes, max_images=80, min_kb=10):
+    tmp_path = None
+    odt_path = None
+    images = []
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".hwp") as tmp:
+            tmp.write(hwp_bytes)
+            tmp_path = tmp.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as tmp_odt:
+            odt_path = tmp_odt.name
+
+        if shutil.which("hwp5odt"):
+            result = subprocess.run(["hwp5odt", "--output", odt_path, tmp_path], capture_output=True, text=True)
+            if result.returncode != 0:
+                return []
+        else:
+            return []
+
+        with zipfile.ZipFile(odt_path) as zf:
+            for name in zf.namelist():
+                if not name.startswith("bindata/"):
+                    continue
+                data = zf.read(name)
+                if len(data) < min_kb * 1024:
+                    continue
+                ext = os.path.splitext(name)[1].lstrip(".") or "png"
+                images.append({
+                    "data_uri": data_uri_from_bytes(data, ext),
+                    "ext": ext,
+                    "page": None,
+                })
+                if len(images) >= max_images:
+                    break
+    except Exception:
+        return []
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+        if odt_path and os.path.exists(odt_path):
+            try:
+                os.unlink(odt_path)
+            except Exception:
+                pass
+    return images
+
+def _tokenize_for_match(text):
+    if not text:
+        return set()
+    tokens = re.findall(r"[A-Za-z가-힣0-9]{2,}", text.lower())
+    return set(tokens)
+
+def clean_parsed_items(items, min_stem_len=15):
+    cleaned = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        typ = item.get("type")
+        if typ not in ("mcq", "cloze"):
+            continue
+        stem = (item.get("problem") if typ == "mcq" else item.get("front")) or ""
+        stem = stem.strip()
+        if not stem:
+            continue
+        if re.match(r"^(정답|답|해설|설명)\b", stem):
+            continue
+        if len(stem) < min_stem_len:
+            if typ == "mcq" and len(item.get("options") or []) >= 3:
+                pass
+            else:
+                continue
+        if typ == "mcq":
+            if len(item.get("options") or []) < 3:
+                continue
+        if typ == "cloze" and not str(item.get("answer", "")).strip():
+            continue
+        cleaned.append(item)
+    return cleaned
+
+def ocr_images_for_matching(images, engine="easyocr", langs=("ko", "en"), max_images=30, min_len=3):
+    if not images:
+        return images
+    count = 0
+    for img in images:
+        if count >= max_images:
+            break
+        if img.get("ocr_text"):
+            continue
+        data = data_uri_to_bytes(img.get("data_uri", ""))
+        if not data:
+            continue
+        try:
+            text = ocr_page_image_bytes(data, engine=engine, langs=langs)
+        except Exception:
+            text = ""
+        if text and len(text.strip()) >= min_len:
+            img["ocr_text"] = text
+        else:
+            img["ocr_text"] = ""
+        count += 1
+    return images
+
+def ai_match_images_to_items(items, images, ai_model, api_key=None, openai_api_key=None, max_images=10):
+    if not items or not images or max_images <= 0:
+        return items
+    # group items by page
+    page_map = {}
+    for idx, item in enumerate(items):
+        page = item.get("page")
+        page_map.setdefault(page, []).append((idx, item))
+
+    processed = 0
+    for img in images:
+        if processed >= max_images:
+            break
+        if img.get("matched"):
+            continue
+        page = img.get("page")
+        candidates = page_map.get(page) or []
+        if not candidates:
+            continue
+        # build candidate list
+        lines = []
+        for idx, item in candidates:
+            stem = item.get("problem") or item.get("front") or ""
+            stem = stem.replace("\n", " ").strip()
+            if len(stem) > 160:
+                stem = stem[:160] + "..."
+            lines.append(f"{idx}: {stem}")
+        prompt = (
+            "You are matching a medical exam image to the most relevant question stem. "
+            "Choose the single best question index from the list below. "
+            "If none match, return -1. Return ONLY the index number.\n\n"
+            "Questions:\n" + "\n".join(lines)
+        )
+        matched_idx = None
+        try:
+            if ai_model == "🔵 Google Gemini":
+                if not api_key:
+                    continue
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                img_bytes = data_uri_to_bytes(img.get("data_uri", ""))
+                response = model.generate_content([prompt, img_bytes])
+                text = (response.text or "").strip()
+            else:
+                if not openai_api_key:
+                    continue
+                client = OpenAI(api_key=openai_api_key)
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "user", "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": img.get("data_uri", "")}},
+                        ]}
+                    ],
+                    temperature=0
+                )
+                text = (response.choices[0].message.content or "").strip()
+            m = re.search(r"-?\\d+", text)
+            if m:
+                matched_idx = int(m.group(0))
+        except Exception:
+            matched_idx = None
+
+        if matched_idx is None or matched_idx < 0 or matched_idx >= len(items):
+            processed += 1
+            continue
+        if items[matched_idx].get("images"):
+            # avoid overwriting existing images
+            processed += 1
+            continue
+        items[matched_idx].setdefault("images", [])
+        items[matched_idx]["images"].append(img.get("data_uri"))
+        img["matched"] = True
+        processed += 1
+
+    return items
+
+def generate_explanations_ai(items, ai_model, api_key=None, openai_api_key=None, max_items=20):
+    if not items or max_items <= 0:
+        return items
+    count = 0
+    for item in items:
+        if item.get("explanation"):
+            continue
+        if count >= max_items:
+            break
+        stem = item.get("problem") or item.get("front") or ""
+        opts = item.get("options") or []
+        answer = item.get("answer")
+        if item.get("type") == "mcq":
+            answer_text = None
+            if isinstance(answer, int) and 1 <= answer <= len(opts):
+                answer_text = opts[answer - 1]
+            prompt = (
+                "다음 객관식 문제의 해설을 2~4문장으로 작성하세요. "
+                "정답 근거와 핵심 포인트만 간단히 설명하세요.\n\n"
+                f"문항: {stem}\n"
+                f"선지: {opts}\n"
+                f"정답: {answer}"
+            )
+        else:
+            prompt = (
+                "다음 주관식/빈칸 문제의 해설을 2~4문장으로 작성하세요. "
+                "정답 근거와 핵심 포인트만 간단히 설명하세요.\n\n"
+                f"문항: {stem}\n"
+                f"정답: {answer}"
+            )
+        try:
+            if ai_model == "🔵 Google Gemini":
+                if not api_key:
+                    continue
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(prompt)
+                text = (response.text or "").strip()
+            else:
+                if not openai_api_key:
+                    continue
+                client = OpenAI(api_key=openai_api_key)
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=300
+                )
+                text = (response.choices[0].message.content or "").strip()
+            if text:
+                item["explanation"] = text
+                count += 1
+        except Exception:
+            continue
+    return items
+
+def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=None):
+    if not item:
+        return ""
+    stem = item.get("problem") or item.get("front") or ""
+    opts = item.get("options") or []
+    answer = item.get("answer")
+    if item.get("type") == "mcq":
+        prompt = (
+            "다음 객관식 문제의 해설을 2~4문장으로 작성하세요. "
+            "정답 근거와 핵심 포인트만 간단히 설명하세요.\n\n"
+            f"문항: {stem}\n"
+            f"선지: {opts}\n"
+            f"정답: {answer}"
+        )
+    else:
+        prompt = (
+            "다음 주관식/빈칸 문제의 해설을 2~4문장으로 작성하세요. "
+            "정답 근거와 핵심 포인트만 간단히 설명하세요.\n\n"
+            f"문항: {stem}\n"
+            f"정답: {answer}"
+        )
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return ""
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            return (response.text or "").strip()
+        else:
+            if not openai_api_key:
+                return ""
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=300
+            )
+            return (response.choices[0].message.content or "").strip()
+    except Exception:
+        return ""
+
+def update_question_explanation(q_id, explanation_text):
+    if not q_id:
+        return False
+    bank = load_questions()
+    for key in ("text", "cloze"):
+        for item in bank.get(key, []):
+            if item.get("id") == q_id:
+                item["explanation"] = explanation_text
+                save_questions(bank)
+                return True
+    return False
+
+def _extract_json_candidates(raw):
+    if not raw:
+        return []
+    raw = raw.strip()
+    candidates = []
+    fence = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", raw)
+    if fence:
+        candidates.append(fence.group(1).strip())
+    candidates.append(raw)
+    arr = re.search(r"\[\s*\{[\s\S]+?\}\s*\]", raw)
+    if arr:
+        candidates.append(arr.group(0))
+    obj = re.search(r"\{[\s\S]+\}", raw)
+    if obj:
+        candidates.append(obj.group(0))
+    return candidates
+
+def _parse_json_from_text(raw):
+    for cand in _extract_json_candidates(raw):
+        try:
+            data = json.loads(cand)
+            return data
+        except Exception:
+            continue
+    return None
+
+def ai_parse_exam_layout(left_text, right_text, ai_model, api_key=None, openai_api_key=None, hint_text=""):
+    if not left_text or len(left_text.strip()) < 20:
+        return []
+    prompt = (
+        "아래 LEFT/RIGHT 텍스트에서 시험 문항을 JSON 배열로 추출하세요. 오직 JSON만 출력하세요.\n"
+        "LEFT에는 문항/선지가 있고, RIGHT에는 정답/해설(또는 요약)이 있습니다.\n"
+        "RIGHT는 '▶ ⑤' 또는 '정답: ⑤' 같은 형식일 수 있으니 이를 정답으로 사용하세요.\n"
+        "문항 번호가 보이면 qnum에 넣고, 없으면 순서대로 매칭하세요.\n"
+        "형식:\n"
+        "{\n"
+        "  \"type\": \"mcq\" 또는 \"cloze\",\n"
+        "  \"problem\": (mcq용 질문 본문),\n"
+        "  \"front\": (cloze용 질문 본문),\n"
+        "  \"options\": [\"선지1\", \"선지2\", ...] (mcq일 때만),\n"
+        "  \"answer\": 정답 (mcq는 1-5 정수, cloze는 문자열),\n"
+        "  \"explanation\": 해설(없으면 \"\"),\n"
+        "  \"qnum\": 문항 번호(있으면 숫자)\n"
+        "}\n"
+        "[LEFT]\n"
+    )
+    if hint_text:
+        prompt = f"[문서 구조 힌트]\n{hint_text}\n\n" + prompt
+    prompt += left_text[:20000] + "\n\n[RIGHT]\n" + (right_text[:20000] if right_text else "")
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return []
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            raw = response.text or ""
+        else:
+            if not openai_api_key:
+                return []
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=4000
+            )
+            raw = response.choices[0].message.content or ""
+        data = _parse_json_from_text(raw)
+        if isinstance(data, dict):
+            data = data.get("items") or data.get("questions") or data.get("data") or []
+        if not isinstance(data, list):
+            return []
+        return clean_parsed_items(data)
+    except Exception:
+        return []
+
+def ai_parse_exam_text(text, ai_model, api_key=None, openai_api_key=None, max_items=60, hint_text="", return_raw=False):
+    if not text or len(text.strip()) < 20:
+        return ([], "") if return_raw else []
+    prompt = (
+        "아래 텍스트에서 시험 문항을 JSON 배열로 추출하세요. 오직 JSON만 출력하세요.\n"
+        "각 항목 형식:\n"
+        "{\n"
+        "  \"type\": \"mcq\" 또는 \"cloze\",\n"
+        "  \"problem\": (mcq용 질문 본문),\n"
+        "  \"front\": (cloze용 질문 본문),\n"
+        "  \"options\": [\"선지1\", \"선지2\", ...] (mcq일 때만),\n"
+        "  \"answer\": 정답 (mcq는 1-5 정수, cloze는 문자열),\n"
+        "  \"explanation\": 해설(없으면 \"\"),\n"
+        "  \"page\": 페이지 번호(텍스트에 '=== 페이지 N ===' 표기가 있으면 활용),\n"
+        "  \"qnum\": 문항 번호(있으면 숫자)\n"
+        "}\n"
+        f"최대 {max_items}개까지만 출력하세요.\n"
+        "문항이 겹치지 않도록 정확히 분리하세요.\n\n"
+        "[원문]\n"
+    )
+    if hint_text:
+        prompt = f"[문서 구조 힌트]\n{hint_text}\n\n" + prompt
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return ([], "") if return_raw else []
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt + text[:30000])
+            raw = response.text or ""
+        else:
+            if not openai_api_key:
+                return ([], "") if return_raw else []
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt + text[:30000]}],
+                temperature=0.2,
+                max_tokens=4000
+            )
+            raw = response.choices[0].message.content or ""
+
+        data = _parse_json_from_text(raw)
+        if data is None:
+            return ([], raw) if return_raw else []
+        if isinstance(data, dict):
+            data = data.get("items") or data.get("questions") or data.get("data") or []
+        if not isinstance(data, list):
+            return ([], raw) if return_raw else []
+        items = clean_parsed_items(data)
+        return (items, raw) if return_raw else items
+    except Exception:
+        return ([], "") if return_raw else []
+
+def ai_parse_exam_block(block_text, ai_model, api_key=None, openai_api_key=None, hint_text="", return_raw=False):
+    if not block_text or len(block_text.strip()) < 10:
+        return (None, "") if return_raw else None
+    prompt = (
+        "아래 텍스트에서 문항 1개를 JSON 객체로 추출하세요. 오직 JSON만 출력하세요.\n"
+        "형식:\n"
+        "{\n"
+        "  \"type\": \"mcq\" 또는 \"cloze\",\n"
+        "  \"problem\": (mcq용 질문 본문),\n"
+        "  \"front\": (cloze용 질문 본문),\n"
+        "  \"options\": [\"선지1\", \"선지2\", ...] (mcq일 때만),\n"
+        "  \"answer\": 정답 (mcq는 1-5 정수, cloze는 문자열),\n"
+        "  \"explanation\": 해설(없으면 \"\")\n"
+        "}\n"
+    )
+    if hint_text:
+        prompt += f"\n[문서 구조 힌트]\n{hint_text}\n"
+    prompt += "\n[원문]\n"
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return (None, "") if return_raw else None
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt + block_text[:15000])
+            raw = response.text or ""
+        else:
+            if not openai_api_key:
+                return (None, "") if return_raw else None
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt + block_text[:15000]}],
+                temperature=0.2,
+                max_tokens=1200
+            )
+            raw = response.choices[0].message.content or ""
+        data = _parse_json_from_text(raw)
+        if not isinstance(data, dict):
+            return (None, raw) if return_raw else None
+        items = clean_parsed_items([data])
+        item = items[0] if items else None
+        return (item, raw) if return_raw else item
+    except Exception:
+        return (None, "") if return_raw else None
+
+def should_attach_image(item):
+    text = (item.get("problem") or item.get("front") or "")
+    text = text.lower()
+    keywords = [
+        "x-ray", "xray", "ct", "mri", "us", "ultrasound", "sonography", "radiograph",
+        "영상", "영상소견", "영상 소견", "사진", "그림", "figure", "fig.", "영상에서", "사진을 보고", "영상학적"
+    ]
+    return any(k in text for k in keywords)
+
+def auto_attach_images_to_items(items, images, strategy="page", max_per_question=1, anchors=None, min_score=0.2, only_if_keyword=False):
+    if not items or not images:
+        return items
+    if max_per_question < 1:
+        return items
+
+    if strategy == "sequential":
+        img_idx = 0
+        for item in items:
+            if item.get("images"):
+                continue
+            attach = []
+            for _ in range(max_per_question):
+                if img_idx >= len(images):
+                    break
+                attach.append(images[img_idx]["data_uri"])
+                img_idx += 1
+            if attach:
+                item["images"] = attach
+        return items
+
+    if strategy == "layout" and anchors:
+        # build intervals per page: [qnum, start_y, end_y)
+        intervals = {}
+        for page, arr in anchors.items():
+            if not arr:
+                continue
+            arr_sorted = sorted(arr, key=lambda x: x["y"])
+            page_intervals = []
+            for idx, a in enumerate(arr_sorted):
+                start = a["y"]
+                end = arr_sorted[idx + 1]["y"] if idx + 1 < len(arr_sorted) else float("inf")
+                page_intervals.append({"qnum": a["qnum"], "start": start, "end": end})
+            intervals[page] = page_intervals
+
+        image_map = {}
+        for img in images:
+            page = img.get("page")
+            y = img.get("y")
+            if page not in intervals or y is None:
+                continue
+            for seg in intervals[page]:
+                if seg["start"] <= y < seg["end"]:
+                    key = (page, seg["qnum"])
+                    image_map.setdefault(key, []).append(img["data_uri"])
+                    break
+
+        for item in items:
+            if item.get("images"):
+                continue
+            if only_if_keyword and not should_attach_image(item):
+                continue
+            page = item.get("page")
+            qnum = item.get("qnum")
+            if page is None or qnum is None:
+                continue
+            key = (page, qnum)
+            imgs = image_map.get(key) or []
+            if imgs:
+                item["images"] = imgs[:max_per_question]
+        return items
+
+    if strategy == "page":
+        page_to_images = {}
+        for img in images:
+            page = img.get("page")
+            page_to_images.setdefault(page, []).append(img["data_uri"])
+        for item in items:
+            if item.get("images"):
+                continue
+            if only_if_keyword and not should_attach_image(item):
+                continue
+            page = item.get("page")
+            candidates = page_to_images.get(page) or []
+            if candidates:
+                item["images"] = candidates[:max_per_question]
+        return items
+
+    if strategy == "ocr":
+        # build token sets per item
+        item_tokens = []
+        for item in items:
+            text = " ".join([
+                item.get("problem") or item.get("front") or "",
+                " ".join(item.get("options", []) or []),
+                item.get("explanation") or ""
+            ])
+            item_tokens.append(_tokenize_for_match(text))
+
+        def item_key(i):
+            return f"{items[i].get('page')}_{items[i].get('qnum')}_{i}"
+
+        attached = {}
+        for i, item in enumerate(items):
+            attached[item_key(i)] = list(item.get("images", [])) if item.get("images") else []
+
+        for img in images:
+            ocr_text = img.get("ocr_text", "") or ""
+            tokens_img = _tokenize_for_match(ocr_text)
+            if not tokens_img:
+                continue
+            best_idx = None
+            best_score = 0.0
+            for i, tokens in enumerate(item_tokens):
+                if not tokens:
+                    continue
+                if only_if_keyword and not should_attach_image(items[i]):
+                    continue
+                # prefer same page if available
+                if img.get("page") and items[i].get("page") and img.get("page") != items[i].get("page"):
+                    continue
+                overlap = len(tokens_img & tokens) / max(1, len(tokens_img))
+                if overlap > best_score:
+                    best_score = overlap
+                    best_idx = i
+            if best_idx is None or best_score < min_score:
+                continue
+            key = item_key(best_idx)
+            if img["data_uri"] in attached[key]:
+                continue
+            if len(attached[key]) >= max_per_question:
+                continue
+            attached[key].append(img["data_uri"])
+
+        for i, item in enumerate(items):
+            key = item_key(i)
+            if attached.get(key):
+                item["images"] = attached[key]
+        return items
+
+    return items
+
+def extract_text_from_pdf(uploaded_file, enable_ocr=True, ocr_engine="auto", ocr_langs=("ko", "en"), ocr_max_pages=0, min_text_len=200, include_page_markers=False):
     """PDF에서 텍스트 추출"""
     try:
-        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        pdf_bytes = uploaded_file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text = ""
-        for page in doc:
-            text += page.get_text()
+        for i, page in enumerate(doc):
+            page_text = page.get_text()
+            if include_page_markers:
+                text += f"=== 페이지 {i + 1} ===\n"
+            text += page_text
+            if include_page_markers:
+                text += "\n"
         doc.close()
-        return text
+        if len(text.strip()) >= min_text_len:
+            return text
+        # OCR fallback (스캔 PDF 등)
+        if not enable_ocr:
+            return text
+        engines = available_ocr_engines()
+        if not engines:
+            return text
+        try:
+            engine = engines[0] if ocr_engine == "auto" else ocr_engine
+            ocr_text = ocr_pdf_bytes(pdf_bytes, engine=engine, langs=ocr_langs, max_pages=ocr_max_pages)
+            return ocr_text if ocr_text.strip() else text
+        except Exception:
+            return text
     except Exception as e:
         raise ValueError(f"PDF 처리 실패: {str(e)}")
 
@@ -1871,6 +3029,100 @@ def extract_text_from_hwp(uploaded_file):
             tmp.write(data)
             tmp_path = tmp.name
 
+        def is_table_placeholder_text(text):
+            if not text or not text.strip():
+                return True
+            placeholder_count = text.count("<표>")
+            if placeholder_count >= 3:
+                cleaned = re.sub(r"<표>", "", text)
+                cleaned = re.sub(r"\s+", "", cleaned)
+                if len(cleaned) < 80:
+                    return True
+                if not re.search(r"[①②③④⑤]|\\b정답\\b|\\b답\\b", text):
+                    return True
+            return False
+
+        def extract_text_from_odt_content(xml_bytes):
+            try:
+                root = ET.fromstring(xml_bytes)
+            except Exception:
+                return ""
+            ns = {
+                "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+                "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+                "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+                "draw": "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
+            }
+            body = root.find("office:body/office:text", ns)
+            if body is None:
+                return ""
+
+            def normalize_line(line):
+                line = line.replace("\u00a0", " ")
+                line = re.sub(r"[ \t]+", " ", line).strip()
+                return line
+
+            def cell_lines(cell):
+                lines = []
+                for p in cell.findall(".//text:p", ns) + cell.findall(".//text:h", ns):
+                    line = normalize_line("".join(p.itertext()))
+                    if line:
+                        lines.append(line)
+                img_count = len(cell.findall(".//draw:image", ns))
+                if img_count:
+                    lines.append(f"[이미지 x{img_count}]")
+                return lines
+
+            out_lines = []
+            for child in body:
+                if child.tag == f"{{{ns['table']}}}table":
+                    for row in child.findall("table:table-row", ns):
+                        row_lines = []
+                        for cell in row.findall("table:table-cell", ns):
+                            lines = cell_lines(cell)
+                            if lines:
+                                row_lines.append("\n".join(lines))
+                        if row_lines:
+                            out_lines.append("\n".join(row_lines))
+                            out_lines.append("")
+                elif child.tag in (f"{{{ns['text']}}}p", f"{{{ns['text']}}}h"):
+                    line = normalize_line("".join(child.itertext()))
+                    if line:
+                        out_lines.append(line)
+            return "\n".join(out_lines).strip()
+
+        def extract_text_from_hwp5odt(path):
+            odt_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as tmp_odt:
+                    odt_path = tmp_odt.name
+                def run_odt(cmd):
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode != 0:
+                        raise ValueError(result.stderr.strip() or "hwp5odt 변환 실패")
+                    if not os.path.exists(odt_path) or os.path.getsize(odt_path) == 0:
+                        raise ValueError("ODT 변환 결과가 비어있습니다.")
+                if shutil.which("hwp5odt"):
+                    run_odt(["hwp5odt", "--output", odt_path, path])
+                else:
+                    try:
+                        import importlib.util
+                        if importlib.util.find_spec("hwp5.hwp5odt") is not None:
+                            run_odt([sys.executable, "-m", "hwp5.hwp5odt", "--output", odt_path, path])
+                        else:
+                            return ""
+                    except Exception:
+                        return ""
+                with zipfile.ZipFile(odt_path) as zf:
+                    xml_bytes = zf.read("content.xml")
+                return extract_text_from_odt_content(xml_bytes)
+            finally:
+                if odt_path and os.path.exists(odt_path):
+                    try:
+                        os.unlink(odt_path)
+                    except Exception:
+                        pass
+
         def run_hwp5txt(cmd):
             result = subprocess.run(
                 cmd,
@@ -1885,13 +3137,25 @@ def extract_text_from_hwp(uploaded_file):
             return text
 
         if shutil.which("hwp5txt"):
-            return run_hwp5txt(["hwp5txt", tmp_path])
+            text = run_hwp5txt(["hwp5txt", tmp_path])
+            if not is_table_placeholder_text(text):
+                return text
+            odt_text = extract_text_from_hwp5odt(tmp_path)
+            if odt_text:
+                return odt_text
+            return text
 
         # fallback: python -m hwp5.hwp5txt (pyhwp 설치되어 있으나 PATH에 없을 때)
         try:
             import importlib.util
             if importlib.util.find_spec("hwp5.hwp5txt") is not None:
-                return run_hwp5txt([sys.executable, "-m", "hwp5.hwp5txt", tmp_path])
+                text = run_hwp5txt([sys.executable, "-m", "hwp5.hwp5txt", tmp_path])
+                if not is_table_placeholder_text(text):
+                    return text
+                odt_text = extract_text_from_hwp5odt(tmp_path)
+                if odt_text:
+                    return odt_text
+                return text
         except Exception:
             pass
 
@@ -1905,12 +3169,12 @@ def extract_text_from_hwp(uploaded_file):
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
-def extract_text_from_file(uploaded_file):
+def extract_text_from_file(uploaded_file, **kwargs):
     """파일 형식에 따라 자동으로 텍스트 추출"""
     file_ext = Path(uploaded_file.name).suffix.lower()
     
     if file_ext == ".pdf":
-        return extract_text_from_pdf(uploaded_file)
+        return extract_text_from_pdf(uploaded_file, **kwargs)
     elif file_ext == ".docx":
         return extract_text_from_docx(uploaded_file)
     elif file_ext == ".pptx":
@@ -2519,18 +3783,30 @@ with tab_home:
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("객관식 전체 삭제", use_container_width=True, disabled=not confirm):
-                clear_question_bank(mode="mcq")
+                with st.spinner("객관식 문항 삭제 중..."):
+                    clear_question_bank(mode="mcq")
                 st.session_state.last_action_notice = "객관식 문항을 삭제했습니다."
+                st.session_state.exam_started = False
+                st.session_state.exam_questions = []
+                st.session_state.user_answers = {}
                 st.rerun()
         with col2:
             if st.button("빈칸 전체 삭제", use_container_width=True, disabled=not confirm):
-                clear_question_bank(mode="cloze")
+                with st.spinner("빈칸 문항 삭제 중..."):
+                    clear_question_bank(mode="cloze")
                 st.session_state.last_action_notice = "빈칸 문항을 삭제했습니다."
+                st.session_state.exam_started = False
+                st.session_state.exam_questions = []
+                st.session_state.user_answers = {}
                 st.rerun()
         with col3:
             if st.button("전체 문항 삭제", use_container_width=True, disabled=not confirm):
-                clear_question_bank(mode="all")
+                with st.spinner("전체 문항 삭제 중..."):
+                    clear_question_bank(mode="all")
                 st.session_state.last_action_notice = "모든 문항을 삭제했습니다."
+                st.session_state.exam_started = False
+                st.session_state.exam_questions = []
+                st.session_state.user_answers = {}
                 st.rerun()
         if st.button("시험 기록 삭제", use_container_width=True, disabled=not confirm):
             clear_exam_history()
@@ -2575,24 +3851,67 @@ with tab_home:
                 filtered.append(q)
             filtered = filtered[:200]
 
-            options = []
-            id_map = {}
-            for q in filtered:
-                qid = q.get("id")
-                if not qid:
-                    continue
-                label = f"{qid[:6]} | {(q.get('subject') or 'General')} | {q.get('problem','')[:60]}"
-                options.append(label)
-                id_map[label] = qid
+            if hasattr(st, "data_editor"):
+                rows = []
+                for q in filtered:
+                    qid = q.get("id")
+                    if not qid:
+                        continue
+                    rows.append({
+                        "선택": False,
+                        "id": qid,
+                        "분과": q.get("subject") or "General",
+                        "문항": (q.get("problem") or "")[:120],
+                    })
+                edited = st.data_editor(
+                    rows,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "id": st.column_config.TextColumn("ID", width="small"),
+                        "분과": st.column_config.TextColumn("분과", width="small"),
+                        "문항": st.column_config.TextColumn("문항", width="large"),
+                    },
+                    disabled=["id", "분과", "문항"],
+                    key="mcq_delete_editor"
+                )
+                selected_ids = [r["id"] for r in edited if r.get("선택")]
+            else:
+                id_to_q = {q.get("id"): q for q in filtered if q.get("id")}
+                options = list(id_to_q.keys())
 
-            selected_labels = st.multiselect("개별 문항 선택", options)
+                def format_item(qid):
+                    q = id_to_q.get(qid) or {}
+                    subj_name = q.get("subject") or "General"
+                    title = (q.get("problem") or "")[:80]
+                    return f"{qid[:8]} | {subj_name} | {title}"
+
+                selected_ids = st.multiselect("개별 문항 선택", options, format_func=format_item)
+
             confirm_sel = st.checkbox("개별 삭제 확인", key="confirm_item_delete")
-            if selected_labels:
+            if selected_ids:
                 if st.button("선택 문항 삭제", disabled=not confirm_sel):
-                    ids = [id_map[l] for l in selected_labels]
-                    deleted = delete_mcq_by_ids(ids)
+                    deleted = delete_mcq_by_ids(selected_ids)
                     st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨"
                     st.rerun()
+
+            st.markdown("---")
+            st.caption("세트(배치) 단위 삭제")
+            batches = get_mcq_batches(mcq_list)
+            if batches:
+                batch_labels = []
+                for b, cnt in sorted(batches.items(), key=lambda x: x[0]):
+                    batch_labels.append(f"{b} ({cnt}개)")
+                sel_batch = st.selectbox("세트 선택", ["선택 없음"] + batch_labels)
+                confirm_batch = st.checkbox("세트 삭제 확인", key="confirm_batch_delete")
+                if sel_batch != "선택 없음":
+                    batch_id = sel_batch.split(" (")[0]
+                    if st.button("세트 삭제", disabled=not confirm_batch):
+                        deleted = delete_mcq_by_batch(batch_id)
+                        st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨 (세트: {batch_id})"
+                        st.rerun()
+            else:
+                st.caption("세트 정보가 없습니다.")
 
     st.markdown("---")
     st.subheader("학습 시각화")
@@ -2820,6 +4139,86 @@ with tab_convert:
     st.title("🧾 기출문제 전용 변환")
     st.caption("HWP/PDF/DOCX/PPTX/TXT/TSV 파일을 기출문제 형식으로 변환하여 저장합니다.")
 
+    with st.expander("🧩 HWP+PDF 듀얼 업로드(수동 최소화)", expanded=False):
+        st.caption("HWP에서 문항 텍스트를 추출하고, PDF에서 이미지/페이지 정보를 연결합니다.")
+        col_dual1, col_dual2 = st.columns(2)
+        with col_dual1:
+            dual_hwp = st.file_uploader("HWP 업로드 (문항 텍스트)", type=["hwp"], key="dual_hwp_upload")
+        with col_dual2:
+            dual_pdf = st.file_uploader("PDF 업로드 (이미지/레이아웃)", type=["pdf"], key="dual_pdf_upload")
+
+        dual_subject = st.text_input("기본 과목명", value="General", key="dual_subject")
+        dual_unit = st.text_input("기본 단원명 (선택)", value="DualUpload", key="dual_unit")
+
+        dual_threshold = st.slider("자동 매칭 신뢰도 기준", 0.05, 0.6, 0.2, step=0.05, key="dual_threshold")
+
+        if st.button("🔗 듀얼 자동 매칭 실행", use_container_width=True, key="dual_run"):
+            if not dual_hwp or not dual_pdf:
+                st.error("HWP와 PDF를 모두 업로드해주세요.")
+            else:
+                try:
+                    dual_hwp.seek(0)
+                    dual_pdf.seek(0)
+                    hwp_text = extract_text_from_hwp(dual_hwp)
+                    pdf_bytes = dual_pdf.getvalue()
+                    page_texts = extract_pdf_page_texts(pdf_bytes)
+                    images = extract_images_from_pdf_bytes(pdf_bytes)
+                    anchors = extract_pdf_question_anchors(pdf_bytes)
+
+                    # 1) HWP 텍스트로 문항 파싱
+                    items = parse_exam_text_fuzzy(hwp_text)
+                    items = clean_parsed_items(items)
+
+                    # 2) 문항-페이지 매칭
+                    scores = match_questions_to_pages(items, page_texts)
+
+                    # 3) 이미지 연결 (페이지 기반)
+                    items = auto_attach_images_to_items(
+                        items,
+                        images,
+                        strategy="page",
+                        max_per_question=1,
+                        anchors=anchors,
+                        min_score=0.2,
+                        only_if_keyword=False
+                    )
+
+                    st.session_state.past_exam_items = items
+                    st.session_state.past_exam_images = images
+                    st.session_state.past_exam_anchors = anchors
+                    st.session_state.dual_exam_text = hwp_text
+                    st.session_state.dual_exam_images = images
+                    st.session_state.dual_exam_page_text = page_texts
+                    st.session_state.dual_match_scores = scores
+
+                    st.success(f"듀얼 매칭 완료: {len(items)}개 문항")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"듀얼 매칭 실패: {str(e)}")
+
+        if st.session_state.dual_match_scores:
+            weak = [i for i, v in st.session_state.dual_match_scores.items() if v.get("score", 0) < dual_threshold]
+            st.caption(f"자동 매칭 신뢰도 낮음: {len(weak)}개 문항 → 아래 편집 탭에서 수동 보정하세요.")
+
+        if st.button("📝 HWP 텍스트만 추출", use_container_width=True, key="dual_text_only"):
+            if not dual_hwp:
+                st.error("HWP 파일을 업로드해주세요.")
+            else:
+                try:
+                    dual_hwp.seek(0)
+                    hwp_text = extract_text_from_hwp(dual_hwp)
+                    hwp_text = preclean_exam_text(hwp_text)
+                    items = parse_exam_text_fuzzy(hwp_text)
+                    items = clean_parsed_items(items)
+                    st.session_state.past_exam_items = items
+                    st.session_state.past_exam_images = []
+                    st.session_state.past_exam_anchors = {}
+                    st.session_state.dual_exam_text = hwp_text
+                    st.success(f"HWP 텍스트 추출 완료: {len(items)}개 문항")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"HWP 텍스트 추출 실패: {str(e)}")
+
     uploaded_exam = st.file_uploader(
         "기출문제 파일 업로드",
         type=["hwp", "pdf", "docx", "pptx", "txt", "tsv"],
@@ -2827,18 +4226,96 @@ with tab_convert:
     )
 
     if uploaded_exam:
+        file_ext = Path(uploaded_exam.name).suffix.lower()
+        ocr_enabled = True
+        ocr_engine = "auto"
+        ocr_langs = ("ko", "en")
+        ocr_max_pages = 0
+        uploaded_bytes = uploaded_exam.getvalue()
+
+        if file_ext == ".pdf":
+            with st.expander("🧠 OCR 설정 (스캔 PDF용)", expanded=False):
+                ocr_enabled = st.checkbox(
+                    "텍스트가 부족하면 OCR 자동 실행",
+                    value=True,
+                    key="past_exam_ocr_enable"
+                )
+                ocr_engine = st.selectbox(
+                    "OCR 엔진",
+                    ["auto", "easyocr"],
+                    index=0,
+                    key="past_exam_ocr_engine"
+                )
+                lang_choice = st.selectbox(
+                    "언어",
+                    ["한국어+영어", "영어"],
+                    index=0,
+                    key="past_exam_ocr_lang"
+                )
+                ocr_langs = ("ko", "en") if lang_choice == "한국어+영어" else ("en",)
+                ocr_max_pages = st.number_input(
+                    "OCR 페이지 제한 (0=전체)",
+                    min_value=0,
+                    max_value=500,
+                    value=0,
+                    step=1,
+                    key="past_exam_ocr_pages"
+                )
+
         if st.session_state.past_exam_file != uploaded_exam.name:
             st.session_state.past_exam_file = uploaded_exam.name
             st.session_state.past_exam_text = ""
             st.session_state.past_exam_items = []
+            st.session_state.past_exam_images = []
+            st.session_state.past_exam_anchors = {}
+            st.session_state.ai_parse_raw = ""
 
         if not st.session_state.past_exam_text:
             try:
                 if hasattr(uploaded_exam, "seek"):
                     uploaded_exam.seek(0)
-                st.session_state.past_exam_text = extract_text_from_file(uploaded_exam)
+                st.session_state.past_exam_text = extract_text_from_file(
+                    uploaded_exam,
+                    enable_ocr=ocr_enabled,
+                    ocr_engine=ocr_engine,
+                    ocr_langs=ocr_langs,
+                    ocr_max_pages=ocr_max_pages,
+                    include_page_markers=(file_ext == ".pdf")
+                )
             except Exception as e:
                 st.error(f"❌ 기출문제 파일 처리 실패: {str(e)}")
+
+        if not st.session_state.past_exam_images and uploaded_bytes:
+            try:
+                if file_ext == ".pdf":
+                    st.session_state.past_exam_images = extract_images_from_pdf_bytes(uploaded_bytes)
+                    st.session_state.past_exam_anchors = extract_pdf_question_anchors(uploaded_bytes)
+                elif file_ext == ".hwp":
+                    st.session_state.past_exam_images = extract_images_from_hwp_bytes(uploaded_bytes)
+            except Exception:
+                st.session_state.past_exam_images = []
+
+        if file_ext == ".pdf":
+            engines = available_ocr_engines()
+            if len(st.session_state.past_exam_text.strip()) < 200 and not engines:
+                st.warning("PDF에서 텍스트가 거의 추출되지 않았습니다. OCR이 필요합니다. `python -m pip install easyocr` 설치 후 다시 시도하세요.")
+            if st.button("🔁 원문 다시 추출", use_container_width=True, key="past_exam_reextract"):
+                try:
+                    if hasattr(uploaded_exam, "seek"):
+                        uploaded_exam.seek(0)
+                    st.session_state.past_exam_text = extract_text_from_file(
+                        uploaded_exam,
+                        enable_ocr=ocr_enabled,
+                        ocr_engine=ocr_engine,
+                        ocr_langs=ocr_langs,
+                        ocr_max_pages=ocr_max_pages,
+                        include_page_markers=True
+                    )
+                    st.session_state.past_exam_items = []
+                    st.session_state.past_exam_images = extract_images_from_pdf_bytes(uploaded_bytes)
+                    st.session_state.past_exam_anchors = extract_pdf_question_anchors(uploaded_bytes)
+                except Exception as e:
+                    st.error(f"❌ 원문 재추출 실패: {str(e)}")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -2854,12 +4331,165 @@ with tab_convert:
             key="past_exam_mode"
         )
 
+        st.markdown("**이미지 자동 연결**")
+        auto_attach = st.checkbox("문항에 이미지 자동 연결", value=True, key="auto_attach_images")
+        max_imgs = st.slider("문항당 최대 이미지 수", 0, 3, 1, key="auto_attach_max_images")
+        only_attach_keyword = st.checkbox("이미지 키워드가 있는 문항만 연결", value=True, key="auto_attach_keyword_only")
+
+        if file_ext == ".pdf":
+            attach_label = st.selectbox(
+                "자동 연결 방식",
+                ["레이아웃 기반(권장)", "OCR 기반(텍스트 포함 이미지)", "페이지 기반"],
+                index=0,
+                key="auto_attach_mode"
+            )
+            if attach_label.startswith("OCR"):
+                attach_strategy = "ocr"
+                ocr_img_limit = st.slider("OCR 이미지 개수 제한", 5, 80, 20, key="ocr_img_limit")
+                ocr_min_score = st.slider("매칭 기준(0~1)", 0.05, 0.6, 0.2, step=0.05, key="ocr_min_score")
+            elif attach_label.startswith("페이지"):
+                attach_strategy = "page"
+            else:
+                attach_strategy = "layout" if st.session_state.past_exam_anchors else "page"
+            use_ai_match = st.checkbox("AI 이미지 매칭(보정)", value=False, key="ai_match_images")
+            ai_match_limit = st.slider("AI 매칭 이미지 수", 1, 30, 8, key="ai_match_limit")
+        else:
+            attach_strategy = "sequential"
+
         st.text_area(
             "추출된 원문 (필요시 수정 가능)",
             value=st.session_state.past_exam_text,
             height=240,
             key="past_exam_text_area"
         )
+
+        with st.expander("🤖 AI 파서 (문항 분리/정제)", expanded=False):
+            st.caption("겹쳐진 문항을 분리하거나 주관식 문항을 구조화하고 싶을 때 사용합니다.")
+            ai_parse_limit = st.slider("최대 문항 수", 10, 200, 60, step=10, key="ai_parse_limit")
+            parse_mode_ai = st.radio("AI 파서 방식", ["전체 텍스트", "블록 분할"], horizontal=True, key="ai_parse_mode")
+            hint_text = st.text_area(
+                "문서 구조 힌트 (선택)",
+                value="",
+                placeholder="예: 2열 표 → 좌측 문항, 우측 정답/해설. 1열 표 → 문항→정답→해설 순서.",
+                key="ai_parse_hint"
+            )
+            if file_ext == ".pdf":
+                st.caption("PDF 레이아웃 파서는 2열(좌:문항/우:정답·해설) 또는 1열 구조에 최적화되어 있습니다.")
+                use_ai_layout = st.checkbox(
+                    "AI로 레이아웃 파서 실행(추천)",
+                    value=True,
+                    key="use_ai_layout_parser"
+                )
+                if st.button("📐 PDF 레이아웃 파서 실행", use_container_width=True, key="layout_parse_run"):
+                    with st.spinner("PDF 레이아웃 분석 중..."):
+                        layout_items = []
+                        if use_ai_layout:
+                            if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                                st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                            elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                                st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                            else:
+                                layout_items = parse_pdf_layout_ai(
+                                    uploaded_bytes,
+                                    ai_model=st.session_state.ai_model,
+                                    api_key=api_key,
+                                    openai_api_key=openai_api_key,
+                                    hint_text=hint_text
+                                )
+                        if not layout_items:
+                            layout_items = parse_pdf_layout(uploaded_bytes)
+                        if layout_items:
+                            if auto_attach and st.session_state.past_exam_images:
+                                layout_items = auto_attach_images_to_items(
+                                    layout_items,
+                                    st.session_state.past_exam_images,
+                                    strategy=attach_strategy,
+                                    max_per_question=max_imgs,
+                                    anchors=st.session_state.past_exam_anchors,
+                                    min_score=st.session_state.get("ocr_min_score", 0.2),
+                                    only_if_keyword=only_attach_keyword
+                                )
+                            if st.session_state.get("ai_match_images") and st.session_state.past_exam_images:
+                                layout_items = ai_match_images_to_items(
+                                    layout_items,
+                                    st.session_state.past_exam_images,
+                                    ai_model=st.session_state.get("ai_model", "🔵 Google Gemini"),
+                                    api_key=api_key,
+                                    openai_api_key=openai_api_key,
+                                    max_images=st.session_state.get("ai_match_limit", 8)
+                                )
+                            st.session_state.past_exam_items = layout_items
+                            st.success(f"레이아웃 파서 완료: {len(layout_items)}개 문항")
+                            st.rerun()
+                        else:
+                            st.warning("레이아웃 파서 결과가 비어있습니다. OCR 후 다시 시도하거나 AI 파서를 사용하세요.")
+            if parse_mode_ai == "블록 분할":
+                block_limit = st.slider("블록 처리 개수", 5, 200, 50, step=5, key="ai_block_limit")
+            if st.button("AI 파서로 재분할", use_container_width=True, key="ai_parse_run"):
+                if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                    st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                    st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                else:
+                    with st.spinner("AI 파서 실행 중..."):
+                        source_text = st.session_state.get("past_exam_text_area", "")
+                        if parse_mode_ai == "블록 분할":
+                            blocks = split_exam_blocks(source_text)
+                            ai_items = []
+                            raw_chunks = []
+                            for block in blocks[:block_limit]:
+                                item, raw = ai_parse_exam_block(
+                                    block,
+                                    ai_model=st.session_state.ai_model,
+                                    api_key=api_key,
+                                    openai_api_key=openai_api_key,
+                                    hint_text=hint_text,
+                                    return_raw=True
+                                )
+                                if raw:
+                                    raw_chunks.append(raw)
+                                if item:
+                                    ai_items.append(item)
+                            ai_items = clean_parsed_items(ai_items)
+                            st.session_state.ai_parse_raw = "\n\n---\n\n".join(raw_chunks)
+                        else:
+                            ai_items, raw = ai_parse_exam_text(
+                                source_text,
+                                ai_model=st.session_state.ai_model,
+                                api_key=api_key,
+                                openai_api_key=openai_api_key,
+                                max_items=ai_parse_limit,
+                                hint_text=hint_text,
+                                return_raw=True
+                            )
+                            st.session_state.ai_parse_raw = raw
+                        if ai_items:
+                            if auto_attach and st.session_state.past_exam_images:
+                                ai_items = auto_attach_images_to_items(
+                                    ai_items,
+                                    st.session_state.past_exam_images,
+                                    strategy=attach_strategy,
+                                    max_per_question=max_imgs,
+                                    anchors=st.session_state.past_exam_anchors,
+                                    min_score=st.session_state.get("ocr_min_score", 0.2)
+                                )
+                            st.session_state.past_exam_items = ai_items
+                            st.success(f"AI 파서 완료: {len(ai_items)}개 문항")
+                            st.rerun()
+                        else:
+                            st.warning("AI 파서 결과가 비어있습니다. 문서 구조 힌트를 더 구체적으로 입력하거나, 블록 분할 모드를 사용해보세요.")
+                            raw = st.session_state.get("ai_parse_raw", "")
+                            if raw:
+                                with st.expander("AI 파서 원문 결과(디버그)", expanded=False):
+                                    st.code(raw[:6000])
+
+        if st.session_state.past_exam_images:
+            with st.expander("🖼️ 추출된 이미지", expanded=False):
+                st.caption(f"총 {len(st.session_state.past_exam_images)}개 이미지")
+                cols = st.columns(4)
+                for i, img in enumerate(st.session_state.past_exam_images):
+                    with cols[i % 4]:
+                        st.image(img.get("data_uri"), caption=f"#{i + 1}")
 
         if st.button("🔎 변환 미리보기", use_container_width=True, key="past_exam_preview"):
             source_text = st.session_state.get("past_exam_text_area", "").strip()
@@ -2871,15 +4501,74 @@ with tab_convert:
                     if not items:
                         items = parse_generated_text_to_structured(source_text, "🧩 빈칸 뚫기 (Anki Cloze)")
                 elif parse_mode == "객관식(선지 기준)":
-                    items = [i for i in parse_exam_text_fuzzy(source_text) if i.get("type") == "mcq"]
+                    if file_ext == ".pdf":
+                        use_ai_layout = st.session_state.get("use_ai_layout_parser", True)
+                        if use_ai_layout and ((st.session_state.ai_model == "🔵 Google Gemini" and api_key) or (st.session_state.ai_model == "🟢 OpenAI ChatGPT" and openai_api_key)):
+                            items = [i for i in parse_pdf_layout_ai(
+                                uploaded_bytes,
+                                ai_model=st.session_state.ai_model,
+                                api_key=api_key,
+                                openai_api_key=openai_api_key,
+                                hint_text=st.session_state.get("ai_parse_hint", "")
+                            ) if i.get("type") == "mcq"]
+                        else:
+                            items = [i for i in parse_pdf_layout(uploaded_bytes) if i.get("type") == "mcq"]
+                    else:
+                        items = [i for i in parse_exam_text_fuzzy(source_text) if i.get("type") == "mcq"]
                     if not items:
                         items = parse_generated_text_to_structured(source_text, "📝 객관식 문제 (Case Study)")
                 else:
-                    items = parse_exam_text_fuzzy(source_text)
+                    if file_ext == ".pdf":
+                        use_ai_layout = st.session_state.get("use_ai_layout_parser", True)
+                        if use_ai_layout and ((st.session_state.ai_model == "🔵 Google Gemini" and api_key) or (st.session_state.ai_model == "🟢 OpenAI ChatGPT" and openai_api_key)):
+                            items = parse_pdf_layout_ai(
+                                uploaded_bytes,
+                                ai_model=st.session_state.ai_model,
+                                api_key=api_key,
+                                openai_api_key=openai_api_key,
+                                hint_text=st.session_state.get("ai_parse_hint", "")
+                            )
+                        else:
+                            items = parse_pdf_layout(uploaded_bytes)
+                    else:
+                        items = parse_exam_text_fuzzy(source_text)
+                    if not items:
+                        items = parse_exam_text_fuzzy(source_text)
                     if not items:
                         items = parse_generated_text_to_structured(source_text, "📝 객관식 문제 (Case Study)")
                         if not items:
                             items = parse_qa_to_cloze(source_text)
+                if items and auto_attach and st.session_state.past_exam_images:
+                    if attach_strategy == "ocr":
+                        st.session_state.past_exam_images = ocr_images_for_matching(
+                            st.session_state.past_exam_images,
+                            engine="easyocr",
+                            langs=("ko", "en"),
+                            max_images=st.session_state.get("ocr_img_limit", 20)
+                        )
+                    items = auto_attach_images_to_items(
+                        items,
+                        st.session_state.past_exam_images,
+                        strategy=attach_strategy,
+                        max_per_question=max_imgs,
+                        anchors=st.session_state.past_exam_anchors,
+                        min_score=st.session_state.get("ocr_min_score", 0.2),
+                        only_if_keyword=only_attach_keyword
+                    )
+                if items and st.session_state.get("ai_match_images") and st.session_state.past_exam_images:
+                    if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                        st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                    elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                        st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                    else:
+                        items = ai_match_images_to_items(
+                            items,
+                            st.session_state.past_exam_images,
+                            ai_model=st.session_state.get("ai_model", "🔵 Google Gemini"),
+                            api_key=api_key,
+                            openai_api_key=openai_api_key,
+                            max_images=st.session_state.get("ai_match_limit", 8)
+                        )
                 st.session_state.past_exam_items = items if items else []
 
         items = st.session_state.get("past_exam_items", [])
@@ -2898,11 +4587,130 @@ with tab_convert:
                         st.write(f"**정답:** {item_data.get('answer', '?')}")
                     st.divider()
 
+            with st.expander("🛠️ 문항 편집", expanded=False):
+                total_items = len(items)
+                if total_items > 0:
+                    start_idx = st.number_input("시작 문항", min_value=1, max_value=total_items, value=1, step=1, key="edit_start_idx")
+                    end_idx = st.number_input("끝 문항", min_value=start_idx, max_value=total_items, value=min(start_idx + 9, total_items), step=1, key="edit_end_idx")
+                    image_options = list(range(len(st.session_state.past_exam_images)))
+
+                    def image_label(i):
+                        img = st.session_state.past_exam_images[i]
+                        page = img.get("page")
+                        return f"#{i + 1} | p{page}" if page else f"#{i + 1}"
+
+                    for i in range(start_idx - 1, end_idx):
+                        item = items[i]
+                        with st.container():
+                            qnum_label = f"q{item.get('qnum')}" if item.get("qnum") else "q?"
+                            page_label = f"p{item.get('page')}" if item.get("page") else "p?"
+                            st.markdown(f"#### 문항 {i + 1} 편집 ({item.get('type')}) · {qnum_label} · {page_label}")
+                            item_type = st.selectbox(
+                                "유형",
+                                ["mcq", "cloze"],
+                                index=0 if item.get("type") == "mcq" else 1,
+                                key=f"edit_type_{i}"
+                            )
+                            if item_type == "mcq":
+                                st.text_area("문항", value=item.get("problem", ""), height=120, key=f"edit_problem_{i}")
+                                opts = item.get("options", [])
+                                st.text_area("선지 (한 줄에 하나)", value="\n".join(opts), height=140, key=f"edit_options_{i}")
+                                ans_default = int(item.get("answer", 1)) if str(item.get("answer", "")).isdigit() else 1
+                                st.selectbox("정답", [1, 2, 3, 4, 5], index=max(0, min(ans_default - 1, 4)), key=f"edit_answer_{i}")
+                            else:
+                                st.text_area("문항", value=item.get("front", ""), height=120, key=f"edit_front_{i}")
+                                st.text_input("정답", value=item.get("answer", ""), key=f"edit_answer_{i}")
+                            st.text_area("해설", value=item.get("explanation", ""), height=120, key=f"edit_expl_{i}")
+                            if image_options:
+                                current_images = item.get("images", [])
+                                current_indices = [idx for idx, img in enumerate(st.session_state.past_exam_images) if img.get("data_uri") in current_images]
+
+                                img_pages = sorted({img.get("page") for img in st.session_state.past_exam_images if img.get("page")})
+                                page_options = ["전체"] + [f"p{p}" for p in img_pages]
+                                page_filter = st.selectbox("이미지 페이지 필터", page_options, key=f"img_page_filter_{i}")
+                                per_page = st.slider("페이지당 이미지", 4, 24, 8, key=f"img_per_page_{i}")
+
+                                filtered_indices = []
+                                for idx_img, img in enumerate(st.session_state.past_exam_images):
+                                    page = img.get("page")
+                                    if page_filter != "전체":
+                                        wanted = int(page_filter.replace("p", ""))
+                                        if page != wanted:
+                                            continue
+                                    filtered_indices.append(idx_img)
+
+                                total_imgs = len(filtered_indices)
+                                total_pages = max(1, (total_imgs + per_page - 1) // per_page)
+                                page_idx = st.number_input("이미지 페이지", 1, total_pages, 1, key=f"img_page_idx_{i}")
+                                start = (page_idx - 1) * per_page
+                                end = start + per_page
+                                subset = filtered_indices[start:end]
+
+                                cols = st.columns(4)
+                                for j, idx_img in enumerate(subset):
+                                    img = st.session_state.past_exam_images[idx_img]
+                                    with cols[j % 4]:
+                                        st.image(img.get("data_uri"), width=140, caption=image_label(idx_img))
+                                        st.checkbox(
+                                            "선택",
+                                            value=idx_img in current_indices,
+                                            key=f"edit_img_{i}_{idx_img}"
+                                        )
+                            st.checkbox("이 문항 삭제", key=f"edit_delete_{i}")
+                            st.divider()
+
+                    if st.button("✅ 편집 내용 적용", use_container_width=True, key="apply_edits"):
+                        new_items = []
+                        for i in range(total_items):
+                            if st.session_state.get(f"edit_delete_{i}"):
+                                continue
+                            item = items[i]
+                            item_type = st.session_state.get(f"edit_type_{i}", item.get("type"))
+                            if item_type == "mcq":
+                                problem = st.session_state.get(f"edit_problem_{i}", item.get("problem", "")).strip()
+                                options_text = st.session_state.get(f"edit_options_{i}", "\n".join(item.get("options", [])))
+                                options = [o.strip() for o in options_text.splitlines() if o.strip()]
+                                answer = st.session_state.get(f"edit_answer_{i}", item.get("answer", 1))
+                                updated = {
+                                    **item,
+                                    "type": "mcq",
+                                    "problem": problem,
+                                    "options": options,
+                                    "answer": int(answer) if str(answer).isdigit() else 1,
+                                }
+                            else:
+                                front = st.session_state.get(f"edit_front_{i}", item.get("front", "")).strip()
+                                answer = st.session_state.get(f"edit_answer_{i}", item.get("answer", "")).strip()
+                                updated = {
+                                    **item,
+                                    "type": "cloze",
+                                    "front": front,
+                                    "answer": answer,
+                                }
+                            updated["explanation"] = st.session_state.get(f"edit_expl_{i}", item.get("explanation", "")).strip()
+                            if image_options:
+                                current_images = item.get("images", [])
+                                current_indices = [idx for idx, img in enumerate(st.session_state.past_exam_images) if img.get("data_uri") in current_images]
+                                sel_set = set(current_indices)
+                                for idx_img in image_options:
+                                    key = f"edit_img_{i}_{idx_img}"
+                                    if key in st.session_state:
+                                        if st.session_state.get(key):
+                                            sel_set.add(idx_img)
+                                        else:
+                                            sel_set.discard(idx_img)
+                                updated["images"] = [st.session_state.past_exam_images[idx]["data_uri"] for idx in sorted(sel_set)]
+                            new_items.append(updated)
+                        st.session_state.past_exam_items = new_items
+                        st.success("편집 내용이 반영되었습니다.")
+                        st.rerun()
+
             col_save, col_down = st.columns(2)
             with col_save:
                 if st.button("💾 문항 저장", use_container_width=True, key="past_exam_save"):
+                    current_items = st.session_state.get("past_exam_items", [])
                     added = add_questions_to_bank_auto(
-                        items,
+                        current_items,
                         subject=exam_subject,
                         unit=exam_unit,
                         quality_filter=enable_filter,
@@ -2937,8 +4745,16 @@ with tab_exam:
         col1, col2 = st.columns(2)
         with col1:
             mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=True)
-        with col2:
-            exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+            with col2:
+                exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+            st.session_state.image_display_width = st.slider(
+                "문항 이미지 크기(px)",
+                240,
+                900,
+                st.session_state.image_display_width,
+                step=20,
+                key="image_display_width_slider"
+            )
 
         questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
         subjects = get_unique_subjects(questions_all)
@@ -2972,55 +4788,59 @@ with tab_exam:
 
         if mode_choice == "학습모드":
             with st.expander("📅 FSRS 복습 큐", expanded=False):
-                if FSRS_AVAILABLE:
-                    stats = get_fsrs_stats(filtered_questions)
-                    if stats:
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("오늘 복습", stats["due"])
-                        with col2:
-                            st.metric("연체", stats["overdue"])
-                        with col3:
-                            st.metric("미래", stats["future"])
-                        with col4:
-                            st.metric("신규", stats["new"])
+                show_queue = st.checkbox("복습 큐 표시", value=False, key="show_fsrs_queue")
+                if show_queue:
+                    if FSRS_AVAILABLE:
+                        stats = get_fsrs_stats(filtered_questions)
+                        if stats:
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("오늘 복습", stats["due"])
+                            with col2:
+                                st.metric("연체", stats["overdue"])
+                            with col3:
+                                st.metric("미래", stats["future"])
+                            with col4:
+                                st.metric("신규", stats["new"])
 
-                    due_list = get_fsrs_queue(filtered_questions, limit=20)
-                    if not due_list:
-                        st.info("오늘 복습할 문항이 없습니다.")
+                        due_list = get_fsrs_queue(filtered_questions, limit=20)
+                        if not due_list:
+                            st.info("오늘 복습할 문항이 없습니다.")
+                        else:
+                            rows = []
+                            for q, due_time in due_list:
+                                snippet = (q.get("problem") or q.get("front") or "").strip()
+                                snippet = snippet[:80] + "..." if len(snippet) > 80 else snippet
+                                rows.append({
+                                    "분과": q.get("subject") or "General",
+                                    "문항": snippet,
+                                    "Due": due_time.isoformat()
+                                })
+                            st.dataframe(rows, use_container_width=True, hide_index=True)
                     else:
-                        rows = []
-                        for q, due_time in due_list:
-                            snippet = (q.get("problem") or q.get("front") or "").strip()
-                            snippet = snippet[:80] + "..." if len(snippet) > 80 else snippet
-                            rows.append({
-                                "분과": q.get("subject") or "General",
-                                "문항": snippet,
-                                "Due": due_time.isoformat()
-                            })
-                        st.dataframe(rows, use_container_width=True, hide_index=True)
-                else:
-                    due_list = [q for q in filtered_questions if simple_srs_due(q)]
-                    st.metric("오늘 복습", len(due_list))
-                    if not due_list:
-                        st.info("오늘 복습할 문항이 없습니다.")
+                        due_list = [q for q in filtered_questions if simple_srs_due(q)]
+                        st.metric("오늘 복습", len(due_list))
+                        if not due_list:
+                            st.info("오늘 복습할 문항이 없습니다.")
 
             with st.expander("📈 복습 리포트", expanded=False):
-                if FSRS_AVAILABLE:
-                    report = get_fsrs_report(filtered_questions)
-                    if report:
-                        st.metric("총 카드", report["total"])
-                        st.metric("최근 7일 리뷰 수", report["review_count_7d"])
-                        st.metric("평균 간격(일)", f"{report['avg_interval']:.1f}")
-                        if report["last_review"]:
-                            st.caption(f"마지막 리뷰: {report['last_review']}")
+                show_report = st.checkbox("리포트 표시", value=False, key="show_fsrs_report")
+                if show_report:
+                    if FSRS_AVAILABLE:
+                        report = get_fsrs_report(filtered_questions)
+                        if report:
+                            st.metric("총 카드", report["total"])
+                            st.metric("최근 7일 리뷰 수", report["review_count_7d"])
+                            st.metric("평균 간격(일)", f"{report['avg_interval']:.1f}")
+                            if report["last_review"]:
+                                st.caption(f"마지막 리뷰: {report['last_review']}")
 
-                        rating_rows = [{"평가": k, "건수": v} for k, v in report["rating_counts"].items()]
-                        st.dataframe(rating_rows, use_container_width=True, hide_index=True)
+                            rating_rows = [{"평가": k, "건수": v} for k, v in report["rating_counts"].items()]
+                            st.dataframe(rating_rows, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("리포트를 생성할 수 없습니다.")
                     else:
-                        st.info("리포트를 생성할 수 없습니다.")
-                else:
-                    st.info("기본 SRS 모드에서는 상세 리포트를 제공하지 않습니다.")
+                        st.info("기본 SRS 모드에서는 상세 리포트를 제공하지 않습니다.")
 
         if not filtered_questions:
             st.warning("선택한 조건에 해당하는 문제가 없습니다.")
@@ -3063,7 +4883,7 @@ with tab_exam:
                     "num_questions": len(parsed_selected),
                     "started_at": datetime.now(timezone.utc).isoformat()
                 }
-                st.rerun()
+                st.session_state.nav_select = 0
 
         # 시험/학습 진행
         if st.session_state.exam_started and st.session_state.exam_questions:
@@ -3241,6 +5061,8 @@ with tab_exam:
                     # 입력
                     if q.get('type') == 'mcq':
                         st.markdown(q.get('front', ''))
+                        if q.get("images"):
+                            st.image(q.get("images"), width=st.session_state.image_display_width)
 
                         st.markdown("**Select one option (A–E):**")
                         opts = q.get('options') or []
@@ -3265,11 +5087,6 @@ with tab_exam:
                             else:
                                 st.session_state.user_answers.pop(idx, None)
 
-                        # 기록 즉시 반영 (최초 1회)
-                        if q.get("id") and idx in st.session_state.user_answers and q.get("id") not in st.session_state.graded_questions:
-                            is_correct = is_answer_correct(q, st.session_state.user_answers.get(idx))
-                            update_question_stats(q["id"], is_correct)
-                            st.session_state.graded_questions.add(q.get("id"))
                         st.text_input(
                             "키보드 입력 (A-E 또는 1-5)",
                             key=f"shortcut_{idx}",
@@ -3283,14 +5100,12 @@ with tab_exam:
                             st.caption(f"📍 Your answer: {your_letter}")
                     else:
                         st.markdown(q.get('front', q.get('raw', '')))
+                        if q.get("images"):
+                            st.image(q.get("images"), width=st.session_state.image_display_width)
                         prev_text = st.session_state.user_answers.get(idx, "")
                         user_input = st.text_input("정답 입력 (한글/영문):", value=prev_text, key=f"cloze_{idx}")
                         if user_input:
                             st.session_state.user_answers[idx] = user_input
-                            if q.get("id") and q.get("id") not in st.session_state.graded_questions:
-                                is_correct = is_answer_correct(q, user_input)
-                                update_question_stats(q["id"], is_correct)
-                                st.session_state.graded_questions.add(q.get("id"))
 
                     # 문항 이동/미응답 (답안 반영 후 갱신)
                     answered_idx = set(st.session_state.user_answers.keys())
@@ -3309,7 +5124,6 @@ with tab_exam:
                     )
                     if nav_idx != idx:
                         st.session_state.current_question_idx = nav_idx
-                        st.rerun()
 
                     unanswered = [str(i + 1) for i in range(len(exam_qs)) if i not in answered_idx]
                     if unanswered:
@@ -3348,10 +5162,34 @@ with tab_exam:
                             if q.get("id") and q.get("id") not in st.session_state.graded_questions:
                                 update_question_stats(q["id"], is_correct)
                                 st.session_state.graded_questions.add(q.get("id"))
-                            if q.get("explanation"):
-                                show_exp = st.checkbox("해설 보기", value=st.session_state.explanation_default, key=f"learn_exp_{idx}")
-                                if show_exp:
-                                    st.markdown(format_explanation_text(q.get('explanation')))
+                            explanation_text = q.get("explanation") or q.get("rationale") or q.get("analysis") or ""
+                            show_exp = st.checkbox("해설 보기", value=st.session_state.explanation_default, key=f"learn_exp_{idx}")
+                            if show_exp:
+                                if explanation_text.strip():
+                                    st.markdown(format_explanation_text(explanation_text))
+                                else:
+                                    st.caption("해설이 없습니다.")
+                                    if st.button("AI 해설 생성", key=f"ai_exp_{idx}"):
+                                        if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                                            st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                        elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                                            st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                        else:
+                                            with st.spinner("AI 해설 생성 중..."):
+                                                text = generate_single_explanation_ai(
+                                                    q,
+                                                    ai_model=st.session_state.ai_model,
+                                                    api_key=api_key,
+                                                    openai_api_key=openai_api_key
+                                                )
+                                            if text:
+                                                q["explanation"] = text
+                                                if q.get("id"):
+                                                    update_question_explanation(q["id"], text)
+                                                st.success("해설이 생성되었습니다.")
+                                                st.markdown(format_explanation_text(text))
+                                            else:
+                                                st.warning("해설 생성 실패. 다시 시도해주세요.")
 
                             if q.get("id"):
                                 st.markdown("**복습 평가**")
