@@ -39,10 +39,16 @@ try:
 except Exception:
     FSRS_AVAILABLE = False
 
+FSRS_DEFAULT_PARAMETERS = (
+    0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001,
+    1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014,
+    1.8729, 0.5425, 0.0912, 0.0658, 0.1542,
+)
+
 # ============================================================================
 # 초기 설정
 # ============================================================================
-st.set_page_config(page_title="의대생 AI 튜터", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="MedTutor", page_icon="🧬", layout="wide")
 QUESTION_BANK_FILE = "questions.json"
 EXAM_HISTORY_FILE = "exam_history.json"
 USER_SETTINGS_FILE = "user_settings.json"
@@ -116,6 +122,8 @@ if "exam_history_saved" not in st.session_state:
     st.session_state.exam_history_saved = False
 if "obsidian_path" not in st.session_state:
     st.session_state.obsidian_path = ""
+if "gemini_model_id" not in st.session_state:
+    st.session_state.gemini_model_id = "gemini-2.5-flash"
 if "dual_exam_text" not in st.session_state:
     st.session_state.dual_exam_text = ""
 if "dual_exam_images" not in st.session_state:
@@ -275,6 +283,69 @@ def load_user_settings():
 def save_user_settings(data):
     with open(USER_SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_fsrs_settings():
+    data = load_user_settings()
+    default = {
+        "desired_retention": 0.9,
+        "learning_steps": [1, 10],
+        "relearning_steps": [10],
+        "maximum_interval": 36500,
+        "enable_fuzzing": True,
+        "parameters": list(FSRS_DEFAULT_PARAMETERS),
+    }
+    fsrs = data.get("fsrs_settings")
+    if not isinstance(fsrs, dict):
+        return default
+    merged = {**default, **fsrs}
+    return merged
+
+def save_fsrs_settings(settings):
+    data = load_user_settings()
+    data["fsrs_settings"] = settings
+    save_user_settings(data)
+
+def get_gemini_model_id():
+    return st.session_state.get("gemini_model_id") or "gemini-2.5-flash"
+
+def _steps_to_timedelta(steps):
+    out = []
+    for s in steps:
+        try:
+            val = int(s)
+            if val > 0:
+                out.append(timedelta(minutes=val))
+        except Exception:
+            continue
+    return tuple(out)
+
+def get_fsrs_scheduler():
+    if not FSRS_AVAILABLE:
+        return None
+    settings = load_fsrs_settings()
+    params = settings.get("parameters") or list(FSRS_DEFAULT_PARAMETERS)
+    try:
+        return Scheduler(
+            parameters=params,
+            desired_retention=float(settings.get("desired_retention", 0.9)),
+            learning_steps=_steps_to_timedelta(settings.get("learning_steps", [1, 10])),
+            relearning_steps=_steps_to_timedelta(settings.get("relearning_steps", [10])),
+            maximum_interval=int(settings.get("maximum_interval", 36500)),
+            enable_fuzzing=bool(settings.get("enable_fuzzing", True)),
+        )
+    except Exception:
+        return Scheduler()
+
+# FSRS settings -> session state (initialize once)
+if "fsrs_settings_initialized" not in st.session_state:
+    _fsrs_settings = load_fsrs_settings()
+    st.session_state.fsrs_settings_initialized = True
+    st.session_state.fsrs_desired_retention = _fsrs_settings.get("desired_retention", 0.9)
+    st.session_state.fsrs_learning_steps_text = ",".join(map(str, _fsrs_settings.get("learning_steps", [1, 10])))
+    st.session_state.fsrs_relearning_steps_text = ",".join(map(str, _fsrs_settings.get("relearning_steps", [10])))
+    st.session_state.fsrs_max_interval = _fsrs_settings.get("maximum_interval", 36500)
+    st.session_state.fsrs_enable_fuzzing = _fsrs_settings.get("enable_fuzzing", True)
+    st.session_state.fsrs_params_text = json.dumps(_fsrs_settings.get("parameters", list(FSRS_DEFAULT_PARAMETERS)))
 
 def apply_profile_settings(profile_name):
     data = load_user_settings()
@@ -2164,7 +2235,7 @@ def apply_fsrs_rating(q_id, rating):
                         card = Card()
                 else:
                     card = Card()
-                scheduler = Scheduler()
+                scheduler = get_fsrs_scheduler() or Scheduler()
                 card, log = scheduler.review_card(card, rating, now)
                 fsrs = item.get("fsrs") or {}
                 fsrs["card"] = card.to_json()
@@ -2489,7 +2560,7 @@ def ai_match_images_to_items(items, images, ai_model, api_key=None, openai_api_k
                 if not api_key:
                     continue
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel(get_gemini_model_id())
                 img_bytes = data_uri_to_bytes(img.get("data_uri", ""))
                 response = model.generate_content([prompt, img_bytes])
                 text = (response.text or "").strip()
@@ -2563,7 +2634,7 @@ def generate_explanations_ai(items, ai_model, api_key=None, openai_api_key=None,
                 if not api_key:
                     continue
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel(get_gemini_model_id())
                 response = model.generate_content(prompt)
                 text = (response.text or "").strip()
             else:
@@ -2584,12 +2655,14 @@ def generate_explanations_ai(items, ai_model, api_key=None, openai_api_key=None,
             continue
     return items
 
-def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=None):
+def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=None, return_error=False):
     if not item:
-        return ""
-    stem = item.get("problem") or item.get("front") or ""
-    opts = item.get("options") or []
+        return ("", "빈 문항") if return_error else ""
+    stem = item.get("problem") or item.get("front") or item.get("raw") or ""
+    opts = item.get("options") or item.get("choices") or []
     answer = item.get("answer")
+    if answer is None:
+        answer = item.get("correct")
     if item.get("type") == "mcq":
         prompt = (
             "다음 객관식 문제의 해설을 2~4문장으로 작성하세요. "
@@ -2608,14 +2681,15 @@ def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=
     try:
         if ai_model == "🔵 Google Gemini":
             if not api_key:
-                return ""
+                return ("", "Gemini API 키 없음") if return_error else ""
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(get_gemini_model_id())
             response = model.generate_content(prompt)
-            return (response.text or "").strip()
+            text = (response.text or "").strip()
+            return (text, "") if return_error else text
         else:
             if not openai_api_key:
-                return ""
+                return ("", "OpenAI API 키 없음") if return_error else ""
             client = OpenAI(api_key=openai_api_key)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -2623,9 +2697,10 @@ def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=
                 temperature=0.3,
                 max_tokens=300
             )
-            return (response.choices[0].message.content or "").strip()
-    except Exception:
-        return ""
+            text = (response.choices[0].message.content or "").strip()
+            return (text, "") if return_error else text
+    except Exception as e:
+        return ("", str(e)) if return_error else ""
 
 def update_question_explanation(q_id, explanation_text):
     if not q_id:
@@ -2693,7 +2768,7 @@ def ai_parse_exam_layout(left_text, right_text, ai_model, api_key=None, openai_a
             if not api_key:
                 return []
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(get_gemini_model_id())
             response = model.generate_content(prompt)
             raw = response.text or ""
         else:
@@ -2743,7 +2818,7 @@ def ai_parse_exam_text(text, ai_model, api_key=None, openai_api_key=None, max_it
             if not api_key:
                 return ([], "") if return_raw else []
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(get_gemini_model_id())
             response = model.generate_content(prompt + text[:30000])
             raw = response.text or ""
         else:
@@ -2793,7 +2868,7 @@ def ai_parse_exam_block(block_text, ai_model, api_key=None, openai_api_key=None,
             if not api_key:
                 return (None, "") if return_raw else None
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(get_gemini_model_id())
             response = model.generate_content(prompt + block_text[:15000])
             raw = response.text or ""
         else:
@@ -3320,7 +3395,7 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel(get_gemini_model_id())
         response = model.generate_content(f"{system_prompt}\n\n[강의록 내용]:\n{text_content[:30000]}")
         return response.text
     except Exception as e:
@@ -3525,6 +3600,11 @@ with st.sidebar:
     
     if st.session_state.ai_model == "🔵 Google Gemini":
         st.session_state.api_key = st.text_input("Gemini API Key 입력", type="password")
+        st.session_state.gemini_model_id = st.text_input(
+            "Gemini 모델 ID",
+            value=st.session_state.gemini_model_id,
+            help="예: gemini-2.0-flash, gemini-2.0-flash-lite"
+        )
         st.session_state.openai_api_key = None
     else:
         st.session_state.api_key = None
@@ -3594,8 +3674,8 @@ with tab_home:
 
     if not THEME_ENABLED:
         st.info("Safe mode: 커스텀 테마/히어로를 비활성화했습니다. 사이드바에서 '커스텀 테마 사용'을 켜면 적용됩니다.")
-        st.header("밤하늘처럼 맑은 의대 학습 흐름")
-        st.write("강의록과 기출문제를 연결해, 학습-시험-복습을 하나의 흐름으로 만듭니다.")
+        st.header("MedTutor")
+        st.write("강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.")
         st.write(f"전체 정답률: {acc_text}")
         st.write(f"저장된 객관식: {stats['total_text']} · 저장된 빈칸: {stats['total_cloze']}")
     else:
@@ -3604,9 +3684,9 @@ with tab_home:
             <div class="lamp-glow"></div>
             <div class="hero">
               <div>
-                <div class="pill">Milky Way Mode · 차분한 몰입</div>
-                <h1>밤하늘처럼 맑은<br/>의대 학습 흐름</h1>
-                <p>AMBOSS 스타일의 구조와 알렌의 서재처럼 고요한 몰입감. 강의록과 기출문제를 연결해, 학습-시험-복습을 하나의 흐름으로 만듭니다.</p>
+                <div class="pill">MedTutor</div>
+                <h1>MedTutor</h1>
+                <p>강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.</p>
                 <div class="hero-actions">
                   <div class="btn-primary">문제 생성 시작</div>
                   <div class="btn-outline">실전 시험 모드</div>
@@ -4823,6 +4903,91 @@ with tab_exam:
                         if not due_list:
                             st.info("오늘 복습할 문항이 없습니다.")
 
+            with st.expander("⚙️ FSRS 설정", expanded=False):
+                if not FSRS_AVAILABLE:
+                    st.info("FSRS 패키지가 설치되지 않아 설정을 사용할 수 없습니다.")
+                else:
+                    st.caption("FSRS 설정은 다음 복습부터 적용됩니다.")
+                    desired_retention = st.slider(
+                        "목표 기억 유지율",
+                        0.7,
+                        0.98,
+                        float(st.session_state.fsrs_desired_retention),
+                        0.01,
+                        key="fsrs_desired_retention_slider"
+                    )
+                    learning_steps_text = st.text_input(
+                        "학습 단계(분, 콤마)",
+                        value=st.session_state.fsrs_learning_steps_text,
+                        key="fsrs_learning_steps_input"
+                    )
+                    relearning_steps_text = st.text_input(
+                        "재학습 단계(분, 콤마)",
+                        value=st.session_state.fsrs_relearning_steps_text,
+                        key="fsrs_relearning_steps_input"
+                    )
+                    max_interval = st.number_input(
+                        "최대 간격(일)",
+                        min_value=30,
+                        max_value=365000,
+                        value=int(st.session_state.fsrs_max_interval),
+                        step=30,
+                        key="fsrs_max_interval_input"
+                    )
+                    enable_fuzzing = st.checkbox(
+                        "간격 랜덤화(Fuzzing) 사용",
+                        value=bool(st.session_state.fsrs_enable_fuzzing),
+                        key="fsrs_enable_fuzzing_input"
+                    )
+                    advanced = st.checkbox("고급: 파라미터 직접 입력", value=False, key="fsrs_params_toggle")
+                    params_text = None
+                    if advanced:
+                        params_text = st.text_area(
+                            "FSRS parameters (JSON 배열)",
+                            value=st.session_state.fsrs_params_text,
+                            height=120,
+                            key="fsrs_params_input"
+                        )
+                        st.caption("파라미터를 잘못 입력하면 기본값으로 동작합니다.")
+
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("✅ FSRS 설정 저장", use_container_width=True, key="fsrs_save_btn"):
+                            steps = [s.strip() for s in learning_steps_text.split(",") if s.strip()]
+                            relearn_steps = [s.strip() for s in relearning_steps_text.split(",") if s.strip()]
+                            try:
+                                params = json.loads(params_text) if advanced and params_text else list(FSRS_DEFAULT_PARAMETERS)
+                                if not isinstance(params, list) or len(params) < 10:
+                                    params = list(FSRS_DEFAULT_PARAMETERS)
+                            except Exception:
+                                params = list(FSRS_DEFAULT_PARAMETERS)
+                            settings = {
+                                "desired_retention": float(desired_retention),
+                                "learning_steps": [int(s) for s in steps if s.isdigit()],
+                                "relearning_steps": [int(s) for s in relearn_steps if s.isdigit()],
+                                "maximum_interval": int(max_interval),
+                                "enable_fuzzing": bool(enable_fuzzing),
+                                "parameters": params,
+                            }
+                            save_fsrs_settings(settings)
+                            st.session_state.fsrs_desired_retention = settings["desired_retention"]
+                            st.session_state.fsrs_learning_steps_text = ",".join(map(str, settings["learning_steps"]))
+                            st.session_state.fsrs_relearning_steps_text = ",".join(map(str, settings["relearning_steps"]))
+                            st.session_state.fsrs_max_interval = settings["maximum_interval"]
+                            st.session_state.fsrs_enable_fuzzing = settings["enable_fuzzing"]
+                            st.session_state.fsrs_params_text = json.dumps(settings["parameters"])
+                            st.success("FSRS 설정이 저장되었습니다.")
+                    with col_b:
+                        if st.button("↩️ 기본값으로 초기화", use_container_width=True, key="fsrs_reset_btn"):
+                            settings = load_fsrs_settings()
+                            st.session_state.fsrs_desired_retention = settings["desired_retention"]
+                            st.session_state.fsrs_learning_steps_text = ",".join(map(str, settings["learning_steps"]))
+                            st.session_state.fsrs_relearning_steps_text = ",".join(map(str, settings["relearning_steps"]))
+                            st.session_state.fsrs_max_interval = settings["maximum_interval"]
+                            st.session_state.fsrs_enable_fuzzing = settings["enable_fuzzing"]
+                            st.session_state.fsrs_params_text = json.dumps(settings["parameters"])
+                            st.success("FSRS 기본값으로 초기화했습니다.")
+
             with st.expander("📈 복습 리포트", expanded=False):
                 show_report = st.checkbox("리포트 표시", value=False, key="show_fsrs_report")
                 if show_report:
@@ -5176,11 +5341,12 @@ with tab_exam:
                                             st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
                                         else:
                                             with st.spinner("AI 해설 생성 중..."):
-                                                text = generate_single_explanation_ai(
+                                                text, err = generate_single_explanation_ai(
                                                     q,
                                                     ai_model=st.session_state.ai_model,
                                                     api_key=api_key,
-                                                    openai_api_key=openai_api_key
+                                                    openai_api_key=openai_api_key,
+                                                    return_error=True
                                                 )
                                             if text:
                                                 q["explanation"] = text
@@ -5189,7 +5355,10 @@ with tab_exam:
                                                 st.success("해설이 생성되었습니다.")
                                                 st.markdown(format_explanation_text(text))
                                             else:
-                                                st.warning("해설 생성 실패. 다시 시도해주세요.")
+                                                msg = f"해설 생성 실패. 다시 시도해주세요."
+                                                if err:
+                                                    msg += f" (에러: {err})"
+                                                st.warning(msg)
 
                             if q.get("id"):
                                 st.markdown("**복습 평가**")
