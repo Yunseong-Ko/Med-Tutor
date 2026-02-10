@@ -49,9 +49,21 @@ FSRS_DEFAULT_PARAMETERS = (
 # 초기 설정
 # ============================================================================
 st.set_page_config(page_title="MedTutor", page_icon="🧬", layout="wide")
-QUESTION_BANK_FILE = "questions.json"
-EXAM_HISTORY_FILE = "exam_history.json"
-USER_SETTINGS_FILE = "user_settings.json"
+
+def get_app_data_dir():
+    if getattr(sys, "frozen", False):
+        base = Path.home() / "MedTutor"
+        try:
+            base.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return base
+    return Path.cwd()
+
+DATA_DIR = get_app_data_dir()
+QUESTION_BANK_FILE = str(DATA_DIR / "questions.json")
+EXAM_HISTORY_FILE = str(DATA_DIR / "exam_history.json")
+USER_SETTINGS_FILE = str(DATA_DIR / "user_settings.json")
 def get_query_param(name, default=None):
     try:
         params = st.query_params

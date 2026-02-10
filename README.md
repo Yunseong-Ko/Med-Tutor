@@ -1,13 +1,13 @@
-# 🧬 Med-Tutor: 의대생 AI 튜터
+# 🧬 MedTutor: 의대생 학습 도우미
 
-방대한 의학 강의 자료를 AI가 자동으로 **시험 문제**와 **암기 카드(Anki)**로 변환해주는 도구입니다.
+의학 강의 자료를 AI가 자동으로 **시험 문제**와 **암기 카드(Anki)**로 변환해주는 도구입니다.
 
 ## 📋 핵심 기능
 
 ### 1️⃣ 멀티 포맷 지원
-- **PDF** (`PyMuPDF`)
-- **Word 문서** (`.docx`) - `python-docx`
-- **PowerPoint** (`.pptx`) - `python-pptx`
+- **PDF / DOCX / PPTX / TXT / TSV**
+- **HWP** (pyhwp + hwp5txt/hwp5odt)
+- **스캔 PDF OCR** (easyocr)
 
 ### 2️⃣ 이중 생성 모드
 
@@ -45,6 +45,7 @@ pip install -r requirements.txt
 
 1. [Google AI Studio](https://aistudio.google.com/app/apikey)에서 **API 키 생성**
 2. 키를 안전한 곳에 저장
+3. 사이드바에서 **Gemini 모델 ID**를 설정 (기본: `gemini-2.5-flash`)
 
 ### 4단계: 앱 실행
 
@@ -91,11 +92,13 @@ streamlit run app.py
 ## 🛠 기술 스택
 
 - **UI**: Streamlit
-- **AI Model**: Google Gemini 1.5 Flash
+- **AI Model**: Google Gemini (기본: `gemini-2.5-flash`) / OpenAI (선택)
 - **데이터 처리**:
   - PDF: PyMuPDF (`fitz`)
   - Word: python-docx
   - PowerPoint: python-pptx
+  - OCR: easyocr
+  - HWP: pyhwp
 
 ---
 
@@ -112,7 +115,7 @@ streamlit run app.py
 
 - **API 할당량**: 무료 계정의 경우 하루 최대 60요청 제한
 - **문서 크기**: 30,000 글자까지만 AI 분석 가능 (초과분은 자동 자름)
-- **텍스트 레이어**: 스캔된 이미지 PDF는 OCR 미지원
+- **텍스트 레이어**: 스캔된 이미지 PDF는 OCR 필요
 
 ---
 
@@ -137,4 +140,21 @@ MIT License
 ---
 
 **제작자**: Yunseong Ko (Noah)
-**마지막 업데이트**: 2026년 2월 8일
+**마지막 업데이트**: 2026년 2월 10일
+
+---
+
+## 📦 macOS DMG 패키징
+
+> 참고: Streamlit 앱은 기본적으로 웹 서버 형태입니다. DMG는 로컬 실행용 패키징입니다.
+
+```bash
+source venv/bin/activate
+python -m pip install pyinstaller
+
+# 런처로 앱 패키징
+pyinstaller --noconfirm --windowed --name MedTutor launcher.py --add-data "app.py:."
+
+# DMG 생성
+hdiutil create -volname "MedTutor" -srcfolder "dist/MedTutor.app" -ov -format UDZO "dist/MedTutor.dmg"
+```
