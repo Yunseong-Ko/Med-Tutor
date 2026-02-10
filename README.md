@@ -158,3 +158,11 @@ pyinstaller --noconfirm --windowed --name MedTutor launcher.py --add-data "app.p
 # DMG 생성
 hdiutil create -volname "MedTutor" -srcfolder "dist/MedTutor.app" -ov -format UDZO "dist/MedTutor.dmg"
 ```
+
+### 무료 실행 안내 (서명/공증 없이 실행)
+macOS에서 “확인되지 않은 개발자” 경고가 뜰 수 있습니다.  
+다음 순서로 실행하면 됩니다.
+
+1. Finder에서 `MedTutor.app` **우클릭 → 열기**
+2. 경고창에서 **열기** 클릭
+3. 이후부터는 정상 실행
