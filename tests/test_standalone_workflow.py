@@ -10,6 +10,7 @@ class StandaloneWorkflowTests(unittest.TestCase):
         wf = ROOT / ".github" / "workflows" / "build-standalone.yml"
         self.assertTrue(wf.exists(), "build-standalone workflow missing")
         text = wf.read_text(encoding="utf-8")
+        self.assertIn('python-version: "3.12"', text)
         self.assertIn("macos-latest", text)
         self.assertIn("windows-latest", text)
         self.assertIn("--collect-all streamlit", text)
