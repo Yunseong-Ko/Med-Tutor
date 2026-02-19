@@ -16,6 +16,9 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("--collect-all streamlit", text)
         self.assertIn("--copy-metadata streamlit", text)
         self.assertIn("--copy-metadata importlib_metadata", text)
+        self.assertIn("softprops/action-gh-release@v2", text)
+        self.assertIn("startsWith(github.ref, 'refs/tags/v')", text)
+        self.assertIn("actions/download-artifact@v4", text)
 
     def test_readme_mentions_python_free_distribution(self):
         readme = ROOT / "README.md"
@@ -23,6 +26,7 @@ class StandaloneWorkflowTests(unittest.TestCase):
         text = readme.read_text(encoding="utf-8")
         self.assertIn("Python 없이 실행하는 배포 방법", text)
         self.assertIn(".github/workflows/build-standalone.yml", text)
+        self.assertIn("releases/latest", text)
 
 
 if __name__ == "__main__":

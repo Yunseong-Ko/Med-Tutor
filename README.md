@@ -28,7 +28,8 @@
 
 이 방식이 가장 쉽습니다.
 
-1. 운영자에게 `MedTutor-macos` 또는 `MedTutor-windows` 배포 파일을 받습니다.
+1. 최신 배포 페이지에서 파일을 내려받습니다.
+- 링크: [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)
 2. 압축을 해제합니다.
 3. 운영체제에 맞는 파일을 실행합니다.
 - macOS: `MedTutor.app`
@@ -102,9 +103,9 @@
 
 ### 2) 사용자에게 배포
 
-1. GitHub Actions 실행 후 생성된 아티팩트를 다운로드합니다.
-2. 압축 해제 후 그대로 전달합니다.
-3. 사용자는 Python 설치 없이 앱 파일을 실행합니다.
+1. `v*` 태그 푸시 시 Actions가 빌드 후 Release 자산까지 자동 업로드합니다.
+2. 사용자는 [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)에서 OS별 압축 파일을 받습니다.
+3. 압축 해제 후 앱 파일을 실행합니다.
 
 ### 3) 참고
 
