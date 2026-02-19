@@ -1345,6 +1345,20 @@ def collect_subject_unit_map(questions):
         mapping.setdefault(subj, set()).add(unit)
     return {k: sorted(v) for k, v in mapping.items()}
 
+def collect_export_questions(questions, selected_subjects, unit_filter_by_subject, include_all_units=True, randomize=False, random_seed=None):
+    if include_all_units:
+        if selected_subjects:
+            items = filter_questions_by_subject(questions, selected_subjects)
+        else:
+            items = list(questions)
+    else:
+        items = filter_questions_by_subject_unit_hierarchy(questions, selected_subjects, unit_filter_by_subject)
+    out = list(items)
+    if randomize and len(out) > 1:
+        rng = random.Random(random_seed)
+        rng.shuffle(out)
+    return out
+
 
 def summarize_subject_review_status(questions):
     """분과별 복습 상태(복습대상/연체/단원 수) 요약"""
@@ -6010,15 +6024,35 @@ with tab_exam:
                     else:
                         st.info("기본 SRS 모드에서는 상세 리포트를 제공하지 않습니다.")
 
-        if filtered_questions:
+        if questions_all:
             with st.expander("📤 시험지/문제집 내보내기", expanded=False):
-                st.caption("현재 선택한 분과/단원 문항을 2열(DOCX) 형식으로 내보냅니다. 좌측: 문항, 우측: 정답/해설")
+                st.caption("선택한 분과 문항을 2열(DOCX) 형식으로 내보냅니다. 좌측: 문항, 우측: 정답/해설")
                 export_title_default = f"MedTutor_{exam_type}_문제집"
                 export_title = st.text_input("문서 제목", value=export_title_default, key="export_docx_title")
-                st.caption(f"내보내기 대상 문항: {len(filtered_questions)}개")
+                export_include_all_units = st.checkbox(
+                    "선택 분과 전체 문항 사용 (단원 필터 무시)",
+                    value=True,
+                    key="export_include_all_units"
+                )
+                export_randomize = st.checkbox("랜덤 배치 모드", value=False, key="export_randomize")
+                export_seed = None
+                if export_randomize:
+                    export_seed = st.number_input("랜덤 시드", min_value=0, value=42, step=1, key="export_random_seed")
+                export_candidates = collect_export_questions(
+                    questions_all,
+                    selected_subjects,
+                    unit_filter_by_subject,
+                    include_all_units=export_include_all_units,
+                    randomize=export_randomize,
+                    random_seed=export_seed
+                )
+                st.caption(f"내보내기 대상 문항: {len(export_candidates)}개")
                 if st.button("DOCX 생성", key="build_docx_export", use_container_width=True):
-                    st.session_state.export_docx_bytes = build_docx_question_sheet(filtered_questions, title=export_title)
-                    st.success("DOCX 생성 완료")
+                    if not export_candidates:
+                        st.warning("내보낼 문항이 없습니다. 분과/단원 선택을 확인해주세요.")
+                    else:
+                        st.session_state.export_docx_bytes = build_docx_question_sheet(export_candidates, title=export_title)
+                        st.success("DOCX 생성 완료")
                 if st.session_state.get("export_docx_bytes"):
                     st.download_button(
                         "📥 DOCX 다운로드",

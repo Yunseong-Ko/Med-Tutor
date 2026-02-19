@@ -24,6 +24,7 @@ class StreamlitCompatAndExportTests(unittest.TestCase):
         self.assertIn("def build_docx_question_sheet", text)
         self.assertIn("w:cantSplit", text)
         self.assertIn("📤 시험지/문제집 내보내기", text)
+        self.assertIn("랜덤 배치 모드", text)
 
 
 if __name__ == "__main__":
