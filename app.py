@@ -60,6 +60,14 @@ def _gemini_usage_tokens(response):
     if prompt_t is None and cand_t is None:
         return None
     return (prompt_t or 0) + (cand_t or 0)
+
+def _openai_usage_tokens(response):
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    if isinstance(usage, dict):
+        return usage.get("total_tokens", None)
+    return getattr(usage, "total_tokens", None)
 # Optional markdown renderer for Obsidian view
 try:
     import markdown as md
@@ -200,6 +208,18 @@ if "theme_bg" not in st.session_state:
     st.session_state.theme_bg = "Gradient"
 if "last_action_notice" not in st.session_state:
     st.session_state.last_action_notice = ""
+if "generation_failure" not in st.session_state:
+    st.session_state.generation_failure = ""
+if "generation_preview_items" not in st.session_state:
+    st.session_state.generation_preview_items = []
+if "generation_preview_mode" not in st.session_state:
+    st.session_state.generation_preview_mode = "📝 객관식 문제 (Case Study)"
+if "generation_preview_subject" not in st.session_state:
+    st.session_state.generation_preview_subject = "General"
+if "generation_preview_unit" not in st.session_state:
+    st.session_state.generation_preview_unit = "미분류"
+if "exam_mode_entry_anchor" not in st.session_state:
+    st.session_state.exam_mode_entry_anchor = ""
 if "heatmap_bins" not in st.session_state:
     st.session_state.heatmap_bins = [0, 1, 3, 6, 10]
 if "heatmap_colors" not in st.session_state:
@@ -408,19 +428,57 @@ if "fsrs_settings_initialized" not in st.session_state:
 def apply_profile_settings(profile_name):
     data = load_user_settings()
     prof = data.get(profile_name)
-    if not prof:
+    if not isinstance(prof, dict):
         return False
-    st.session_state.heatmap_bins = prof.get("heatmap_bins", st.session_state.heatmap_bins)
-    st.session_state.heatmap_colors = prof.get("heatmap_colors", st.session_state.heatmap_colors)
-    st.session_state.select_placeholder_exam = prof.get("select_placeholder_exam", st.session_state.select_placeholder_exam)
-    st.session_state.select_placeholder_study = prof.get("select_placeholder_study", st.session_state.select_placeholder_study)
+
+    default_bins = [0, 1, 3, 6, 10]
+    default_colors = ["#ffffff", "#d7f3f0", "#b2e9e3", "#7fd6cc", "#4fc1b6", "#1f8e86"]
+
+    bins = prof.get("heatmap_bins")
+    if isinstance(bins, list) and len(bins) >= 5:
+        try:
+            parsed_bins = [int(bins[i]) for i in range(5)]
+            if parsed_bins[0] != 0:
+                parsed_bins[0] = 0
+            valid = all(parsed_bins[i] < parsed_bins[i + 1] for i in range(4))
+            st.session_state.heatmap_bins = parsed_bins if valid else default_bins
+        except Exception:
+            st.session_state.heatmap_bins = default_bins
+    else:
+        st.session_state.heatmap_bins = default_bins
+
+    colors = prof.get("heatmap_colors")
+    if isinstance(colors, list) and len(colors) >= 6:
+        normalized_colors = []
+        for i in range(6):
+            color = colors[i]
+            if isinstance(color, str) and re.match(r"^#[0-9a-fA-F]{6}$", color):
+                normalized_colors.append(color)
+            else:
+                normalized_colors.append(default_colors[i])
+        st.session_state.heatmap_colors = normalized_colors
+    else:
+        st.session_state.heatmap_colors = default_colors
+
+    st.session_state.select_placeholder_exam = str(
+        prof.get("select_placeholder_exam", st.session_state.select_placeholder_exam)
+    )
+    st.session_state.select_placeholder_study = str(
+        prof.get("select_placeholder_study", st.session_state.select_placeholder_study)
+    )
     return True
 
 def persist_profile_settings(profile_name):
     data = load_user_settings()
+    safe_bins = st.session_state.heatmap_bins
+    safe_colors = st.session_state.heatmap_colors
+    if not (isinstance(safe_bins, list) and len(safe_bins) >= 5):
+        safe_bins = [0, 1, 3, 6, 10]
+    if not (isinstance(safe_colors, list) and len(safe_colors) >= 6):
+        safe_colors = ["#ffffff", "#d7f3f0", "#b2e9e3", "#7fd6cc", "#4fc1b6", "#1f8e86"]
     data[profile_name] = {
-        "heatmap_bins": st.session_state.heatmap_bins,
-        "heatmap_colors": st.session_state.heatmap_colors,
+        "heatmap_bins": safe_bins[:5],
+        "heatmap_colors": safe_colors[:6],
         "select_placeholder_exam": st.session_state.select_placeholder_exam,
         "select_placeholder_study": st.session_state.select_placeholder_study,
     }
@@ -929,6 +987,22 @@ def update_question_note(q_id, note_text):
                 return True
     return False
 
+def update_question_by_id(q_id, patch):
+    if not q_id or not isinstance(patch, dict):
+        return False
+    bank = load_questions()
+    for key in ("text", "cloze"):
+        for item in bank.get(key, []):
+            if item.get("id") == q_id:
+                allowed = {
+                    "subject", "unit", "problem", "options", "answer", "front",
+                    "explanation", "difficulty", "note", "image"
+                }
+                item.update({k: v for k, v in patch.items() if k in allowed})
+                save_questions(bank)
+                return True
+    return False
+
 def delete_mcq_by_ids(ids):
     if not ids:
         return 0
@@ -1157,6 +1231,128 @@ def filter_questions_by_subject_unit(questions, selected_subjects, selected_unit
         filtered.append(q)
     return filtered
 
+def filter_questions_by_subject_unit_hierarchy(questions, selected_subjects, unit_filter_by_subject):
+    """분과 단위 계층 필터(과목별 단원 선택)"""
+    if not questions:
+        return []
+    if not selected_subjects:
+        return []
+    out = []
+    for q in questions:
+        subj = q.get("subject") or "General"
+        if subj not in selected_subjects:
+            continue
+        unit = get_unit_name(q)
+        allowed_units = unit_filter_by_subject.get(subj)
+        if not allowed_units:
+            continue
+        if unit in allowed_units:
+            out.append(q)
+    return out
+
+def collect_subject_unit_map(questions):
+    """분과별 단원 목록 생성"""
+    mapping = {}
+    for q in questions:
+        subj = q.get("subject") or "General"
+        unit = get_unit_name(q)
+        mapping.setdefault(subj, set()).add(unit)
+    return {k: sorted(v) for k, v in mapping.items()}
+
+
+def summarize_subject_review_status(questions):
+    """분과별 복습 상태(복습대상/연체/단원 수) 요약"""
+    if not questions:
+        return []
+    now = datetime.now(timezone.utc)
+
+    # 오답문항(통계 기반)
+    wrong_by_subject = {}
+    for q in questions:
+        subj = q.get("subject") or "General"
+        if int((q.get("stats") or {}).get("wrong", 0)) > 0:
+            wrong_by_subject[subj] = wrong_by_subject.get(subj, 0) + 1
+
+    if FSRS_AVAILABLE:
+        rows = fsrs_group_report(questions, "subject", now=now)
+        out = []
+        for row in rows:
+            subject_name = row.get("그룹") or "General"
+            out.append({
+                "분과": subject_name,
+                "총문항": row.get("total", 0),
+                "복습대상": row.get("due", 0),
+                "연체": row.get("overdue", 0),
+                "미래": row.get("future", 0),
+                "신규": row.get("new", 0),
+                "오답문항": wrong_by_subject.get(subject_name, 0),
+            })
+        return sorted(out, key=lambda x: (x["복습대상"], x["총문항"]), reverse=True)
+
+    summary = {}
+    for q in questions:
+        subj = q.get("subject") or "General"
+        row = summary.setdefault(subj, {"분과": subj, "총문항": 0, "복습대상": 0, "연체": 0, "미래": 0, "신규": 0})
+        row["총문항"] += 1
+
+        due_at = (q.get("srs") or {}).get("due")
+        try:
+            if due_at:
+                due_dt = datetime.fromisoformat(str(due_at).replace("Z", "+00:00"))
+                if due_dt.tzinfo is None:
+                    due_dt = due_dt.replace(tzinfo=timezone.utc)
+                if due_dt <= now:
+                    row["복습대상"] += 1
+            else:
+                row["복습대상"] += 1
+        except Exception:
+            # 파싱 실패 시 기본적으로 복습 대상 처리(사용자에게 노출용으로는 안전한 기본값)
+            row["복습대상"] += 1
+
+        row["오답문항"] = wrong_by_subject.get(subj, row.get("오답문항", 0))
+    # 기본 SRS는 연체/미래/신규를 따로 추적하지 않음
+    return sorted(summary.values(), key=lambda x: (x["복습대상"], x["총문항"]), reverse=True)
+
+def build_exam_payload(raw_items, exam_type):
+    """문항 목록을 시험 진행용 payload로 변환"""
+    parsed = []
+    for raw in raw_items:
+        if exam_type == "객관식":
+            parsed_item = parse_mcq_content(raw)
+        else:
+            parsed_item = parse_cloze_content(raw)
+        if parsed_item:
+            parsed.append(parsed_item)
+    return parsed
+
+def start_exam_session_from_items(raw_items, exam_type, mode):
+    """문항 리스트로 시험/학습 세션을 즉시 시작"""
+    parsed = build_exam_payload(raw_items, exam_type)
+    if not parsed:
+        return 0
+    st.session_state.exam_questions = parsed
+    st.session_state.current_question_idx = 0
+    st.session_state.user_answers = {}
+    st.session_state.exam_started = True
+    st.session_state.exam_finished = False
+    st.session_state.exam_mode = mode
+    st.session_state.exam_type = exam_type
+    st.session_state.auto_next = False
+    st.session_state.auto_advance_guard = None
+    st.session_state.revealed_answers = set()
+    st.session_state.exam_stats_applied = False
+    st.session_state.graded_questions = set()
+    st.session_state.exam_history_saved = False
+    st.session_state.current_exam_meta = {
+        "mode": mode,
+        "type": exam_type,
+        "subjects": sorted({(q.get("subject") or "General") for q in raw_items}),
+        "units": sorted({get_unit_name(q) for q in raw_items}),
+        "num_questions": len(parsed),
+        "started_at": datetime.now(timezone.utc).isoformat()
+    }
+    return len(parsed)
+
 def normalize_mcq_item(item):
     if not isinstance(item, dict):
         return None
@@ -1248,6 +1444,63 @@ def format_explanation_text(text):
         if len(parts) > 1:
             return "\n".join([f"- {p}" for p in parts])
     return text
+
+
+def _to_markdown_table(rows):
+    """pyarrow 의존성 없이 간단한 표 렌더링."""
+    if not rows:
+        st.caption("표시할 데이터가 없습니다.")
+        return
+    if hasattr(rows, "to_dict"):
+        try:
+            rows = rows.to_dict(orient="records")
+        except Exception:
+            rows = list(rows)
+    if not isinstance(rows, list):
+        rows = list(rows)
+    if not rows:
+        st.caption("표시할 데이터가 없습니다.")
+        return
+
+    first = rows[0]
+    if not isinstance(first, dict):
+        try:
+            rows = [dict(item) for item in rows]
+        except Exception:
+            st.caption("표 형식 변환에 실패했습니다.")
+            return
+
+    if not rows:
+        st.caption("표시할 데이터가 없습니다.")
+        return
+
+    headers = list(rows[0].keys())
+
+    def _fmt(v):
+        if v is None:
+            return ""
+        if isinstance(v, (list, tuple)):
+            return ", ".join([str(x) for x in v])
+        return str(v).replace("|", "\\|").replace("\n", "<br>")
+
+    header_line = "| " + " | ".join(headers) + " |\n"
+    sep_line = "|" + "|".join([" --- " for _ in headers]) + "| \n"
+    body_lines = []
+    for row in rows:
+        vals = [_fmt(row.get(h, "")) for h in headers]
+        body_lines.append("| " + " | ".join(vals) + " |")
+    table = header_line + sep_line + "\n".join(body_lines)
+    st.markdown(table)
+
+
+def safe_dataframe(data, fallback_to_markdown=True, *args, **kwargs):
+    """Use st.dataframe when available, fallback to markdown table if it fails."""
+    try:
+        return st.dataframe(data, *args, **kwargs)
+    except Exception:
+        if not fallback_to_markdown:
+            raise
+        _to_markdown_table(data)
 
 def _is_option_line(line):
     if re.match(r"^\s*[①②③④⑤]", line):
@@ -2043,6 +2296,22 @@ def show_action_notice():
         st.success(msg)
         st.session_state.last_action_notice = ""
 
+def render_generation_recovery_panel():
+    if not st.session_state.get("generation_failure"):
+        return
+    with st.container(border=True):
+        st.markdown("### ⚠️ 문제 생성 실패")
+        st.error(st.session_state.generation_failure)
+        st.caption("아래 버튼으로 바로 복구/초기화를 할 수 있습니다.")
+        colr1, colr2 = st.columns(2)
+        with colr1:
+            if st.button("🔁 동일 조건 재실행", use_container_width=True, key="failure_retry_btn"):
+                st.session_state.generation_failure = ""
+                st.rerun()
+        with colr2:
+            if st.button("🧹 알림 지우기", use_container_width=True, key="failure_clear_btn"):
+                st.session_state.generation_failure = ""
+
 def render_obsidian_html(content):
     if MARKDOWN_AVAILABLE:
         html = md.markdown(content, extensions=["fenced_code", "tables"])
@@ -2736,7 +3005,7 @@ def generate_explanations_ai(items, ai_model, api_key=None, openai_api_key=None,
                     "prompt_hash": _hash_text(prompt),
                     "prompt_text": prompt,
                     "output_text": text,
-                    "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+                    "usage_tokens": _openai_usage_tokens(response),
                     "prompt_version": PROMPT_VERSION,
                 })
             if text:
@@ -2813,7 +3082,7 @@ def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=
                 "prompt_hash": _hash_text(prompt),
                 "prompt_text": prompt,
                 "output_text": text,
-                "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+                "usage_tokens": _openai_usage_tokens(response),
                 "prompt_version": PROMPT_VERSION,
             })
             return (text, "") if return_error else text
@@ -3592,7 +3861,7 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
             "prompt_text": prompt_text,
             "input_hash": _hash_text(text_content[:30000]),
             "output_text": result,
-            "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+            "usage_tokens": _openai_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
         })
         return result
@@ -3744,6 +4013,7 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
 # 사이드바 설정
 # ============================================================================
 with st.sidebar:
+    render_generation_recovery_panel()
     st.header("⚙️ 설정 & 모드")
     
     st.session_state.ai_model = st.radio(
@@ -3874,12 +4144,114 @@ with tab_home:
             unsafe_allow_html=True
         )
 
+    with st.expander("🔐 초기 이용자용: API 키 발급 가이드", expanded=False):
+        st.caption("문항 생성/변환/AI 보조 기능은 아래 모델 키가 필요합니다.")
+        key_tabs = st.tabs(["Google Gemini", "OpenAI"])
+        with key_tabs[0]:
+            st.markdown(
+                """
+                1. [Google AI Studio](https://aistudio.google.com/app/apikey) 접속
+                2. Google 계정 로그인 후 **Create API key** 클릭
+                3. API 키 복사 후 앱 사이드바의 **Gemini API Key 입력**에 붙여넣기
+                4. 모델은 `gemini-2.0-flash` 또는 `gemini-2.5-flash` 사용
+                """
+            )
+            st.info("팁: 키는 환경변수/시크릿 관리 도구 대신 앱 세션에만 임시 저장됩니다. 브라우저 세션이 바뀌면 다시 입력해 주세요.")
+        with key_tabs[1]:
+            st.markdown(
+                """
+                1. [OpenAI API keys](https://platform.openai.com/api-keys) 접속
+                2. 계정 로그인 후 **Create new secret key** 클릭
+                3. key를 복사해 사이드바의 **OpenAI API Key 입력**에 붙여넣기
+                4. 모델은 기본 `gpt-4o-mini`(권장) 또는 프로젝트에서 지정한 모델과 일치하도록 설정
+                """
+            )
+            st.info("OpenAI 키는 사용량 과금이 발생할 수 있으니 프로젝트 단가/할당량을 먼저 확인하세요.")
+
+    # 홈에서 바로 시험/학습 세션 준비
+    st.markdown("---")
+    st.subheader("빠른 시작 (분과/단원)")
+    if all_questions:
+        quick_subject_unit_map = collect_subject_unit_map(all_questions)
+        quick_subjects_all = sorted(quick_subject_unit_map.keys())
+        quick_subjects = st.multiselect(
+            "학습할 분과",
+            quick_subjects_all,
+            default=quick_subjects_all[:1],
+            key="home_quick_subjects",
+        )
+
+        quick_unit_filter = {}
+        if quick_subjects:
+            with st.expander("단원 선택", expanded=True):
+                for subj in quick_subjects:
+                    units = quick_subject_unit_map.get(subj, ["미분류"])
+                    if not units:
+                        units = ["미분류"]
+                    key_name = f"home_unit_filter_{subj}"
+                    prev_units = st.session_state.get(key_name, units)
+                    selected_units = st.multiselect(
+                        f"{subj} 단원",
+                        options=units,
+                        default=prev_units if set(prev_units) <= set(units) else units,
+                        key=key_name,
+                    )
+                    if not selected_units:
+                        selected_units = list(units)
+                    quick_unit_filter[subj] = selected_units
+        else:
+            st.caption("분과를 먼저 선택하면 단원 체크박스가 나타납니다.")
+
+        quick_mode = st.radio("모드", ["시험모드", "학습모드"], horizontal=True, key="home_quick_mode")
+        quick_type = st.selectbox("문항 유형", ["객관식", "빈칸"], key="home_quick_type")
+
+        filtered = filter_questions_by_subject_unit_hierarchy(all_questions, quick_subjects, quick_unit_filter)
+        if filtered:
+            quick_max = min(50, len(filtered))
+            quick_min = 1 if quick_max < 5 else 5
+            quick_num = st.slider("문항 수", quick_min, quick_max, min(10, quick_max), key="home_quick_num")
+            if st.button("선택 조건으로 세션 준비", use_container_width=True, key="home_quick_prepare"):
+                started = start_exam_session_from_items(filtered[:quick_num], quick_type, quick_mode)
+                if started:
+                    st.session_state.exam_mode_entry_anchor = "home"
+                    st.session_state.last_action_notice = f"홈에서 {started}개 문항으로 {quick_mode}를 준비했습니다. 실전 시험 탭으로 이동해 시작하세요."
+                    st.rerun()
+                else:
+                    st.warning("선택한 타입에 맞는 문항이 없습니다. 문항 유형(객관식/빈칸)을 다시 확인해 주세요.")
+        else:
+            st.info("선택한 분과/단원에 해당하는 문항이 없습니다.")
+    else:
+        st.info("문항이 없습니다. 먼저 문제를 생성/변환해 저장해 주세요.")
+
     # 통계
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("저장된 객관식", stats["total_text"])
     with col2:
         st.metric("저장된 빈칸", stats["total_cloze"])
+    with col3:
+        st.metric("전체 문항 정답률", acc_text)
+
+    st.markdown("---")
+    st.subheader("분과/단원 한눈에 보기")
+    if all_questions:
+        subject_overview = summarize_subject_review_status(all_questions)
+        subject_unit_map = collect_subject_unit_map(all_questions)
+        subject_rows = []
+        for row in subject_overview:
+            subj = row.get("분과", "General")
+            units = subject_unit_map.get(subj, [])
+            unit_text = ", ".join(units[:3]) + (" ..." if len(units) > 3 else "")
+            subject_rows.append({
+                "분과": subj,
+                "총문항": row.get("총문항", 0),
+                "복습대상": row.get("복습대상", 0),
+                "오답문항": row.get("오답문항", 0),
+                "연관 단원": unit_text,
+            })
+        safe_dataframe(subject_rows, use_container_width=True, hide_index=True)
+    else:
+        st.info("저장된 문항이 없습니다. 먼저 문제를 생성/변환해보세요.")
 
     st.markdown("---")
     st.subheader("학습 대시보드")
@@ -3946,16 +4318,11 @@ with tab_home:
     # FSRS / SRS 상태
     st.caption(f"복습 엔진: {'FSRS' if FSRS_AVAILABLE else '기본 SRS'}")
 
-    if FSRS_AVAILABLE and all_questions:
-        with st.expander("📊 FSRS 분과/난이도 리포트", expanded=False):
-            subject_rows = fsrs_group_report(all_questions, "subject")
+    if all_questions:
+        with st.expander("📊 분과별 복습 큐(기본 화면)", expanded=False):
+            subject_rows = summarize_subject_review_status(all_questions)
             if subject_rows:
-                st.markdown("**분과별**")
-                st.dataframe(subject_rows, use_container_width=True, hide_index=True)
-            difficulty_rows = fsrs_group_report(all_questions, "difficulty")
-            if difficulty_rows:
-                st.markdown("**난이도별**")
-                st.dataframe(difficulty_rows, use_container_width=True, hide_index=True)
+                safe_dataframe(subject_rows, use_container_width=True, hide_index=True)
     elif not FSRS_AVAILABLE:
         st.info("FSRS 미설치: 기본 SRS로 동작 중입니다.")
 
@@ -4086,6 +4453,20 @@ with tab_home:
                 filtered.append(q)
             filtered = filtered[:200]
 
+            def _fallback_mcq_multiselect():
+                id_to_q = {q.get("id"): q for q in filtered if q.get("id")}
+                options = list(id_to_q.keys())
+
+                def format_item(qid):
+                    q = id_to_q.get(qid) or {}
+                    subj_name = q.get("subject") or "General"
+                    title = (q.get("problem") or "")[:80]
+                    return f"{qid[:8]} | {subj_name} | {title}"
+
+                selected_ids = st.multiselect("개별 문항 선택", options, format_func=format_item)
+                return selected_ids
+
+            selected_ids = []
             if hasattr(st, "data_editor"):
                 rows = []
                 for q in filtered:
@@ -4098,30 +4479,25 @@ with tab_home:
                         "분과": q.get("subject") or "General",
                         "문항": (q.get("problem") or "")[:120],
                     })
-                edited = st.data_editor(
-                    rows,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "id": st.column_config.TextColumn("ID", width="small"),
-                        "분과": st.column_config.TextColumn("분과", width="small"),
-                        "문항": st.column_config.TextColumn("문항", width="large"),
-                    },
-                    disabled=["id", "분과", "문항"],
-                    key="mcq_delete_editor"
-                )
-                selected_ids = [r["id"] for r in edited if r.get("선택")]
+                try:
+                    edited = st.data_editor(
+                        rows,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "id": st.column_config.TextColumn("ID", width="small"),
+                            "분과": st.column_config.TextColumn("분과", width="small"),
+                            "문항": st.column_config.TextColumn("문항", width="large"),
+                        },
+                        disabled=["id", "분과", "문항"],
+                        key="mcq_delete_editor"
+                    )
+                    selected_ids = [r["id"] for r in edited if r.get("선택")]
+                except Exception:
+                    st.warning("데이터 에디터를 사용할 수 없어 목록 방식으로 대체합니다.")
+                    selected_ids = _fallback_mcq_multiselect()
             else:
-                id_to_q = {q.get("id"): q for q in filtered if q.get("id")}
-                options = list(id_to_q.keys())
-
-                def format_item(qid):
-                    q = id_to_q.get(qid) or {}
-                    subj_name = q.get("subject") or "General"
-                    title = (q.get("problem") or "")[:80]
-                    return f"{qid[:8]} | {subj_name} | {title}"
-
-                selected_ids = st.multiselect("개별 문항 선택", options, format_func=format_item)
+                selected_ids = _fallback_mcq_multiselect()
 
             confirm_sel = st.checkbox("개별 삭제 확인", key="confirm_item_delete")
             if selected_ids:
@@ -4148,6 +4524,114 @@ with tab_home:
             else:
                 st.caption("세트 정보가 없습니다.")
 
+    with st.expander("🛠️ 문항 개별 수정", expanded=False):
+        bank_edit = load_questions()
+        edit_type = st.radio(
+            "문항 유형",
+            ["객관식", "빈칸"],
+            horizontal=True,
+            key="edit_question_type",
+        )
+        source = bank_edit["text"] if edit_type == "객관식" else bank_edit["cloze"]
+        if not source:
+            st.info("수정 가능한 문항이 없습니다.")
+        else:
+            subjects = sorted({(q.get("subject") or "General") for q in source})
+            subject_filter = st.selectbox("분과 필터", ["전체"] + subjects, key="edit_subject_filter")
+            unit_filter = st.selectbox(
+                "단원 필터",
+                ["전체"] + sorted({(q.get("unit") or "미분류") for q in source if (q.get("subject") or "General") == subject_filter or subject_filter == "전체"}),
+                key="edit_unit_filter"
+            )
+            keyword = st.text_input("문항 검색", value="", key="edit_keyword")
+
+            candidates = []
+            for q in source:
+                if subject_filter != "전체" and (q.get("subject") or "General") != subject_filter:
+                    continue
+                if unit_filter != "전체" and (q.get("unit") or "미분류") != unit_filter:
+                    continue
+                text = q.get("problem") if edit_type == "객관식" else q.get("front", "")
+                if keyword and keyword.lower() not in (text or "").lower():
+                    continue
+                candidates.append(q)
+
+            if not candidates:
+                st.info("필터 조건에 맞는 문항이 없습니다.")
+            else:
+                id_to_q = {q.get("id"): q for q in candidates if q.get("id")}
+
+                def _format_question(qid):
+                    q = id_to_q.get(qid) or {}
+                    stem = (q.get("problem") if edit_type == "객관식" else q.get("front", "")) or ""
+                    return f"{qid[:8]} | {(q.get('subject') or 'General')} | {(q.get('unit') or '미분류')} | {stem[:60]}"
+
+                selected_id = st.selectbox(
+                    "수정할 문항",
+                    options=list(id_to_q.keys()),
+                    format_func=_format_question,
+                    key="selected_question_to_edit"
+                )
+                selected = id_to_q.get(selected_id)
+                if selected:
+                    st.markdown(f"**문항 ID:** `{selected_id}`")
+                    edited_subject = st.text_input("과목", value=selected.get("subject") or "General", key=f"edit_subject_{selected_id}")
+                    edited_unit = st.text_input("단원", value=selected.get("unit") or "미분류", key=f"edit_unit_{selected_id}")
+                    edited_difficulty = st.text_input("난이도", value=selected.get("difficulty") or "", key=f"edit_difficulty_{selected_id}")
+                    if edit_type == "객관식":
+                        edited_problem = st.text_area("문항", value=selected.get("problem", ""), height=180, key=f"edit_problem_{selected_id}")
+                        edited_options_raw = st.text_area(
+                            "선지 (줄바꿈 구분)",
+                            value="\n".join(selected.get("options") or []),
+                            height=160,
+                            key=f"edit_options_{selected_id}"
+                        )
+                        edited_answer = st.number_input(
+                            "정답 번호(1~5)",
+                            min_value=1,
+                            max_value=max(1, len([l for l in (selected.get('options') or [])])),
+                            value=int(selected.get("answer") or 1),
+                            step=1,
+                            key=f"edit_answer_{selected_id}"
+                        )
+                    else:
+                        edited_problem = st.text_area("문항", value=selected.get("front", ""), height=180, key=f"edit_front_{selected_id}")
+                        edited_answer = st.text_area("정답", value=selected.get("answer", ""), height=80, key=f"edit_answer_cloze_{selected_id}")
+                    edited_explanation = st.text_area(
+                        "해설",
+                        value=selected.get("explanation", ""),
+                        height=120,
+                        key=f"edit_explanation_{selected_id}"
+                    )
+                    edited_note = st.text_area(
+                        "메모",
+                        value=selected.get("note", ""),
+                        height=80,
+                        key=f"edit_note_{selected_id}"
+                    )
+
+                    if st.button("문항 수정 저장", use_container_width=True, key="save_question_edit"):
+                        patch = {
+                            "subject": edited_subject,
+                            "unit": edited_unit,
+                            "difficulty": edited_difficulty,
+                            "explanation": edited_explanation,
+                            "note": edited_note
+                        }
+                        if edit_type == "객관식":
+                            options_lines = [s.strip() for s in edited_options_raw.splitlines() if s.strip()]
+                            patch["problem"] = edited_problem
+                            patch["options"] = options_lines
+                            patch["answer"] = int(edited_answer)
+                        else:
+                            patch["front"] = edited_problem
+                            patch["answer"] = edited_answer
+                        if update_question_by_id(selected_id, patch):
+                            st.success("문항이 저장되었습니다.")
+                            st.rerun()
+                        else:
+                            st.error("문항 저장에 실패했습니다.")
+
     st.markdown("---")
     st.subheader("학습 시각화")
     colp1, colp2, colp3 = st.columns([1, 1, 1])
@@ -4159,14 +4643,17 @@ with tab_home:
         )
     with colp2:
         if st.button("불러오기"):
-            loaded = apply_profile_settings(st.session_state.profile_name)
+            profile_name = (st.session_state.profile_name or "").strip()
+            loaded = apply_profile_settings(profile_name)
             st.session_state.last_action_notice = "프로필 설정을 불러왔습니다." if loaded else "해당 프로필이 없습니다."
-            st.rerun()
     with colp3:
         if st.button("저장"):
-            persist_profile_settings(st.session_state.profile_name)
+            profile_name = (st.session_state.profile_name or "").strip()
+            if not profile_name:
+                profile_name = "default"
+                st.session_state.profile_name = profile_name
+            persist_profile_settings(profile_name)
             st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
-            st.rerun()
 
     st.caption("프리셋은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다. 이름을 적고 저장/불러오기를 눌러주세요.")
     acc = compute_overall_accuracy(all_questions)
@@ -4251,14 +4738,25 @@ with tab_home:
                             )
                             st.altair_chart(heatmap, use_container_width=True)
                         except Exception:
-                            st.dataframe(heat, use_container_width=True, hide_index=True)
+                            safe_dataframe(heat, use_container_width=True, hide_index=True)
 
 # ============================================================================
 # TAB: 문제 생성
 # ============================================================================
 with tab_gen:
     st.title("📚 문제 생성 & 저장")
-    
+
+    st.subheader("⚡ 빠른 시작")
+    st.markdown("### 3단계로 시작하기")
+    st.markdown("1) 자료 업로드 → 2) 모드/문항 수 설정 → 3) 문제 생성 시작")
+    st.markdown("API 키가 없다면 사이드바 입력 후 다시 진행하세요.")
+
+    ai_model_key_ready = bool(api_key) if ai_model == "🔵 Google Gemini" else bool(openai_api_key)
+    if not ai_model_key_ready:
+        st.warning("현재 AI 모델 키가 비어 있습니다. 사이드바에서 API 키를 입력하면 바로 시작할 수 있습니다.")
+
+    st.markdown("---")
+
     # 파일 업로드
     uploaded_file = st.file_uploader("강의 자료 업로드", type=["pdf", "docx", "pptx", "hwp"])
     style_file = st.file_uploader("기출문제 스타일 업로드 (선택)", type=["pdf", "docx", "pptx", "hwp", "txt", "tsv", "json"], key="style_upload")
@@ -4278,6 +4776,7 @@ with tab_gen:
         st.info(f"📄 **{uploaded_file.name}** ({uploaded_file.size:,} bytes)")
         
         # 생성 설정
+        st.markdown("### 설정")
         col1, col2 = st.columns(2)
         with col1:
             mode = st.radio("모드", ["📝 객관식 문제 (Case Study)", "🧩 빈칸 뚫기 (Anki Cloze)"])
@@ -4291,11 +4790,16 @@ with tab_gen:
         with col_unit:
             unit_input = st.text_input("단원명 (선택)", value="미분류")
         
-        if st.button("🚀 문제 생성 시작", use_container_width=True):
+        if not ai_model_key_ready:
+            st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="API 키를 먼저 입력해 주세요.")
+        elif st.button("🚀 문제 생성 시작", use_container_width=True):
             try:
                 with st.spinner("📖 강의 자료 분석 중..."):
                     raw_text = extract_text_from_file(uploaded_file)
                     st.caption(f"✅ 추출됨: {len(raw_text):,} 글자")
+                    if not raw_text.strip():
+                        st.error("텍스트 추출 결과가 비어 있습니다. 스캔 PDF 또는 이미지 중심 파일인 경우 OCR/원문 품질을 확인해 주세요.")
+                        st.stop()
                 
                 with st.spinner("⚙️ AI가 문제 생성 중... (1~2분 소요)"):
                     result = generate_content_in_chunks(
@@ -4312,6 +4816,12 @@ with tab_gen:
                 
                 # result는 이제 구조화된 dict 리스트
                 if result and isinstance(result, list) and len(result) > 0:
+                    st.session_state.generation_failure = ""
+                    st.session_state.generation_preview_items = result
+                    st.session_state.generation_preview_mode = mode
+                    st.session_state.generation_preview_subject = subject_input
+                    st.session_state.generation_preview_unit = unit_input
+
                     # JSON에 저장
                     saved_count = add_questions_to_bank(result, mode, subject_input, unit_input, quality_filter=enable_filter, min_length=min_length)
                     st.success(f"✅ **{saved_count}개 문제** 생성 및 저장 완료!")
@@ -4344,8 +4854,7 @@ with tab_gen:
                                     st.write(f"**정답:** {item_data.get('answer', '?')}")
                                 st.divider()
                     
-                    # 다운로드 - 구조화된 JSON으로 다운로드
-                    import json
+                # 다운로드 - 구조화된 JSON으로 다운로드
                     download_data = json.dumps(result, ensure_ascii=False, indent=2)
                     st.download_button(
                         label="📥 JSON으로 다운로드",
@@ -4355,14 +4864,39 @@ with tab_gen:
                         use_container_width=True,
                         key="download_generated_json"
                     )
+                    quick_exam_type = "객관식" if mode == "📝 객관식 문제 (Case Study)" else "빈칸"
+                    st.markdown("### 바로 풀기")
+                    st.caption("아래에서 생성 결과를 즉시 시험/학습 세션으로 바꿔볼 수 있습니다.")
+                    col_a, col_b, col_c = st.columns([1, 1, 1])
+                    with col_a:
+                        if st.button("📝 시험모드 바로 시작", key="start_gen_exam_now", use_container_width=True):
+                            started = start_exam_session_from_items(result, quick_exam_type, "시험모드")
+                            if started:
+                                st.session_state.last_action_notice = f"생성 문항 {started}개로 시험 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
+                                st.session_state.exam_mode_entry_anchor = "시험"
+                                st.rerun()
+                    with col_b:
+                        if st.button("📖 학습모드 바로 시작", key="start_gen_study_now", use_container_width=True):
+                            started = start_exam_session_from_items(result, quick_exam_type, "학습모드")
+                            if started:
+                                st.session_state.last_action_notice = f"생성 문항 {started}개로 학습 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
+                                st.session_state.exam_mode_entry_anchor = "학습"
+                                st.rerun()
+                    with col_c:
+                        if st.button("🔁 즉시 재생성", key="regen_generated", use_container_width=True):
+                            st.session_state.generation_failure = "원문/모드/옵션으로 재생성하려면 실패 알림의 재실행 버튼을 이용하거나 위 조건에서 다시 생성해주세요."
+                            st.rerun()
                 else:
                     st.error(f"❌ 생성 실패! 결과를 확인할 수 없습니다.")
                     st.write(f"반환값: {result}")
+                    st.session_state.generation_failure = "생성 결과가 비어 있어 저장되지 않았습니다."
                     
             except Exception as e:
-                st.error(f"❌ 오류: {str(e)}")
                 import traceback
+                err_msg = f"❌ 오류: {str(e)}"
+                st.error(err_msg)
                 st.error(f"상세 오류:\n{traceback.format_exc()}")
+                st.session_state.generation_failure = err_msg
 
     st.markdown("---")
     st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
@@ -4975,13 +5509,35 @@ with tab_exam:
         st.warning("📌 저장된 문제가 없습니다. 먼저 **📚 문제 생성** 탭에서 문제를 생성하세요.")
     else:
         st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
+        if st.session_state.get("exam_mode_entry_anchor") and st.session_state.get("exam_questions"):
+            st.success(
+                f"생성 결과로 {len(st.session_state.exam_questions)}개 문항이 준비되어 있습니다. "
+                f"아래 버튼으로 즉시 학습/시험을 이어서 시작할 수 있습니다."
+            )
+            col_resume1, col_resume2 = st.columns(2)
+            with col_resume1:
+                if st.button("✅ 준비된 세션 이어 풀기", use_container_width=True, key="resume_prepared_exam"):
+                    st.session_state.exam_started = True
+                    st.session_state.exam_finished = False
+                    st.session_state.current_question_idx = 0
+                    st.session_state.exam_mode_entry_anchor = ""
+                    st.rerun()
+            with col_resume2:
+                if st.button("🗑 준비 세션 초기화", use_container_width=True, key="clear_prepared_exam"):
+                    st.session_state.exam_started = False
+                    st.session_state.exam_finished = False
+                    st.session_state.exam_questions = []
+                    st.session_state.current_question_idx = 0
+                    st.session_state.exam_mode_entry_anchor = ""
+                    st.rerun()
 
         # 시험/학습 설정
-        col1, col2 = st.columns(2)
-        with col1:
+        c_mode, c_type, c_img = st.columns([1.2, 1, 1])
+        with c_mode:
             mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=True)
-            with col2:
-                exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+        with c_type:
+            exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+        with c_img:
             st.session_state.image_display_width = st.slider(
                 "문항 이미지 크기(px)",
                 240,
@@ -4992,24 +5548,57 @@ with tab_exam:
             )
 
         questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
-        subjects = get_unique_subjects(questions_all)
-        units_by_subject = get_units_by_subject(questions_all)
-        if subjects:
-            col_subj, col_unit = st.columns(2)
-            with col_subj:
-                subject_options = ["전체"] + subjects
-                selected_subject = st.radio("과목 선택", subject_options, index=0, key="exam_subject_radio")
-                selected_subjects = subjects if selected_subject == "전체" else [selected_subject]
-            with col_unit:
-                unit_options = sorted({u for s in selected_subjects for u in units_by_subject.get(s, [])})
-                if not unit_options:
-                    unit_options = ["미분류"]
-                selected_units = st.multiselect("단원 선택", unit_options, default=unit_options, key="exam_unit_multi")
+        subject_unit_map = collect_subject_unit_map(questions_all)
+        all_subjects = sorted(subject_unit_map.keys())
+        if all_subjects:
+            subject_keyword = st.text_input("분과 검색", value="", placeholder="분과명 입력", key="exam_subject_search")
+            subject_pool = [s for s in all_subjects if subject_keyword.lower() in s.lower()]
+            if not subject_pool:
+                subject_pool = ["(검색 결과 없음)"]
+            if "exam_subject_multi" not in st.session_state:
+                st.session_state.exam_subject_multi = all_subjects
+            selected_subjects = st.multiselect(
+                "분과 선택",
+                options=subject_pool if subject_pool != ["(검색 결과 없음)"] else [],
+                default=[s for s in st.session_state.exam_subject_multi if s in all_subjects and s in subject_pool],
+                key="exam_subject_multi"
+            )
+            if not selected_subjects:
+                # 빈 선택은 전체 보기로 복구해 실수로 인한 빈 화면을 방지
+                selected_subjects = all_subjects
+                st.session_state.exam_subject_multi = all_subjects
+
+            unit_filter_by_subject = {}
+            selected_units = []
+            if selected_subjects:
+                with st.expander("단원 선택 (분과별)", expanded=True):
+                    for subj in selected_subjects:
+                        units = subject_unit_map.get(subj, ["미분류"])
+                        if not units:
+                            units = ["미분류"]
+                        unit_key = f"unit_filter_{subj}"
+                        previous = st.session_state.get(unit_key, units)
+                        default_units = previous if set(previous) <= set(units) else units
+                        selected_units_for_subject = st.multiselect(
+                            f"{subj} 단원",
+                            options=units,
+                            default=default_units,
+                            key=unit_key
+                        )
+                        if not selected_units_for_subject:
+                            selected_units_for_subject = list(units)
+                            st.session_state[unit_key] = selected_units_for_subject
+                        unit_filter_by_subject[subj] = selected_units_for_subject
+                        selected_units.extend(selected_units_for_subject)
+            else:
+                unit_filter_by_subject = {}
+                selected_units = []
+            filtered_questions = filter_questions_by_subject_unit_hierarchy(questions_all, selected_subjects, unit_filter_by_subject)
         else:
             selected_subjects = []
             selected_units = []
+            filtered_questions = []
 
-        filtered_questions = filter_questions_by_subject_unit(questions_all, selected_subjects, selected_units) if subjects else questions_all
 
         if mode_choice == "학습모드":
             due_only = st.checkbox("오늘 복습만", value=False)
@@ -5051,7 +5640,7 @@ with tab_exam:
                                     "문항": snippet,
                                     "Due": due_time.isoformat()
                                 })
-                            st.dataframe(rows, use_container_width=True, hide_index=True)
+                            safe_dataframe(rows, use_container_width=True, hide_index=True)
                     else:
                         due_list = [q for q in filtered_questions if simple_srs_due(q)]
                         st.metric("오늘 복습", len(due_list))
@@ -5156,7 +5745,7 @@ with tab_exam:
                                 st.caption(f"마지막 리뷰: {report['last_review']}")
 
                             rating_rows = [{"평가": k, "건수": v} for k, v in report["rating_counts"].items()]
-                            st.dataframe(rating_rows, use_container_width=True, hide_index=True)
+                            safe_dataframe(rating_rows, use_container_width=True, hide_index=True)
                         else:
                             st.info("리포트를 생성할 수 없습니다.")
                     else:
@@ -5203,7 +5792,6 @@ with tab_exam:
                     "num_questions": len(parsed_selected),
                     "started_at": datetime.now(timezone.utc).isoformat()
                 }
-                st.session_state.nav_select = 0
 
         # 시험/학습 진행
         if st.session_state.exam_started and st.session_state.exam_questions:
