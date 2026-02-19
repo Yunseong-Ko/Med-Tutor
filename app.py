@@ -5587,7 +5587,6 @@ with tab_exam:
                         )
                         if not selected_units_for_subject:
                             selected_units_for_subject = list(units)
-                            st.session_state[unit_key] = selected_units_for_subject
                         unit_filter_by_subject[subj] = selected_units_for_subject
                         selected_units.extend(selected_units_for_subject)
             else:
