@@ -1558,6 +1558,7 @@ def _set_row_cant_split(row):
 def build_docx_question_sheet(items, title="MedTutor 문제집"):
     doc = Document()
     doc.add_heading(title, level=1)
+    doc.add_paragraph("좌측: 문항 | 우측: 정답 및 해설")
     table = doc.add_table(rows=1, cols=2)
     table.style = "Table Grid"
     table.autofit = True
@@ -1572,24 +1573,30 @@ def build_docx_question_sheet(items, title="MedTutor 문제집"):
         right = row.cells[1]
 
         stem = (item.get("problem") or item.get("front") or item.get("raw") or "").strip()
-        left.text = f"{i}. {stem}"
+        left.text = f"문항 {i}\n{stem}"
 
         if item.get("type") == "mcq":
             opts = item.get("options") or []
+            if opts:
+                left.add_paragraph("")
             for j, opt in enumerate(opts[:5]):
                 left.add_paragraph(f"{letters[j]}. {opt}")
             correct = item.get("answer") or item.get("correct")
+            right.text = "정답"
             if isinstance(correct, int) and 1 <= correct <= 5:
-                right.text = f"정답: {letters[correct - 1]}"
+                right.add_paragraph(letters[correct - 1])
             else:
-                right.text = f"정답: {correct}"
+                right.add_paragraph(str(correct))
         else:
-            right.text = f"정답: {item.get('answer', '')}"
+            right.text = "정답"
+            right.add_paragraph(str(item.get("answer", "")))
 
         explanation = (item.get("explanation") or "").strip()
         if explanation:
-            right.add_paragraph("해설:")
-            right.add_paragraph(format_explanation_text(explanation))
+            right.add_paragraph("")
+            right.add_paragraph("해설")
+            for line in format_explanation_text(explanation).splitlines():
+                right.add_paragraph(line)
 
     out = io.BytesIO()
     doc.save(out)
