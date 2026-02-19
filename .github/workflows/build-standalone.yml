@@ -68,10 +68,17 @@ jobs:
         with:
           path: release_artifacts
 
+      - name: Prepare release payloads
+        run: |
+          mkdir -p release_payload
+          cp -R release_artifacts/MedTutor-macos release_payload/MedTutor.app
+          chmod +x release_payload/MedTutor.app/Contents/MacOS/MedTutor || true
+          cp -R release_artifacts/MedTutor-windows release_payload/MedTutor-windows
+
       - name: Archive release files
         run: |
-          cd release_artifacts
-          zip -r ../MedTutor-macos.zip MedTutor-macos
+          cd release_payload
+          zip -r ../MedTutor-macos.zip MedTutor.app
           zip -r ../MedTutor-windows.zip MedTutor-windows
 
       - name: Upload to GitHub Release

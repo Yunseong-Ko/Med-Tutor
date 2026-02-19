@@ -28,16 +28,46 @@
 
 이 방식이 가장 쉽습니다.
 
-1. 최신 배포 페이지에서 파일을 내려받습니다.
-- 링크: [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)
-2. 압축을 해제합니다.
-3. 운영체제에 맞는 파일을 실행합니다.
-- macOS: `MedTutor.app`
-- Windows: `MedTutor.exe` 또는 `MedTutor` 폴더 안 실행 파일
-4. 처음 실행 시 보안 경고가 나오면 아래처럼 진행합니다.
-- macOS: 파일 우클릭 `열기` → 다시 `열기`
-- Windows: `추가 정보` → `실행`
-5. 브라우저에서 `http://localhost:8501`이 열리면 실행 완료입니다.
+공통 다운로드 링크:
+
+- [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)
+
+다운로드 전에 꼭 확인:
+
+1. `Assets`에서 `MedTutor-macos.zip` 또는 `MedTutor-windows.zip`을 받습니다.
+2. `Source code (zip)`은 앱 실행 파일이 아니라 소스코드이므로 비개발자는 받지 않습니다.
+3. ZIP을 받은 뒤에는 압축을 먼저 해제합니다.
+
+#### macOS 실행 절차
+
+1. [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest) 페이지 진입
+2. `Assets` 목록에서 `MedTutor-macos.zip` 클릭
+3. `다운로드` 폴더에서 ZIP 더블클릭하여 압축 해제
+4. 압축 해제 후 `MedTutor.app` 확인
+5. `MedTutor.app` 우클릭 `열기` 선택
+6. 보안 경고가 한 번 더 나오면 `열기`를 다시 선택
+7. 브라우저에서 `http://localhost:8501` 열리면 정상 실행
+
+macOS에서 앱이 열리지 않을 때(구버전 배포본 대응):
+
+1. 터미널 실행
+2. 아래 명령 실행
+
+```bash
+chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"
+```
+
+3. 다시 `MedTutor.app` 우클릭 `열기`
+
+#### Windows 실행 절차
+
+1. [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest) 페이지 진입
+2. `Assets` 목록에서 `MedTutor-windows.zip` 클릭
+3. `다운로드` 폴더에서 ZIP 우클릭 `모두 압축 풀기`
+4. 생성된 `MedTutor-windows` 폴더 열기
+5. `MedTutor.exe` 더블클릭
+6. SmartScreen 경고가 나오면 `추가 정보 > 실행`
+7. 브라우저에서 `http://localhost:8501` 열리면 정상 실행
 
 ### B) 저장소 폴더에서 실행 스크립트로 실행 (Python 설치 필요)
 
@@ -98,19 +128,22 @@
 1. `workflow_dispatch` (수동 실행)
 2. `v*` 태그 푸시 (예: `v0.1.0`)
 - 결과물:
-1. `MedTutor-macos` (macOS 앱 번들)
-2. `MedTutor-windows` (Windows 실행 폴더)
+1. `MedTutor-macos.zip` (`MedTutor.app` 포함)
+2. `MedTutor-windows.zip` (`MedTutor.exe` 포함 폴더)
 
 ### 2) 사용자에게 배포
 
 1. `v*` 태그 푸시 시 Actions가 빌드 후 Release 자산까지 자동 업로드합니다.
-2. 사용자는 [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)에서 OS별 압축 파일을 받습니다.
+2. 사용자는 [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)에서 아래 파일을 받습니다.
+- macOS: `MedTutor-macos.zip`
+- Windows: `MedTutor-windows.zip`
 3. 압축 해제 후 앱 파일을 실행합니다.
 
 ### 3) 참고
 
 - macOS 사용자는 Gatekeeper 경고가 나오면 우클릭 `열기`로 실행합니다.
 - Windows 사용자는 SmartScreen 경고 시 `추가 정보 > 실행`으로 진행합니다.
+- 2026-02-19 기준 macOS 구버전 배포본에서 실행 권한 누락 이슈를 확인했고, 워크플로우에서 `chmod +x`를 추가해 수정했습니다.
 
 ## 수동 실행
 

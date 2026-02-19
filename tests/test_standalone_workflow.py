@@ -19,6 +19,9 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("softprops/action-gh-release@v2", text)
         self.assertIn("startsWith(github.ref, 'refs/tags/v')", text)
         self.assertIn("actions/download-artifact@v4", text)
+        self.assertIn("cp -R release_artifacts/MedTutor-macos release_payload/MedTutor.app", text)
+        self.assertIn("chmod +x release_payload/MedTutor.app/Contents/MacOS/MedTutor", text)
+        self.assertIn("zip -r ../MedTutor-macos.zip MedTutor.app", text)
 
     def test_readme_mentions_python_free_distribution(self):
         readme = ROOT / "README.md"
@@ -27,6 +30,10 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("Python 없이 실행하는 배포 방법", text)
         self.assertIn(".github/workflows/build-standalone.yml", text)
         self.assertIn("releases/latest", text)
+        self.assertIn("MedTutor-macos.zip", text)
+        self.assertIn("MedTutor-windows.zip", text)
+        self.assertIn("Source code (zip)", text)
+        self.assertIn('chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"', text)
 
 
 if __name__ == "__main__":
