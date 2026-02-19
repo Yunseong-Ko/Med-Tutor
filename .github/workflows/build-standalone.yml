@@ -51,6 +51,17 @@ jobs:
             --copy-metadata streamlit \
             --copy-metadata importlib_metadata
 
+      - name: Smoke test Windows bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist/MedTutor/MedTutor.exe" -PassThru
+          Start-Sleep -Seconds 15
+          if ($proc.HasExited) {
+            throw "Windows standalone smoke test failed: MedTutor.exe exited early."
+          }
+          Stop-Process -Id $proc.Id -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

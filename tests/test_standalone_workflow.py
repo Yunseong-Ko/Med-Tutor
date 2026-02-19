@@ -22,6 +22,8 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("cp -R release_artifacts/MedTutor-macos release_payload/MedTutor.app", text)
         self.assertIn("chmod +x release_payload/MedTutor.app/Contents/MacOS/MedTutor", text)
         self.assertIn("zip -r ../MedTutor-macos.zip MedTutor.app", text)
+        self.assertIn("Smoke test Windows bundle", text)
+        self.assertIn('Start-Process -FilePath "dist/MedTutor/MedTutor.exe"', text)
 
     def test_readme_mentions_python_free_distribution(self):
         readme = ROOT / "README.md"
@@ -34,6 +36,7 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("MedTutor-windows.zip", text)
         self.assertIn("Source code (zip)", text)
         self.assertIn('chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"', text)
+        self.assertIn("launcher_error.log", text)
 
 
 if __name__ == "__main__":

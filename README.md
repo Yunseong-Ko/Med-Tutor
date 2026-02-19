@@ -108,6 +108,9 @@ chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"
 
 1. 더블클릭해도 바로 꺼짐
 - B 방식(스크립트 실행)에서는 Python 3 미설치일 수 있습니다.
+- A 방식(standalone)에서는 `MedTutor` 실행 오류 로그를 확인합니다.
+- Windows: `%USERPROFILE%\\MedTutor\\launcher_error.log`
+- macOS: `~/MedTutor/launcher_error.log`
 2. 권한/보안 경고로 실행 차단
 - macOS 우클릭 `열기`, Windows `추가 정보 > 실행`으로 1회 허용합니다.
 3. 브라우저가 자동으로 안 열림
