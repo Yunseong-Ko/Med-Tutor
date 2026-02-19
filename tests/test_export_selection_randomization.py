@@ -32,6 +32,8 @@ class ExportSelectionRandomizationTests(unittest.TestCase):
         text = Path(APP_PATH).read_text(encoding="utf-8")
         self.assertIn("내보낼 분과 선택", text)
         self.assertIn("export_subjects", text)
+        self.assertIn("내보낼 단원 선택", text)
+        self.assertIn("export_unit_filter_", text)
 
     def test_collects_all_selected_subjects_when_include_all_units(self):
         fn = _load_export_helpers()
@@ -75,6 +77,23 @@ class ExportSelectionRandomizationTests(unittest.TestCase):
         )
         self.assertEqual([q["id"] for q in r1], [q["id"] for q in r2])
         self.assertEqual([q["id"] for q in r1], ["2", "1", "3"])
+
+    def test_filters_by_units_when_include_all_units_false(self):
+        fn = _load_export_helpers()
+        questions = [
+            {"id": "1", "subject": "성장발달노화", "unit": "A"},
+            {"id": "2", "subject": "성장발달노화", "unit": "B"},
+            {"id": "3", "subject": "생식계", "unit": "X"},
+            {"id": "4", "subject": "생식계", "unit": "Y"},
+        ]
+        result = fn(
+            questions,
+            selected_subjects=["성장발달노화", "생식계"],
+            unit_filter_by_subject={"성장발달노화": ["A"], "생식계": ["X"]},
+            include_all_units=False,
+            randomize=False,
+        )
+        self.assertEqual([q["id"] for q in result], ["1", "3"])
 
 
 if __name__ == "__main__":

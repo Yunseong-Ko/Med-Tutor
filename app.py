@@ -6047,6 +6047,19 @@ with tab_exam:
                     value=True,
                     key="export_include_all_units"
                 )
+                export_unit_filter_by_subject = {}
+                if not export_include_all_units and export_subjects:
+                    st.markdown("**내보낼 단원 선택**")
+                    for subj in export_subjects:
+                        export_units = subject_unit_map.get(subj, ["미분류"])
+                        if not export_units:
+                            export_units = ["미분류"]
+                        export_unit_filter_by_subject[subj] = st.multiselect(
+                            f"{subj} 단원 (내보내기)",
+                            options=export_units,
+                            default=export_units,
+                            key=f"export_unit_filter_{subj}"
+                        )
                 export_randomize = st.checkbox("랜덤 배치 모드", value=False, key="export_randomize")
                 export_seed = None
                 if export_randomize:
@@ -6055,7 +6068,7 @@ with tab_exam:
                     export_candidates = collect_export_questions(
                         questions_all,
                         export_subjects,
-                        unit_filter_by_subject,
+                        export_unit_filter_by_subject,
                         include_all_units=export_include_all_units,
                         randomize=export_randomize,
                         random_seed=export_seed
