@@ -55,12 +55,42 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $env:STREAMLIT_SERVER_HEADLESS = "true"
+          $env:STREAMLIT_SERVER_PORT = "8501"
+          $env:BROWSER = "none"
+
           $proc = Start-Process -FilePath "dist/MedTutor/MedTutor.exe" -PassThru
-          Start-Sleep -Seconds 15
-          if ($proc.HasExited) {
-            throw "Windows standalone smoke test failed: MedTutor.exe exited early."
+          $healthReady = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8501/_stcore/health" -TimeoutSec 2
+              if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) {
+                $healthReady = $true
+                break
+              }
+            } catch {
+            }
+            if ($proc.HasExited) {
+              break
+            }
           }
-          Stop-Process -Id $proc.Id -Force
+
+          if (-not $healthReady) {
+            $logPath = Join-Path $env:USERPROFILE "MedTutor\\launcher_error.log"
+            if (Test-Path $logPath) {
+              Write-Host "---- launcher_error.log (tail) ----"
+              Get-Content $logPath -Tail 200
+              Write-Host "---- end launcher_error.log ----"
+            }
+            throw "Windows standalone smoke test failed: server health check did not become ready."
+          }
+
+          if (-not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force
+          }
+          Get-Process MedTutor -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

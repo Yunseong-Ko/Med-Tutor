@@ -37,6 +37,7 @@
 1. `Assets`에서 `MedTutor-macos.zip` 또는 `MedTutor-windows.zip`을 받습니다.
 2. `Source code (zip)`은 앱 실행 파일이 아니라 소스코드이므로 비개발자는 받지 않습니다.
 3. ZIP을 받은 뒤에는 압축을 먼저 해제합니다.
+4. 압축 해제 후 `MedTutor.app`(macOS) 또는 `MedTutor-windows` 폴더(Windows)가 보이지 않으면 잘못된 파일을 받은 것입니다. `Source code (zip)`이 아닌 운영체제용 ZIP을 다시 받으세요.
 
 #### macOS 실행 절차
 

@@ -24,6 +24,8 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("zip -r ../MedTutor-macos.zip MedTutor.app", text)
         self.assertIn("Smoke test Windows bundle", text)
         self.assertIn('Start-Process -FilePath "dist/MedTutor/MedTutor.exe"', text)
+        self.assertIn("http://127.0.0.1:8501/_stcore/health", text)
+        self.assertIn("launcher_error.log", text)
 
     def test_readme_mentions_python_free_distribution(self):
         readme = ROOT / "README.md"
