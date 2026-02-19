@@ -7,6 +7,7 @@ import json
 import genanki
 import tempfile
 import os
+import io
 import uuid
 import concurrent.futures
 import random
@@ -16,6 +17,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from openai import OpenAI
 from docx import Document
+from docx.oxml import OxmlElement
 from pptx import Presentation
 from difflib import SequenceMatcher
 import subprocess
@@ -87,6 +89,11 @@ FSRS_DEFAULT_PARAMETERS = (
     1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014,
     1.8729, 0.5425, 0.0912, 0.0658, 0.1542,
 )
+
+MODE_MCQ = "📝 객관식 문제 (Case Study)"
+MODE_CLOZE = "🧩 빈칸 뚫기 (Anki Cloze)"
+MODE_SHORT = "🧠 단답형 문제"
+MODE_ESSAY = "🧾 서술형 문제"
 
 # ============================================================================
 # 초기 설정
@@ -218,6 +225,8 @@ if "generation_preview_subject" not in st.session_state:
     st.session_state.generation_preview_subject = "General"
 if "generation_preview_unit" not in st.session_state:
     st.session_state.generation_preview_unit = "미분류"
+if "export_docx_bytes" not in st.session_state:
+    st.session_state.export_docx_bytes = b""
 if "exam_mode_entry_anchor" not in st.session_state:
     st.session_state.exam_mode_entry_anchor = ""
 if "heatmap_bins" not in st.session_state:
@@ -502,7 +511,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
         questions_data: 다음 중 하나
             - 구조화된 dict의 리스트: [{"problem": ..., "options": [...], "answer": 1, "explanation": ...}]
             - 문자열: 기존 호환성을 위함
-        mode: 모드 ("📝 객관식 문제 (Case Study)" 또는 "🧩 빈칸 뚫기 (Anki Cloze)")
+        mode: 모드 (객관식/빈칸/단답형/서술형)
         subject: 과목명
         quality_filter: 품질 필터링 여부
         min_length: 최소 길이
@@ -528,7 +537,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
         
         # 품질 필터링
         if quality_filter:
-            if mode == "📝 객관식 문제 (Case Study)":
+            if mode == MODE_MCQ:
                 problem_text = q_data.get("problem", "")
                 if len(problem_text) < min_length:
                     continue
@@ -545,7 +554,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
             q_data["id"] = str(uuid.uuid4())
         q_data["batch_id"] = q_data.get("batch_id") or batch_id
         
-        if mode == "📝 객관식 문제 (Case Study)":
+        if mode == MODE_MCQ:
             bank["text"].append(q_data)
         else:
             bank["cloze"].append(q_data)
@@ -573,10 +582,73 @@ def add_questions_to_bank_auto(items, subject="General", unit="미분류", quali
             mcq_items.append(item)
     added = 0
     if mcq_items:
-        added += add_questions_to_bank(mcq_items, "📝 객관식 문제 (Case Study)", subject, unit, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(mcq_items, MODE_MCQ, subject, unit, quality_filter, min_length, batch_id=batch_id)
     if cloze_items:
-        added += add_questions_to_bank(cloze_items, "🧩 빈칸 뚫기 (Anki Cloze)", subject, unit, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(cloze_items, MODE_CLOZE, subject, unit, quality_filter, min_length, batch_id=batch_id)
     return added
+
+
+def parse_free_response_items(text, response_type="short"):
+    items = []
+
+    def append_item(obj):
+        if not isinstance(obj, dict):
+            return
+        front = (obj.get("front") or obj.get("question") or obj.get("problem") or "").strip()
+        answer = (obj.get("answer") or obj.get("reference_answer") or obj.get("model_answer") or "").strip()
+        explanation = (obj.get("explanation") or obj.get("rationale") or "").strip()
+        if front and answer:
+            items.append({
+                "type": "cloze",
+                "response_type": response_type,
+                "front": front,
+                "answer": answer,
+                "explanation": explanation,
+            })
+
+    parsed_json = _parse_json_from_text(text)
+    if isinstance(parsed_json, dict):
+        parsed_json = [parsed_json]
+    if isinstance(parsed_json, list):
+        for obj in parsed_json:
+            append_item(obj)
+        if items:
+            return items
+
+    blocks = re.split(r"\n-{3,}\n", text)
+    for block in blocks:
+        line = block.strip()
+        if not line:
+            continue
+        if "\t" in line:
+            cols = [c.strip() for c in line.split("\t")]
+            if len(cols) >= 2 and cols[0] and cols[1]:
+                items.append({
+                    "type": "cloze",
+                    "response_type": response_type,
+                    "front": cols[0],
+                    "answer": cols[1],
+                    "explanation": cols[2] if len(cols) > 2 else "",
+                })
+            continue
+
+        lines = [x.strip() for x in line.splitlines() if x.strip()]
+        if len(lines) < 2:
+            continue
+        front = re.sub(r"^(문항|문제|Q)\s*[:：]\s*", "", lines[0], flags=re.IGNORECASE).strip()
+        answer = re.sub(r"^(정답|답|A)\s*[:：]\s*", "", lines[1], flags=re.IGNORECASE).strip()
+        explanation = ""
+        if len(lines) > 2:
+            explanation = re.sub(r"^(해설|설명)\s*[:：]\s*", "", "\n".join(lines[2:]), flags=re.IGNORECASE).strip()
+        if front and answer:
+            items.append({
+                "type": "cloze",
+                "response_type": response_type,
+                "front": front,
+                "answer": answer,
+                "explanation": explanation,
+            })
+    return items
 
 
 def parse_generated_text_to_structured(text, mode):
@@ -586,8 +658,12 @@ def parse_generated_text_to_structured(text, mode):
         구조화된 dict의 리스트
     """
     results = []
+    mode_mcq = globals().get("MODE_MCQ", "📝 객관식 문제 (Case Study)")
+    mode_cloze = globals().get("MODE_CLOZE", "🧩 빈칸 뚫기 (Anki Cloze)")
+    mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
+    mode_essay = globals().get("MODE_ESSAY", "🧾 서술형 문제")
     
-    if mode == "📝 객관식 문제 (Case Study)":
+    if mode == mode_mcq:
         # 1) JSON 형식 우선 파싱 (Gemini/OpenAI JSON 대응)
         # 전체 텍스트가 JSON 배열/객체인 경우
         try:
@@ -653,7 +729,7 @@ def parse_generated_text_to_structured(text, mode):
             if parsed:
                 parsed["explanation"] = explanation_part
                 results.append(parsed)
-    else:
+    elif mode == mode_cloze:
         # Cloze 형식: 한 줄에 하나씩
         lines = text.split('\n')
         for line in lines:
@@ -676,10 +752,15 @@ def parse_generated_text_to_structured(text, mode):
             
             results.append({
                 "type": "cloze",
+                "response_type": "cloze",
                 "front": front,
                 "answer": answer,
                 "explanation": explanation
             })
+    elif mode == mode_short:
+        results = parse_free_response_items(text, response_type="short")
+    elif mode == mode_essay:
+        results = parse_free_response_items(text, response_type="essay")
     
     return results
 
@@ -779,6 +860,7 @@ def parse_cloze_content(q_data: dict) -> dict:
         "raw": q_data.get("front", ""),
         "front": q_data.get("front", ""),
         "answer": q_data.get("answer", ""),
+        "response_type": q_data.get("response_type", "cloze"),
         "explanation": q_data.get("explanation", ""),
         "subject": q_data.get("subject"),
         "unit": q_data.get("unit"),
@@ -882,6 +964,10 @@ def is_answer_correct(q, user_ans):
     if q.get("type") == "mcq":
         correct_choice = q.get("correct")
         return bool(correct_choice and user_ans == correct_choice)
+    response_type = q.get("response_type", "cloze")
+    if response_type == "essay":
+        ai_grade = q.get("_ai_grade")
+        return bool(isinstance(ai_grade, dict) and ai_grade.get("is_correct") is True)
     correct_text = q.get("answer")
     return bool(correct_text and isinstance(user_ans, str) and fuzzy_match(user_ans, correct_text))
 
@@ -1409,6 +1495,7 @@ def normalize_cloze_item(item):
                 front = re.sub(r'\{\{c1::.+?\}\}', '____', content)
                 return {
                     "type": "cloze",
+                    "response_type": item.get("response_type", "cloze"),
                     "front": front,
                     "answer": answer,
                     "explanation": item.get("explanation", ""),
@@ -1422,10 +1509,14 @@ def normalize_cloze_item(item):
     front = (item.get("front") or "").strip()
     answer = (item.get("answer") or "").strip()
     explanation = item.get("explanation", "")
+    response_type = item.get("response_type", "cloze")
+    if response_type not in {"cloze", "short", "essay"}:
+        response_type = "cloze"
     if not front or not answer:
         return None
     return {
         "type": "cloze",
+        "response_type": response_type,
         "front": front,
         "answer": answer,
         "explanation": explanation,
@@ -1444,6 +1535,52 @@ def format_explanation_text(text):
         if len(parts) > 1:
             return "\n".join([f"- {p}" for p in parts])
     return text
+
+def _set_row_cant_split(row):
+    tr_pr = row._tr.get_or_add_trPr()
+    if not any(child.tag.endswith("cantSplit") for child in tr_pr):
+        tr_pr.append(OxmlElement("w:cantSplit"))
+
+def build_docx_question_sheet(items, title="MedTutor 문제집"):
+    doc = Document()
+    doc.add_heading(title, level=1)
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Table Grid"
+    table.autofit = True
+    table.rows[0].cells[0].text = "문항"
+    table.rows[0].cells[1].text = "정답 & 해설"
+
+    letters = ["A", "B", "C", "D", "E"]
+    for i, item in enumerate(items, 1):
+        row = table.add_row()
+        _set_row_cant_split(row)
+        left = row.cells[0]
+        right = row.cells[1]
+
+        stem = (item.get("problem") or item.get("front") or item.get("raw") or "").strip()
+        left.text = f"{i}. {stem}"
+
+        if item.get("type") == "mcq":
+            opts = item.get("options") or []
+            for j, opt in enumerate(opts[:5]):
+                left.add_paragraph(f"{letters[j]}. {opt}")
+            correct = item.get("answer") or item.get("correct")
+            if isinstance(correct, int) and 1 <= correct <= 5:
+                right.text = f"정답: {letters[correct - 1]}"
+            else:
+                right.text = f"정답: {correct}"
+        else:
+            right.text = f"정답: {item.get('answer', '')}"
+
+        explanation = (item.get("explanation") or "").strip()
+        if explanation:
+            right.add_paragraph("해설:")
+            right.add_paragraph(format_explanation_text(explanation))
+
+    out = io.BytesIO()
+    doc.save(out)
+    out.seek(0)
+    return out.getvalue()
 
 
 def _to_markdown_table(rows):
@@ -2299,7 +2436,7 @@ def show_action_notice():
 def render_generation_recovery_panel():
     if not st.session_state.get("generation_failure"):
         return
-    with st.container(border=True):
+    with st.container():
         st.markdown("### ⚠️ 문제 생성 실패")
         st.error(st.session_state.generation_failure)
         st.caption("아래 버튼으로 바로 복구/초기화를 할 수 있습니다.")
@@ -3089,6 +3226,81 @@ def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=
     except Exception as e:
         return ("", str(e)) if return_error else ""
 
+def grade_essay_answer_ai(item, user_answer, ai_model, api_key=None, openai_api_key=None):
+    question_text = (item.get("front") or item.get("problem") or "").strip()
+    reference_answer = (item.get("answer") or "").strip()
+    explanation = (item.get("explanation") or "").strip()
+    if not question_text or not user_answer:
+        return None, "질문 또는 응답이 비어 있습니다."
+    prompt = (
+        "다음 서술형 답안을 채점하세요. 반드시 JSON으로만 답하세요.\n"
+        "JSON 형식: {\"score\": 0-100, \"is_correct\": true/false, \"feedback\": \"...\", \"key_points\": [\"...\"]}\n"
+        f"[문항]\n{question_text}\n\n"
+        f"[모범답안]\n{reference_answer}\n\n"
+        f"[해설]\n{explanation}\n\n"
+        f"[학생답안]\n{user_answer}"
+    )
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return None, "Gemini API 키가 필요합니다."
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(get_gemini_model_id())
+            response = model.generate_content(
+                prompt,
+                generation_config={"temperature": LLM_TEMPERATURE, "top_p": 1.0}
+            )
+            raw = response.text or ""
+            usage_tokens = _gemini_usage_tokens(response)
+            model_name = get_gemini_model_id()
+        else:
+            if not openai_api_key:
+                return None, "OpenAI API 키가 필요합니다."
+            client = OpenAI(api_key=openai_api_key)
+            params = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "의학교육 채점자 역할로 JSON만 출력하세요."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": LLM_TEMPERATURE,
+                "max_tokens": 700,
+            }
+            if LLM_SEED is not None:
+                params["seed"] = LLM_SEED
+            response = client.chat.completions.create(**params)
+            raw = (response.choices[0].message.content or "").strip()
+            usage_tokens = _openai_usage_tokens(response)
+            model_name = "gpt-4o-mini"
+        parsed = _parse_json_from_text(raw)
+        if not isinstance(parsed, dict):
+            return None, "채점 응답 파싱 실패"
+        score = parsed.get("score", 0)
+        try:
+            score = int(float(score))
+        except Exception:
+            score = 0
+        score = max(0, min(100, score))
+        result = {
+            "score": score,
+            "is_correct": bool(parsed.get("is_correct", False)),
+            "feedback": str(parsed.get("feedback", "")).strip(),
+            "key_points": parsed.get("key_points", []) if isinstance(parsed.get("key_points", []), list) else [],
+        }
+        append_audit_log("grade.essay", {
+            "model": model_name,
+            "temperature": LLM_TEMPERATURE,
+            "seed": LLM_SEED if ai_model != "🔵 Google Gemini" else None,
+            "prompt_hash": _hash_text(prompt),
+            "prompt_text": prompt,
+            "output_text": raw,
+            "usage_tokens": usage_tokens,
+            "grader_version": GRADER_VERSION,
+        })
+        return result, ""
+    except Exception as e:
+        return None, str(e)
+
 def update_question_explanation(q_id, explanation_text):
     if not q_id:
         return False
@@ -3692,13 +3904,13 @@ def parse_uploaded_question_file(uploaded_file, mode_hint="auto"):
         text = content_bytes.decode("utf-8", errors="ignore")
     if mode_hint == "auto":
         if "{{c1::" in text:
-            mode_hint = "🧩 빈칸 뚫기 (Anki Cloze)"
+            mode_hint = MODE_CLOZE
         elif "정답" in text and not re.search(r"①|②|③|④|⑤", text):
-            mode_hint = "🧩 빈칸 뚫기 (Anki Cloze)"
+            mode_hint = MODE_CLOZE
         else:
-            mode_hint = "📝 객관식 문제 (Case Study)"
+            mode_hint = MODE_MCQ
 
-    if mode_hint == "🧩 빈칸 뚫기 (Anki Cloze)" and "{{c1::" not in text:
+    if mode_hint == MODE_CLOZE and "{{c1::" not in text:
         qa_parsed = parse_qa_to_cloze(text)
         if qa_parsed:
             return qa_parsed
@@ -3755,6 +3967,34 @@ PROMPT_CLOZE = """
 4. 불필요한 서론/결론 없이 변환된 문장만 나열하세요.
 """
 
+PROMPT_SHORT = """
+당신은 의대생 튜터입니다. 강의록에서 단답형 문항을 만드세요.
+
+[출력 규칙]
+1. 반드시 JSON 배열만 출력.
+2. 각 항목은 front(문항), answer(정답), explanation(짧은 해설) 포함.
+3. 문항은 짧고 명확하게 작성.
+
+[JSON 형식]
+[
+  {"front": "문항", "answer": "정답", "explanation": "해설"}
+]
+"""
+
+PROMPT_ESSAY = """
+당신은 의대생 튜터입니다. 강의록에서 서술형 문항을 만드세요.
+
+[출력 규칙]
+1. 반드시 JSON 배열만 출력.
+2. 각 항목은 front(문항), answer(모범답안), explanation(채점 포인트) 포함.
+3. 문항은 임상 추론/설명형으로 작성.
+
+[JSON 형식]
+[
+  {"front": "문항", "answer": "모범답안", "explanation": "채점 포인트"}
+]
+"""
+
 def build_style_instructions(style_text):
     if not style_text:
         return ""
@@ -3777,11 +4017,20 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     if not text_content or len(text_content.strip()) < 10:
         return "⚠️ 추출된 텍스트가 너무 짧습니다. 다시 시도해주세요."
     
+    mode_mcq = globals().get("MODE_MCQ", "📝 객관식 문제 (Case Study)")
+    mode_cloze = globals().get("MODE_CLOZE", "🧩 빈칸 뚫기 (Anki Cloze)")
+    mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
+    prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
+    prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
-    if selected_mode == "📝 객관식 문제 (Case Study)":
+    if selected_mode == mode_mcq:
         system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
-    else:
+    elif selected_mode == mode_cloze:
         system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+    elif selected_mode == mode_short:
+        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+    else:
+        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         genai.configure(api_key=api_key)
@@ -3816,11 +4065,20 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
     if not text_content or len(text_content.strip()) < 10:
         return "⚠️ 추출된 텍스트가 너무 짧습니다. 다시 시도해주세요."
     
+    mode_mcq = globals().get("MODE_MCQ", "📝 객관식 문제 (Case Study)")
+    mode_cloze = globals().get("MODE_CLOZE", "🧩 빈칸 뚫기 (Anki Cloze)")
+    mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
+    prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
+    prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
-    if selected_mode == "📝 객관식 문제 (Case Study)":
+    if selected_mode == mode_mcq:
         system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
-    else:
+    elif selected_mode == mode_cloze:
         system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+    elif selected_mode == mode_short:
+        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+    else:
+        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         import sys
@@ -3850,7 +4108,7 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
         print(f"[OPENAI DEBUG] 응답 길이: {len(result)}", file=sys.stderr)
         
         # MCQ는 JSON으로 파싱, Cloze는 그대로 반환
-        if selected_mode == "📝 객관식 문제 (Case Study)":
+        if selected_mode == mode_mcq:
             result = convert_json_mcq_to_text(result, num_items)
         
         append_audit_log("gen.question", {
@@ -3951,7 +4209,7 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
     
     Returns:
         - 객관식: 구조화된 dict 리스트 (각 dict는 {type, problem, options, answer, explanation})
-        - Cloze: 구조화된 dict 리스트 (각 dict는 {type, front, answer, explanation})
+        - 빈칸/단답/서술: 구조화된 dict 리스트 (각 dict는 {type, response_type, front, answer, explanation})
     """
     import sys
     chunks = split_text_into_chunks(text_content, chunk_size=chunk_size, overlap=overlap)
@@ -4779,7 +5037,7 @@ with tab_gen:
         st.markdown("### 설정")
         col1, col2 = st.columns(2)
         with col1:
-            mode = st.radio("모드", ["📝 객관식 문제 (Case Study)", "🧩 빈칸 뚫기 (Anki Cloze)"])
+            mode = st.radio("모드", [MODE_MCQ, MODE_CLOZE, MODE_SHORT, MODE_ESSAY])
         with col2:
             num_items = st.slider("생성 개수", 1, 50, 10)
         
@@ -4832,7 +5090,7 @@ with tab_gen:
                     with col1:
                         st.metric("저장된 객관식", stats["total_text"], delta="+" + str(saved_count) if "객관식" in mode else None)
                     with col2:
-                        st.metric("저장된 빈칸", stats["total_cloze"], delta="+" + str(saved_count) if "빈칸" in mode else None)
+                        st.metric("저장된 빈칸/단답/서술", stats["total_cloze"], delta="+" + str(saved_count) if mode != MODE_MCQ else None)
                     
                     st.markdown("---")
                     
@@ -4849,7 +5107,9 @@ with tab_gen:
                                     st.write(f"**선지:** {', '.join(item_data.get('options', [])[:3])}...")
                                     st.write(f"**정답:** {item_data.get('answer', '?')} 번")
                                 else:
-                                    st.markdown(f"**문제 {i}** (빈칸)")
+                                    resp_type = item_data.get("response_type", "cloze")
+                                    label = "빈칸" if resp_type == "cloze" else ("단답형" if resp_type == "short" else "서술형")
+                                    st.markdown(f"**문제 {i}** ({label})")
                                     st.write(f"**내용:** {item_data.get('front', '')[:150]}...")
                                     st.write(f"**정답:** {item_data.get('answer', '?')}")
                                 st.divider()
@@ -4864,7 +5124,7 @@ with tab_gen:
                         use_container_width=True,
                         key="download_generated_json"
                     )
-                    quick_exam_type = "객관식" if mode == "📝 객관식 문제 (Case Study)" else "빈칸"
+                    quick_exam_type = "객관식" if mode == MODE_MCQ else "빈칸"
                     st.markdown("### 바로 풀기")
                     st.caption("아래에서 생성 결과를 즉시 시험/학습 세션으로 바꿔볼 수 있습니다.")
                     col_a, col_b, col_c = st.columns([1, 1, 1])
@@ -5750,6 +6010,27 @@ with tab_exam:
                     else:
                         st.info("기본 SRS 모드에서는 상세 리포트를 제공하지 않습니다.")
 
+        if filtered_questions:
+            with st.expander("📤 시험지/문제집 내보내기", expanded=False):
+                st.caption("현재 선택한 분과/단원 문항을 2열(DOCX) 형식으로 내보냅니다. 좌측: 문항, 우측: 정답/해설")
+                export_title_default = f"MedTutor_{exam_type}_문제집"
+                export_title = st.text_input("문서 제목", value=export_title_default, key="export_docx_title")
+                st.caption(f"내보내기 대상 문항: {len(filtered_questions)}개")
+                if st.button("DOCX 생성", key="build_docx_export", use_container_width=True):
+                    st.session_state.export_docx_bytes = build_docx_question_sheet(filtered_questions, title=export_title)
+                    st.success("DOCX 생성 완료")
+                if st.session_state.get("export_docx_bytes"):
+                    st.download_button(
+                        "📥 DOCX 다운로드",
+                        data=st.session_state.export_docx_bytes,
+                        file_name=f"{export_title}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key="download_docx_export",
+                        use_container_width=True
+                    )
+        else:
+            st.session_state.export_docx_bytes = b""
+
         if not filtered_questions:
             st.warning("선택한 조건에 해당하는 문제가 없습니다.")
         else:
@@ -5891,9 +6172,14 @@ with tab_exam:
                         is_correct = (user_ans == correct_num) if user_ans else False
                         user_ans_display = letters[user_ans - 1] if user_ans and 1 <= user_ans <= 5 else "응답 없음"
                     else:
+                        response_type = q.get("response_type", "cloze")
                         correct_text = q.get('answer') or ""
                         correct_display = correct_text
-                        is_correct = fuzzy_match(user_ans, correct_text) if user_ans and correct_text else False
+                        if response_type == "essay":
+                            ai_grade = q.get("_ai_grade") if isinstance(q.get("_ai_grade"), dict) else {}
+                            is_correct = bool(ai_grade.get("is_correct", False))
+                        else:
+                            is_correct = fuzzy_match(user_ans, correct_text) if user_ans and correct_text else False
                         user_ans_display = user_ans if user_ans else "응답 없음"
 
                     status_icon = "✅" if is_correct else "❌"
@@ -5911,6 +6197,14 @@ with tab_exam:
                         st.write(f"**당신의 답:** {user_ans_display}")
                         answer_color = "🟢" if is_correct else "🔴"
                         st.write(f"{answer_color} **정답:** {correct_display}")
+                        if q.get("response_type") == "essay":
+                            if isinstance(q.get("_ai_grade"), dict):
+                                st.write(f"AI 점수: {q['_ai_grade'].get('score', 0)} / 100")
+                                feedback = q["_ai_grade"].get("feedback")
+                                if feedback:
+                                    st.write(f"AI 피드백: {feedback}")
+                            else:
+                                st.caption("서술형은 AI 채점 실행 전까지 정오 판정이 확정되지 않습니다.")
                         if q.get("explanation"):
                             show_exp = st.checkbox("해설 보기", value=st.session_state.explanation_default, key=f"show_exp_{i}")
                             if show_exp:
@@ -5964,6 +6258,10 @@ with tab_exam:
                     nav_slot = st.empty()
                     unanswered_slot = st.empty()
                     st.markdown(f"### Question {idx + 1}")
+                    if q.get("type") != "mcq":
+                        rt = q.get("response_type", "cloze")
+                        rt_label = "빈칸형" if rt == "cloze" else ("단답형" if rt == "short" else "서술형")
+                        st.caption(f"유형: {rt_label}")
 
                     # 입력
                     if q.get('type') == 'mcq':
@@ -6010,9 +6308,43 @@ with tab_exam:
                         if q.get("images"):
                             st.image(q.get("images"), width=st.session_state.image_display_width)
                         prev_text = st.session_state.user_answers.get(idx, "")
-                        user_input = st.text_input("정답 입력 (한글/영문):", value=prev_text, key=f"cloze_{idx}")
+                        response_type = q.get("response_type", "cloze")
+                        if response_type == "essay":
+                            user_input = st.text_area("서술형 답안 입력:", value=prev_text, key=f"cloze_{idx}", height=160)
+                        elif response_type == "short":
+                            user_input = st.text_input("단답형 정답 입력:", value=prev_text, key=f"cloze_{idx}")
+                        else:
+                            user_input = st.text_input("정답 입력 (한글/영문):", value=prev_text, key=f"cloze_{idx}")
                         if user_input:
                             st.session_state.user_answers[idx] = user_input
+                        elif idx in st.session_state.user_answers:
+                            st.session_state.user_answers.pop(idx, None)
+
+                        if response_type == "essay" and user_input:
+                            if st.button("🧠 AI 채점 (서술형)", key=f"grade_essay_{idx}"):
+                                if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                                    st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                                    st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                else:
+                                    with st.spinner("AI 채점 중..."):
+                                        grade, err = grade_essay_answer_ai(
+                                            q,
+                                            user_input,
+                                            ai_model=st.session_state.ai_model,
+                                            api_key=api_key,
+                                            openai_api_key=openai_api_key
+                                        )
+                                    if grade:
+                                        q["_ai_grade"] = grade
+                                        st.success(f"AI 채점 완료: {grade.get('score', 0)}점")
+                                    else:
+                                        st.warning(f"AI 채점 실패: {err}")
+                        if response_type == "essay" and isinstance(q.get("_ai_grade"), dict):
+                            st.caption(f"AI 점수: {q['_ai_grade'].get('score', 0)} / 100")
+                            feedback = q["_ai_grade"].get("feedback")
+                            if feedback:
+                                st.caption(f"피드백: {feedback}")
 
                     # 문항 이동/미응답 (답안 반영 후 갱신)
                     answered_idx = set(st.session_state.user_answers.keys())
@@ -6059,12 +6391,42 @@ with tab_exam:
                                 correct_display = letters[correct_num - 1] if isinstance(correct_num, int) and 1 <= correct_num <= 5 else "?"
                                 is_correct = (st.session_state.user_answers[idx] == correct_num) if correct_num else False
                             else:
+                                response_type = q.get("response_type", "cloze")
                                 correct_text = q.get('answer') or ""
-                                is_correct = fuzzy_match(st.session_state.user_answers[idx], correct_text) if correct_text else False
+                                if response_type == "essay":
+                                    if st.button("🧠 AI 채점 실행", key=f"learn_grade_essay_{idx}"):
+                                        if st.session_state.ai_model == "🔵 Google Gemini" and not api_key:
+                                            st.error("Gemini API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                        elif st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key:
+                                            st.error("OpenAI API 키가 필요합니다. 사이드바에서 입력해주세요.")
+                                        else:
+                                            with st.spinner("AI 채점 중..."):
+                                                grade, err = grade_essay_answer_ai(
+                                                    q,
+                                                    st.session_state.user_answers[idx],
+                                                    ai_model=st.session_state.ai_model,
+                                                    api_key=api_key,
+                                                    openai_api_key=openai_api_key
+                                                )
+                                            if grade:
+                                                q["_ai_grade"] = grade
+                                            else:
+                                                st.warning(f"AI 채점 실패: {err}")
+                                    is_correct = bool(isinstance(q.get("_ai_grade"), dict) and q["_ai_grade"].get("is_correct"))
+                                else:
+                                    is_correct = fuzzy_match(st.session_state.user_answers[idx], correct_text) if correct_text else False
                                 correct_display = correct_text
 
                             answer_color = "🟢" if is_correct else "🔴"
                             st.write(f"{answer_color} **정답:** {correct_display}")
+                            if q.get("response_type") == "essay":
+                                if isinstance(q.get("_ai_grade"), dict):
+                                    st.write(f"AI 점수: {q['_ai_grade'].get('score', 0)} / 100")
+                                    feedback = q["_ai_grade"].get("feedback")
+                                    if feedback:
+                                        st.write(f"AI 피드백: {feedback}")
+                                else:
+                                    st.info("서술형은 AI 채점 실행 후 정오 판정이 반영됩니다.")
                             # 학습모드 통계 업데이트 (1회)
                             if q.get("id") and q.get("id") not in st.session_state.graded_questions:
                                 update_question_stats(q["id"], is_correct)
@@ -6210,7 +6572,7 @@ with tab_notes:
             st.subheader("📌 노트로 문제 생성")
             col1, col2, col3 = st.columns(3)
             with col1:
-                note_mode = st.selectbox("생성 방식", ["Cloze 자동(정답:)","AI 객관식","AI Cloze"])
+                note_mode = st.selectbox("생성 방식", ["Cloze 자동(정답:)","AI 객관식","AI Cloze","AI 단답형","AI 서술형"])
             with col2:
                 note_subject = st.text_input("과목명", value="General", key="note_subject")
             with col3:
@@ -6232,7 +6594,13 @@ with tab_notes:
                     if (note_mode.startswith("AI") and st.session_state.ai_model == "🔵 Google Gemini" and not api_key) or (note_mode.startswith("AI") and st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key):
                         st.error("API 키가 필요합니다. 사이드바에서 입력해주세요.")
                     else:
-                        mode = "📝 객관식 문제 (Case Study)" if note_mode == "AI 객관식" else "🧩 빈칸 뚫기 (Anki Cloze)"
+                        mode_map = {
+                            "AI 객관식": MODE_MCQ,
+                            "AI Cloze": MODE_CLOZE,
+                            "AI 단답형": MODE_SHORT,
+                            "AI 서술형": MODE_ESSAY,
+                        }
+                        mode = mode_map.get(note_mode, MODE_CLOZE)
                         result = generate_content_in_chunks(
                             content,
                             mode,
