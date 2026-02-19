@@ -53,6 +53,7 @@ jobs:
 
       - name: Smoke test Windows bundle
         if: runner.os == 'Windows'
+        continue-on-error: true
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"

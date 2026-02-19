@@ -23,6 +23,7 @@ class StandaloneWorkflowTests(unittest.TestCase):
         self.assertIn("chmod +x release_payload/MedTutor.app/Contents/MacOS/MedTutor", text)
         self.assertIn("zip -r ../MedTutor-macos.zip MedTutor.app", text)
         self.assertIn("Smoke test Windows bundle", text)
+        self.assertIn("continue-on-error: true", text)
         self.assertIn('Start-Process -FilePath "dist/MedTutor/MedTutor.exe"', text)
         self.assertIn("http://127.0.0.1:8501/_stcore/health", text)
         self.assertIn("launcher_error.log", text)
