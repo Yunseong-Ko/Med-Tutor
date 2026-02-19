@@ -11,6 +11,7 @@ import uuid
 import concurrent.futures
 import random
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from openai import OpenAI
@@ -25,6 +26,40 @@ import xml.etree.ElementTree as ET
 import importlib.util
 import hashlib
 
+# ============================================================================
+# 감사 로그 (append-only JSONL)
+# ============================================================================
+def _hash_text(text: str) -> str:
+    if not text:
+        return ""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+def append_audit_log(event: str, payload: dict):
+    try:
+        row = {
+            "run_id": str(int(time.time() * 1000)),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            **(payload or {}),
+        }
+        with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception:
+        # 감사 로그 실패는 앱 실행을 막지 않음
+        pass
+
+def _gemini_usage_tokens(response):
+    usage = getattr(response, "usage_metadata", None)
+    if not usage:
+        return None
+    total = getattr(usage, "total_token_count", None)
+    if total is not None:
+        return total
+    prompt_t = getattr(usage, "prompt_token_count", None)
+    cand_t = getattr(usage, "candidates_token_count", None)
+    if prompt_t is None and cand_t is None:
+        return None
+    return (prompt_t or 0) + (cand_t or 0)
 # Optional markdown renderer for Obsidian view
 try:
     import markdown as md
@@ -64,6 +99,17 @@ DATA_DIR = get_app_data_dir()
 QUESTION_BANK_FILE = str(DATA_DIR / "questions.json")
 EXAM_HISTORY_FILE = str(DATA_DIR / "exam_history.json")
 USER_SETTINGS_FILE = str(DATA_DIR / "user_settings.json")
+AUDIT_LOG_FILE = str(DATA_DIR / "audit_log.jsonl")
+
+PROMPT_VERSION = "v1"
+GRADER_VERSION = "v1"
+LLM_TEMPERATURE = 0.0
+def _get_llm_seed():
+    try:
+        return int(os.getenv("GEN_SEED", "123"))
+    except Exception:
+        return None
+LLM_SEED = _get_llm_seed()
 def get_query_param(name, default=None):
     try:
         params = st.query_params
@@ -864,6 +910,12 @@ def update_question_stats(q_id, is_correct):
                 stats["history"] = history[-200:]
                 item["stats"] = stats
                 save_questions(bank)
+                append_audit_log("grade.answer", {
+                    "question_id": q_id,
+                    "correct": bool(is_correct),
+                    "score": 1 if is_correct else 0,
+                    "grader_version": GRADER_VERSION,
+                })
                 return stats
     return None
 
@@ -2647,19 +2699,46 @@ def generate_explanations_ai(items, ai_model, api_key=None, openai_api_key=None,
                     continue
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel(get_gemini_model_id())
-                response = model.generate_content(prompt)
+                generation_config = {
+                    "temperature": LLM_TEMPERATURE,
+                    "top_p": 1.0,
+                }
+                response = model.generate_content(prompt, generation_config=generation_config)
                 text = (response.text or "").strip()
+                append_audit_log("gen.explanation.batch", {
+                    "model": get_gemini_model_id(),
+                    "temperature": LLM_TEMPERATURE,
+                    "seed": None,
+                    "prompt_hash": _hash_text(prompt),
+                    "prompt_text": prompt,
+                    "output_text": text,
+                    "usage_tokens": _gemini_usage_tokens(response),
+                    "prompt_version": PROMPT_VERSION,
+                })
             else:
                 if not openai_api_key:
                     continue
                 client = OpenAI(api_key=openai_api_key)
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=300
-                )
+                openai_params = {
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": LLM_TEMPERATURE,
+                    "max_tokens": 300,
+                }
+                if LLM_SEED is not None:
+                    openai_params["seed"] = LLM_SEED
+                response = client.chat.completions.create(**openai_params)
                 text = (response.choices[0].message.content or "").strip()
+                append_audit_log("gen.explanation.batch", {
+                    "model": "gpt-4o-mini",
+                    "temperature": LLM_TEMPERATURE,
+                    "seed": LLM_SEED,
+                    "prompt_hash": _hash_text(prompt),
+                    "prompt_text": prompt,
+                    "output_text": text,
+                    "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+                    "prompt_version": PROMPT_VERSION,
+                })
             if text:
                 item["explanation"] = text
                 count += 1
@@ -2696,20 +2775,47 @@ def generate_single_explanation_ai(item, ai_model, api_key=None, openai_api_key=
                 return ("", "Gemini API 키 없음") if return_error else ""
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel(get_gemini_model_id())
-            response = model.generate_content(prompt)
+            generation_config = {
+                "temperature": LLM_TEMPERATURE,
+                "top_p": 1.0,
+            }
+            response = model.generate_content(prompt, generation_config=generation_config)
             text = (response.text or "").strip()
+            append_audit_log("gen.explanation.single", {
+                "model": get_gemini_model_id(),
+                "temperature": LLM_TEMPERATURE,
+                "seed": None,
+                "prompt_hash": _hash_text(prompt),
+                "prompt_text": prompt,
+                "output_text": text,
+                "usage_tokens": _gemini_usage_tokens(response),
+                "prompt_version": PROMPT_VERSION,
+            })
             return (text, "") if return_error else text
         else:
             if not openai_api_key:
                 return ("", "OpenAI API 키 없음") if return_error else ""
             client = OpenAI(api_key=openai_api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=300
-            )
+            openai_params = {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": LLM_TEMPERATURE,
+                "max_tokens": 300,
+            }
+            if LLM_SEED is not None:
+                openai_params["seed"] = LLM_SEED
+            response = client.chat.completions.create(**openai_params)
             text = (response.choices[0].message.content or "").strip()
+            append_audit_log("gen.explanation.single", {
+                "model": "gpt-4o-mini",
+                "temperature": LLM_TEMPERATURE,
+                "seed": LLM_SEED,
+                "prompt_hash": _hash_text(prompt),
+                "prompt_text": prompt,
+                "output_text": text,
+                "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+                "prompt_version": PROMPT_VERSION,
+            })
             return (text, "") if return_error else text
     except Exception as e:
         return ("", str(e)) if return_error else ""
@@ -3203,6 +3309,9 @@ def extract_text_from_hwp(uploaded_file):
                 with zipfile.ZipFile(odt_path) as zf:
                     xml_bytes = zf.read("content.xml")
                 return extract_text_from_odt_content(xml_bytes)
+            except Exception:
+                # ODT 보조 파싱 실패 시 hwp5txt 원문으로 안전하게 폴백
+                return ""
             finally:
                 if odt_path and os.path.exists(odt_path):
                     try:
@@ -3408,8 +3517,25 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(get_gemini_model_id())
-        response = model.generate_content(f"{system_prompt}\n\n[강의록 내용]:\n{text_content[:30000]}")
-        return response.text
+        prompt_text = f"{system_prompt}\n\n[강의록 내용]:\n{text_content[:30000]}"
+        generation_config = {
+            "temperature": LLM_TEMPERATURE,
+            "top_p": 1.0,
+        }
+        response = model.generate_content(prompt_text, generation_config=generation_config)
+        result_text = response.text
+        append_audit_log("gen.question", {
+            "model": get_gemini_model_id(),
+            "temperature": LLM_TEMPERATURE,
+            "seed": None,
+            "prompt_hash": _hash_text(prompt_text),
+            "prompt_text": prompt_text,
+            "input_hash": _hash_text(text_content[:30000]),
+            "output_text": result_text,
+            "usage_tokens": _gemini_usage_tokens(response),
+            "prompt_version": PROMPT_VERSION,
+        })
+        return result_text
     except Exception as e:
         return f"❌ Gemini 생성 실패: {str(e)}"
 
@@ -3435,14 +3561,20 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
         openai_client = OpenAI(api_key=openai_api_key)
         print(f"[OPENAI DEBUG] OpenAI 클라이언트 생성 완료", file=sys.stderr)
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
+        prompt_text = f"{system_prompt}\n\n[강의록 내용]:\n{text_content[:30000]}"
+        openai_params = {
+            "model": "gpt-4o-mini",
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"[강의록 내용]:\n{text_content[:30000]}"}
             ],
-            temperature=0.7,
-            max_tokens=4000
+            "temperature": LLM_TEMPERATURE,
+            "max_tokens": 4000,
+        }
+        if LLM_SEED is not None:
+            openai_params["seed"] = LLM_SEED
+        response = openai_client.chat.completions.create(
+            **openai_params
         )
         
         result = response.choices[0].message.content
@@ -3452,6 +3584,17 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
         if selected_mode == "📝 객관식 문제 (Case Study)":
             result = convert_json_mcq_to_text(result, num_items)
         
+        append_audit_log("gen.question", {
+            "model": "gpt-4o-mini",
+            "temperature": LLM_TEMPERATURE,
+            "seed": LLM_SEED,
+            "prompt_hash": _hash_text(prompt_text),
+            "prompt_text": prompt_text,
+            "input_hash": _hash_text(text_content[:30000]),
+            "output_text": result,
+            "usage_tokens": getattr(response, "usage", {}).get("total_tokens", None) if hasattr(response, "usage") else None,
+            "prompt_version": PROMPT_VERSION,
+        })
         return result
     except Exception as e:
         import traceback
