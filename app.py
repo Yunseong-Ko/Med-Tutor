@@ -6036,6 +6036,12 @@ with tab_exam:
                 st.caption("선택한 분과 문항을 2열(DOCX) 형식으로 내보냅니다. 좌측: 문항, 우측: 정답/해설")
                 export_title_default = f"MedTutor_{exam_type}_문제집"
                 export_title = st.text_input("문서 제목", value=export_title_default, key="export_docx_title")
+                export_subjects = st.multiselect(
+                    "내보낼 분과 선택",
+                    options=all_subjects,
+                    default=[s for s in selected_subjects if s in all_subjects] if selected_subjects else all_subjects,
+                    key="export_subjects"
+                )
                 export_include_all_units = st.checkbox(
                     "선택 분과 전체 문항 사용 (단원 필터 무시)",
                     value=True,
@@ -6045,14 +6051,17 @@ with tab_exam:
                 export_seed = None
                 if export_randomize:
                     export_seed = st.number_input("랜덤 시드", min_value=0, value=42, step=1, key="export_random_seed")
-                export_candidates = collect_export_questions(
-                    questions_all,
-                    selected_subjects,
-                    unit_filter_by_subject,
-                    include_all_units=export_include_all_units,
-                    randomize=export_randomize,
-                    random_seed=export_seed
-                )
+                if export_subjects:
+                    export_candidates = collect_export_questions(
+                        questions_all,
+                        export_subjects,
+                        unit_filter_by_subject,
+                        include_all_units=export_include_all_units,
+                        randomize=export_randomize,
+                        random_seed=export_seed
+                    )
+                else:
+                    export_candidates = []
                 st.caption(f"내보내기 대상 문항: {len(export_candidates)}개")
                 if st.button("DOCX 생성", key="build_docx_export", use_container_width=True):
                     if not export_candidates:

@@ -28,6 +28,11 @@ def _load_export_helpers():
 
 
 class ExportSelectionRandomizationTests(unittest.TestCase):
+    def test_export_ui_has_subject_selector(self):
+        text = Path(APP_PATH).read_text(encoding="utf-8")
+        self.assertIn("내보낼 분과 선택", text)
+        self.assertIn("export_subjects", text)
+
     def test_collects_all_selected_subjects_when_include_all_units(self):
         fn = _load_export_helpers()
         questions = [
