@@ -51,7 +51,13 @@ def write_error_log(detail):
 def main():
     try:
         app_path = resolve_app_path()
-        sys.argv = ["streamlit", "run", str(app_path), "--server.fileWatcherType=none"]
+        sys.argv = [
+            "streamlit",
+            "run",
+            str(app_path),
+            "--server.fileWatcherType=none",
+            "--global.developmentMode=false",
+        ]
         sys.exit(stcli.main())
     except Exception as exc:
         detail = traceback.format_exc()
