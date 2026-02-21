@@ -2609,6 +2609,7 @@ def parse_qa_to_cloze(text):
     return results
 
 def apply_theme(theme_mode, bg_mode):
+    color_scheme = "dark" if theme_mode == "Dark" else "light"
     if theme_mode == "Dark":
         base_bg = "#0f172a"
         surface = "#111827"
@@ -2653,35 +2654,67 @@ def apply_theme(theme_mode, bg_mode):
         }}
         html, body {{
             color: var(--text);
+            color-scheme: {color_scheme};
         }}
         .stApp {{
             background-color: var(--bg);
             background-image: {bg};
             color: var(--text);
+            color-scheme: {color_scheme};
+        }}
+        [data-testid="stAppViewContainer"] {{
+            color: var(--text) !important;
+        }}
+        [data-testid="stAppViewContainer"] p,
+        [data-testid="stAppViewContainer"] span,
+        [data-testid="stAppViewContainer"] label,
+        [data-testid="stAppViewContainer"] li,
+        [data-testid="stAppViewContainer"] strong,
+        [data-testid="stAppViewContainer"] h1,
+        [data-testid="stAppViewContainer"] h2,
+        [data-testid="stAppViewContainer"] h3,
+        [data-testid="stAppViewContainer"] h4,
+        [data-testid="stAppViewContainer"] h5,
+        [data-testid="stAppViewContainer"] h6 {{
+            color: var(--text) !important;
+            opacity: 1 !important;
         }}
         [data-testid="stSidebar"] {{
             background: var(--surface);
             border-right: 1px solid var(--border);
+        }}
+        [data-testid="stSidebar"] * {{
+            color: var(--text) !important;
+            opacity: 1 !important;
         }}
         [data-testid="stHeader"] {{
             background: transparent;
         }}
         .stButton>button {{
             background: var(--accent);
-            color: #ffffff;
+            color: #ffffff !important;
             border: 1px solid var(--accent);
             border-radius: 10px;
         }}
+        .stButton>button * {{
+            color: #ffffff !important;
+        }}
         .stButton>button:hover {{
             background: var(--accent-2);
-            color: #ffffff;
+            color: #ffffff !important;
         }}
         div[data-baseweb="input"] > div,
         div[data-baseweb="select"] > div,
         .stTextArea textarea {{
             background: var(--surface-2);
             border: 1px solid var(--border);
-            color: var(--text);
+            color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }}
+        input::placeholder,
+        textarea::placeholder {{
+            color: var(--muted) !important;
+            opacity: 1 !important;
         }}
         .stTabs [data-baseweb="tab-list"] {{
             background: var(--surface);
