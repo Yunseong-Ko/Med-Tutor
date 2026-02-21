@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import fitz  # PyMuPDF
 import google.generativeai as genai
 import re
@@ -71,13 +70,6 @@ def _openai_usage_tokens(response):
     if isinstance(usage, dict):
         return usage.get("total_tokens", None)
     return getattr(usage, "total_tokens", None)
-# Optional markdown renderer for Obsidian view
-try:
-    import markdown as md
-    MARKDOWN_AVAILABLE = True
-except Exception:
-    MARKDOWN_AVAILABLE = False
-
 # FSRS (optional)
 try:
     from fsrs import Scheduler, Card, Rating, ReviewLog
@@ -531,8 +523,6 @@ if "current_exam_meta" not in st.session_state:
     st.session_state.current_exam_meta = {}
 if "exam_history_saved" not in st.session_state:
     st.session_state.exam_history_saved = False
-if "obsidian_path" not in st.session_state:
-    st.session_state.obsidian_path = ""
 if "gemini_model_id" not in st.session_state:
     st.session_state.gemini_model_id = "gemini-2.5-flash"
 if "dual_exam_text" not in st.session_state:
@@ -2820,97 +2810,6 @@ def render_generation_recovery_panel():
             if st.button("🧹 알림 지우기", use_container_width=True, key="failure_clear_btn"):
                 st.session_state.generation_failure = ""
 
-def render_obsidian_html(content):
-    if MARKDOWN_AVAILABLE:
-        html = md.markdown(content, extensions=["fenced_code", "tables"])
-    else:
-        escaped = (
-            content.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-        html = f"<pre>{escaped}</pre>"
-    components.html(
-        f"<div class='obsidian-note'>{html}</div>",
-        height=480,
-        scrolling=True
-    )
-
-def resolve_obsidian_embeds(content, vault_path, note_path):
-    note_dir = os.path.dirname(note_path) if note_path else ""
-
-    def find_file(target):
-        candidates = []
-        if os.path.isabs(target):
-            candidates.append(target)
-        else:
-            if note_dir:
-                candidates.append(os.path.join(note_dir, target))
-            if vault_path:
-                candidates.append(os.path.join(vault_path, target))
-        # try common extensions if missing
-        if not os.path.splitext(target)[1]:
-            for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-                if note_dir:
-                    candidates.append(os.path.join(note_dir, target + ext))
-                if vault_path:
-                    candidates.append(os.path.join(vault_path, target + ext))
-        for c in candidates:
-            if c and os.path.exists(c):
-                return c
-        return None
-
-    def repl(match):
-        raw = match.group(1)
-        target = raw.split("|")[0].strip()
-        path = find_file(target)
-        if not path:
-            return match.group(0)
-        ext = os.path.splitext(path)[1].lower()
-        if ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-            data_uri = image_to_data_uri(path)
-            if not data_uri:
-                return match.group(0)
-            return f"<img src='{data_uri}' style='max-width:100%; border-radius:12px; margin:8px 0;'/>"
-        if ext == ".pdf":
-            preview = pdf_first_page_to_data_uri(path)
-            if preview:
-                return (
-                    f"<div style='margin:8px 0;'>"
-                    f"<img src='{preview}' style='max-width:100%; border-radius:12px; border:1px solid #e5e7eb;'/>"
-                    f"<div style='font-size:12px; color:#6b7280; margin-top:4px;'>첨부 PDF: {os.path.basename(path)}</div>"
-                    f"</div>"
-                )
-            return f"<div style='margin:8px 0; padding:8px 12px; border:1px solid #e5e7eb; border-radius:10px;'>첨부 PDF: {os.path.basename(path)}</div>"
-        return match.group(0)
-
-    return re.sub(r"!\[\[(.*?)\]\]", repl, content)
-
-def image_to_data_uri(path):
-    try:
-        with open(path, "rb") as f:
-            data = f.read()
-        b64 = base64.b64encode(data).decode("utf-8")
-        ext = os.path.splitext(path)[1].lower().replace(".", "")
-        mime = "image/png" if ext == "png" else "image/jpeg"
-        return f"data:{mime};base64,{b64}"
-    except Exception:
-        return ""
-
-def pdf_first_page_to_data_uri(path):
-    try:
-        doc = fitz.open(path)
-        if doc.page_count == 0:
-            return ""
-        page = doc.load_page(0)
-        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-        data = pix.tobytes("png")
-        doc.close()
-        b64 = base64.b64encode(data).decode("utf-8")
-        return f"data:image/png;base64,{b64}"
-    except Exception:
-        return ""
-
 def compute_activity_heatmap(questions, days=365, now=None):
     check_time = now or datetime.now(timezone.utc)
     start = (check_time - timedelta(days=days - 1)).date()
@@ -4804,14 +4703,14 @@ if not st.session_state.get("auth_user_id"):
 # 메인 UI: 탭 구조
 # ============================================================================
 admin_mode = is_admin_user()
-tab_labels = ["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험", "🗒️ 노트"]
+tab_labels = ["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험"]
 if admin_mode:
     tab_labels.append("🛠️ 운영")
 tab_objs = st.tabs(tab_labels)
 if admin_mode:
-    tab_home, tab_gen, tab_convert, tab_exam, tab_notes, tab_admin = tab_objs
+    tab_home, tab_gen, tab_convert, tab_exam, tab_admin = tab_objs
 else:
-    tab_home, tab_gen, tab_convert, tab_exam, tab_notes = tab_objs
+    tab_home, tab_gen, tab_convert, tab_exam = tab_objs
     tab_admin = None
 
 # ============================================================================
@@ -7095,108 +6994,3 @@ with tab_exam:
                         else:
                             if idx == len(exam_qs) - 1:
                                 st.button("✅ 세션 종료", on_click=finish_exam_session)
-
-# ============================================================================
-# TAB: 노트
-# ============================================================================
-with tab_notes:
-    st.title("🗒️ 노트")
-    st.caption("Obsidian 노트를 연결해 열람하거나, 노트 내용으로 문제를 생성할 수 있습니다.")
-
-    vault_path = st.text_input("Obsidian Vault 경로", value=st.session_state.obsidian_path, placeholder="/path/to/obsidian-vault")
-    if vault_path:
-        st.session_state.obsidian_path = vault_path
-
-    if vault_path and os.path.isdir(vault_path):
-        search = st.text_input("파일 검색", value="", key="obsidian_search")
-        md_files = []
-        folders = set()
-        for root, _, files in os.walk(vault_path):
-            for name in files:
-                if name.lower().endswith(".md"):
-                    full = os.path.join(root, name)
-                    rel = os.path.relpath(full, vault_path)
-                    parts = rel.split(os.sep)
-                    if len(parts) > 1:
-                        folders.add(parts[0])
-                    if search and search.lower() not in rel.lower():
-                        continue
-                    md_files.append(rel)
-        folder_list = sorted(folders)
-        selected_folders = st.multiselect("폴더 필터", folder_list, default=folder_list)
-        if selected_folders:
-            md_files = [f for f in md_files if f.split(os.sep)[0] in selected_folders or os.sep not in f]
-        md_files = sorted(md_files)[:500]
-        if not md_files:
-            st.info("조건에 맞는 마크다운 파일이 없습니다.")
-        else:
-            selected = st.selectbox("노트 선택", md_files, index=0)
-            full_path = os.path.join(vault_path, selected)
-            try:
-                with open(full_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-            except Exception:
-                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-
-            st.markdown("**노트 미리보기**")
-            view_mode = st.selectbox("보기 모드", ["Obsidian 스타일", "일반"], index=0)
-            if view_mode == "Obsidian 스타일":
-                rendered = resolve_obsidian_embeds(content, vault_path, full_path)
-                render_obsidian_html(rendered)
-                if not MARKDOWN_AVAILABLE:
-                    st.info("더 나은 렌더링을 위해 `markdown` 패키지를 설치하세요.")
-            else:
-                st.text_area("내용", value=content, height=300)
-
-            st.markdown("---")
-            st.subheader("📌 노트로 문제 생성")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                note_mode = st.selectbox("생성 방식", ["Cloze 자동(정답:)","AI 객관식","AI Cloze","AI 단답형","AI 서술형"])
-            with col2:
-                note_subject = st.text_input("과목명", value="General", key="note_subject")
-            with col3:
-                note_unit = st.text_input("단원명(선택)", value="미분류", key="note_unit")
-            note_num = st.slider("문항 수", 1, 30, 10)
-
-            if st.button("노트에서 문제 생성", use_container_width=True, key="note_generate"):
-                if note_mode == "Cloze 자동(정답:)":
-                    if "{{c1::" in content:
-                        items = parse_generated_text_to_structured(content, "🧩 빈칸 뚫기 (Anki Cloze)")
-                    else:
-                        items = parse_qa_to_cloze(content)
-                    if not items:
-                        st.error("자동 변환에 실패했습니다. `정답:` 형식인지 확인해주세요.")
-                    else:
-                        added = add_questions_to_bank_auto(items, subject=note_subject, unit=note_unit, quality_filter=enable_filter, min_length=min_length)
-                        st.success(f"✅ {added}개 문항 저장 완료")
-                else:
-                    if (note_mode.startswith("AI") and st.session_state.ai_model == "🔵 Google Gemini" and not api_key) or (note_mode.startswith("AI") and st.session_state.ai_model == "🟢 OpenAI ChatGPT" and not openai_api_key):
-                        st.error("API 키가 필요합니다. 사이드바에서 입력해주세요.")
-                    else:
-                        mode_map = {
-                            "AI 객관식": MODE_MCQ,
-                            "AI Cloze": MODE_CLOZE,
-                            "AI 단답형": MODE_SHORT,
-                            "AI 서술형": MODE_ESSAY,
-                        }
-                        mode = mode_map.get(note_mode, MODE_CLOZE)
-                        result = generate_content_in_chunks(
-                            content,
-                            mode,
-                            ai_model,
-                            num_items=note_num,
-                            chunk_size=chunk_size,
-                            overlap=overlap,
-                            api_key=api_key,
-                            openai_api_key=openai_api_key,
-                            style_text=None,
-                        )
-                        if result:
-                            added = add_questions_to_bank(result, mode, note_subject, note_unit, quality_filter=enable_filter, min_length=min_length)
-                            st.success(f"✅ {added}개 문항 저장 완료")
-                        else:
-                            st.error("문항 생성 실패")
-    elif vault_path:
-        st.error("유효한 Obsidian Vault 경로가 아닙니다.")
