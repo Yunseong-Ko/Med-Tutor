@@ -16,12 +16,12 @@ jobs:
         include:
           - os: macos-latest
             add_data_sep: ":"
-            artifact_name: MedTutor-macos
-            artifact_path: dist/MedTutor.app
+            artifact_name: AxiomaQbank-macos
+            artifact_path: dist/AxiomaQbank.app
           - os: windows-latest
             add_data_sep: ";"
-            artifact_name: MedTutor-windows
-            artifact_path: dist/MedTutor
+            artifact_name: AxiomaQbank-windows
+            artifact_path: dist/AxiomaQbank
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -44,7 +44,7 @@ jobs:
           pyinstaller \
             --noconfirm \
             --windowed \
-            --name MedTutor \
+            --name AxiomaQbank \
             launcher.py \
             --add-data "app.py${{ matrix.add_data_sep }}." \
             --collect-all streamlit \
@@ -61,7 +61,7 @@ jobs:
           $env:STREAMLIT_SERVER_PORT = "8501"
           $env:BROWSER = "none"
 
-          $proc = Start-Process -FilePath "dist/MedTutor/MedTutor.exe" -PassThru
+          $proc = Start-Process -FilePath "dist/AxiomaQbank/AxiomaQbank.exe" -PassThru
           $healthReady = $false
           for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 1
@@ -79,7 +79,7 @@ jobs:
           }
 
           if (-not $healthReady) {
-            $logPath = Join-Path $env:USERPROFILE "MedTutor\\launcher_error.log"
+            $logPath = Join-Path $env:USERPROFILE "AxiomaQbank\\launcher_error.log"
             if (Test-Path $logPath) {
               Write-Host "---- launcher_error.log (tail) ----"
               Get-Content $logPath -Tail 200
@@ -91,7 +91,7 @@ jobs:
           if (-not $proc.HasExited) {
             Stop-Process -Id $proc.Id -Force
           }
-          Get-Process MedTutor -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process AxiomaQbank -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -113,20 +113,20 @@ jobs:
       - name: Prepare release payloads
         run: |
           mkdir -p release_payload
-          cp -R release_artifacts/MedTutor-macos release_payload/MedTutor.app
-          chmod +x release_payload/MedTutor.app/Contents/MacOS/MedTutor || true
-          cp -R release_artifacts/MedTutor-windows release_payload/MedTutor-windows
+          cp -R release_artifacts/AxiomaQbank-macos release_payload/AxiomaQbank.app
+          chmod +x release_payload/AxiomaQbank.app/Contents/MacOS/AxiomaQbank || true
+          cp -R release_artifacts/AxiomaQbank-windows release_payload/AxiomaQbank-windows
 
       - name: Archive release files
         run: |
           cd release_payload
-          zip -r ../MedTutor-macos.zip MedTutor.app
-          zip -r ../MedTutor-windows.zip MedTutor-windows
+          zip -r ../AxiomaQbank-macos.zip AxiomaQbank.app
+          zip -r ../AxiomaQbank-windows.zip AxiomaQbank-windows
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            MedTutor-macos.zip
-            MedTutor-windows.zip
+            AxiomaQbank-macos.zip
+            AxiomaQbank-windows.zip

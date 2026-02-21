@@ -10,7 +10,7 @@ class ThemeHomeSafetyTests(unittest.TestCase):
         text = APP_PATH.read_text(encoding="utf-8")
         self.assertNotIn('<div class="hero">', text)
         self.assertNotIn('<div class="lamp-glow"></div>', text)
-        self.assertIn('st.header("MedTutor")', text)
+        self.assertIn('st.header("Axioma Qbank")', text)
         self.assertIn("전체 정답률", text)
 
 

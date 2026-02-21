@@ -20,10 +20,10 @@ fi
 
 source .venv/bin/activate
 
-if [ ! -f ".venv/.medtutor_installed" ]; then
+if [ ! -f ".venv/.axioma_qbank_installed" ]; then
   python -m pip install --upgrade pip
   python -m pip install -r requirements.txt
-  touch .venv/.medtutor_installed
+  touch .venv/.axioma_qbank_installed
 fi
 
 python -m streamlit run app.py

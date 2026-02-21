@@ -18,12 +18,12 @@ if not exist ".venv\\Scripts\\python.exe" (
 call ".venv\\Scripts\\activate.bat"
 if errorlevel 1 goto :fail
 
-if not exist ".venv\\.medtutor_installed" (
+if not exist ".venv\\.axioma_qbank_installed" (
   python -m pip install --upgrade pip
   if errorlevel 1 goto :fail
   python -m pip install -r requirements.txt
   if errorlevel 1 goto :fail
-  type nul > ".venv\\.medtutor_installed"
+  type nul > ".venv\\.axioma_qbank_installed"
 )
 
 python -m streamlit run app.py

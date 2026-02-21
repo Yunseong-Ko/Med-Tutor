@@ -99,10 +99,10 @@ MODE_ESSAY = "🧾 서술형 문제"
 # ============================================================================
 # 초기 설정
 # ============================================================================
-st.set_page_config(page_title="MedTutor", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Axioma Qbank", page_icon="🧬", layout="wide")
 
 def get_app_data_dir():
-    env_dir = os.getenv("MEDTUTOR_DATA_DIR", "").strip()
+    env_dir = os.getenv("AXIOMA_QBANK_DATA_DIR", "").strip() or os.getenv("MEDTUTOR_DATA_DIR", "").strip()
     if env_dir:
         base = Path(env_dir).expanduser()
         try:
@@ -111,7 +111,9 @@ def get_app_data_dir():
             pass
         return base
     if getattr(sys, "frozen", False):
-        base = Path.home() / "MedTutor"
+        new_base = Path.home() / "AxiomaQbank"
+        old_base = Path.home() / "MedTutor"
+        base = old_base if old_base.exists() and not new_base.exists() else new_base
         try:
             base.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -1155,11 +1157,12 @@ def parse_mcq_content(q_data: dict) -> dict:
     Returns:
         {"type": "mcq", "front": ..., "problem": ..., "options": [...], "correct": ..., "explanation": ...}
     """
+    stem = sanitize_mcq_problem_text(q_data.get("problem", ""))
     return {
         "type": "mcq",
-        "raw": q_data.get("problem", ""),
-        "front": q_data.get("problem", ""),
-        "problem": q_data.get("problem", ""),
+        "raw": stem,
+        "front": stem,
+        "problem": stem,
         "options": q_data.get("options", []),
         "correct": q_data.get("answer"),  # 숫자 형식: 1-5
         "explanation": q_data.get("explanation", ""),
@@ -1171,6 +1174,23 @@ def parse_mcq_content(q_data: dict) -> dict:
         "note": q_data.get("note", ""),
         "images": q_data.get("images", []),
     }
+
+def sanitize_mcq_problem_text(problem_text):
+    text = re.sub(r"\s+", " ", str(problem_text or "")).strip()
+    if not text:
+        return ""
+
+    # 중복 [문제] 마커가 붙는 경우 첫 문항만 유지
+    second_marker = text.find("[문제]", len("[문제]"))
+    if second_marker != -1:
+        text = text[:second_marker].strip()
+
+    # 물음표 뒤에 공백 없이 다른 문항이 붙은 경우(예: "...것은?TPN)...") 첫 문항으로 절단
+    hard_concat = re.search(r"\?[^\s\"'”’)\]}]", text)
+    if hard_concat:
+        text = text[: hard_concat.start() + 1].strip()
+
+    return text
 
 def parse_cloze_content(q_data: dict) -> dict:
     """저장된 Cloze 데이터를 시험 표시용으로 변환
@@ -1881,7 +1901,7 @@ def _set_row_cant_split(row):
     if not any(child.tag.endswith("cantSplit") for child in tr_pr):
         tr_pr.append(OxmlElement("w:cantSplit"))
 
-def build_docx_question_sheet(items, title="MedTutor 문제집"):
+def build_docx_question_sheet(items, title="Axioma Qbank 문제집"):
     doc = Document()
     doc.add_heading(title, level=1)
     doc.add_paragraph("좌측: 문항 | 우측: 정답 및 해설")
@@ -4508,7 +4528,7 @@ if THEME_ENABLED:
     apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
 
 if not st.session_state.get("auth_user_id"):
-    st.title("MedTutor")
+    st.title("Axioma Qbank")
     st.info("왼쪽 사이드바에서 로그인 또는 회원가입 후 시작하세요.")
     st.stop()
 
@@ -4533,7 +4553,7 @@ with tab_home:
     if not st.session_state.get("theme_enabled"):
         st.info("Safe mode에서 테마가 비활성화되었습니다.")
 
-    st.header("MedTutor")
+    st.header("Axioma Qbank")
     st.write("강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.")
     st.write(f"전체 정답률: {acc_text}")
     st.write(f"저장된 객관식: {stats['total_text']} · 저장된 빈칸: {stats['total_cloze']}")
@@ -6149,7 +6169,7 @@ with tab_exam:
         if questions_all:
             with st.expander("📤 시험지/문제집 내보내기", expanded=False):
                 st.caption("선택한 분과 문항을 2열(DOCX) 형식으로 내보냅니다. 좌측: 문항, 우측: 정답/해설")
-                export_title_default = f"MedTutor_{exam_type}_문제집"
+                export_title_default = f"AxiomaQbank_{exam_type}_문제집"
                 export_title = st.text_input("문서 제목", value=export_title_default, key="export_docx_title")
                 export_subjects = st.multiselect(
                     "내보낼 분과 선택",

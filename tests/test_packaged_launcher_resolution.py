@@ -20,7 +20,7 @@ class PackagedLauncherResolutionTests(unittest.TestCase):
         launcher = load_launcher_module()
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            exe_dir = root / "MedTutor"
+            exe_dir = root / "AxiomaQbank"
             internal_dir = exe_dir / "_internal"
             internal_dir.mkdir(parents=True, exist_ok=True)
             app_path = internal_dir / "app.py"
@@ -28,7 +28,7 @@ class PackagedLauncherResolutionTests(unittest.TestCase):
 
             resolved = launcher.resolve_app_path(
                 file_path=exe_dir / "launcher.py",
-                executable_path=exe_dir / "MedTutor.exe",
+                executable_path=exe_dir / "AxiomaQbank.exe",
                 cwd_path=root,
                 frozen=True,
             )
@@ -56,7 +56,7 @@ class PackagedLauncherResolutionTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError) as ctx:
                 launcher.resolve_app_path(
                     file_path=root / "launcher.py",
-                    executable_path=root / "MedTutor.exe",
+                    executable_path=root / "AxiomaQbank.exe",
                     cwd_path=root,
                     frozen=True,
                 )

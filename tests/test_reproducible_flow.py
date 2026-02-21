@@ -71,6 +71,7 @@ class ReproducibleFlowTests(unittest.TestCase):
             [
                 "start_exam_session_from_items",
                 "parse_mcq_content",
+                "sanitize_mcq_problem_text",
                 "build_exam_payload",
                 "get_unit_name",
             ]
@@ -94,6 +95,32 @@ class ReproducibleFlowTests(unittest.TestCase):
         self.assertEqual(st_session.get("exam_mode"), "학습모드")
         self.assertEqual(len(st_session.get("exam_questions", [])), 2)
         self.assertEqual(st_session.get("current_exam_meta").get("num_questions"), 2)
+
+    def test_parse_mcq_content_trims_hard_concatenated_stem(self):
+        namespace = _load_namespace(["parse_mcq_content", "sanitize_mcq_problem_text"])
+        parse_mcq_content = namespace["parse_mcq_content"]
+
+        raw = {
+            "type": "mcq",
+            "problem": "[문제] 모유 수유의 장점으로 가장 적절한 것은?TPN 관련 합병증 원인은?BMI 97백분위수 진단은?",
+            "options": ["a", "b", "c", "d", "e"],
+            "answer": 1,
+        }
+        parsed = parse_mcq_content(raw)
+        self.assertEqual(parsed["front"], "[문제] 모유 수유의 장점으로 가장 적절한 것은?")
+
+    def test_parse_mcq_content_keeps_quoted_question_sentence(self):
+        namespace = _load_namespace(["parse_mcq_content", "sanitize_mcq_problem_text"])
+        parse_mcq_content = namespace["parse_mcq_content"]
+
+        raw = {
+            "type": "mcq",
+            "problem": "부모는 \"아이를 느낄 수 있을까요?\"라고 물었다. 이 요청의 윤리적 근거는?",
+            "options": ["a", "b", "c", "d", "e"],
+            "answer": 2,
+        }
+        parsed = parse_mcq_content(raw)
+        self.assertEqual(parsed["front"], raw["problem"])
 
     def test_update_question_by_id_persists(self):
         namespace = _load_namespace(

@@ -1,9 +1,9 @@
-# MedTutor
+# Axioma Qbank
 
 의대생이 강의자료와 기출문제를 빠르게 문제은행으로 전환하고 학습·시험·복습을 한 흐름에서 진행할 수 있는 앱입니다.
 
 ## Overview
-MedTutor는 로컬 문서(PDF, DOCX, PPTX, HWP 등)를 기반으로 문제를 생성·관리하는 Streamlit 앱입니다.
+Axioma Qbank는 로컬 문서(PDF, DOCX, PPTX, HWP 등)를 기반으로 문제를 생성·관리하는 Streamlit 앱입니다.
 기존 워크플로우에서 시간이 많이 들던 "문항 정리 → 시험 구성 → 복습 관리"를 하나의 화면에서 처리하도록 설계했습니다.
 비개발자는 Python 설치 없이 데스크톱 실행 파일로 사용할 수 있고,
 운영자는 웹으로 배포해 링크 기반으로 제공할 수도 있습니다.
@@ -27,9 +27,9 @@ MedTutor는 로컬 문서(PDF, DOCX, PPTX, HWP 등)를 기반으로 문제를 �
 
 ### Desktop Version
 1. [Latest Release](https://github.com/Yunseong-Ko/Med-Tutor/releases/latest)로 이동합니다.
-2. `Assets`에서 운영체제에 맞는 파일을 받습니다(`MedTutor-macos.zip` 또는 `MedTutor-windows.zip`).
+2. `Assets`에서 운영체제에 맞는 파일을 받습니다(`AxiomaQbank-macos.zip` 또는 `AxiomaQbank-windows.zip`).
 3. 압축을 해제합니다.
-4. 실행합니다(macOS: `MedTutor.app` 우클릭 → `열기`, Windows: `MedTutor.exe` 더블클릭).
+4. 실행합니다(macOS: `AxiomaQbank.app` 우클릭 → `열기`, Windows: `AxiomaQbank.exe` 더블클릭).
 5. 브라우저에서 `http://localhost:8501`이 열리면 정상입니다.
 
 Python 설치 필요 여부:
@@ -39,7 +39,7 @@ Assets가 안 보이거나 다운로드가 안 될 때:
 - 해당 릴리즈 빌드가 완료되지 않았을 수 있습니다.
 - [Actions](https://github.com/Yunseong-Ko/Med-Tutor/actions)에서 `Build Standalone Apps` 성공 여부를 먼저 확인하세요.
 - `Source code (zip)`은 실행 파일이 아니므로 받지 않습니다.
-- macOS 실행 권한 오류가 나면 `chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"`를 실행합니다.
+- macOS 실행 권한 오류가 나면 `chmod +x "/경로/AxiomaQbank.app/Contents/MacOS/AxiomaQbank"`를 실행합니다.
 - 실행 실패 로그는 `launcher_error.log` 파일에서 확인합니다.
 
 ### Web Version
@@ -69,7 +69,7 @@ streamlit run app.py
 - Env/Secrets:
 - `OPENAI_API_KEY`, `GEMINI_API_KEY` (선택)
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
-- 데이터 경로: `MEDTUTOR_DATA_DIR`를 설정하면 저장 파일 위치를 고정할 수 있음
+- 데이터 경로: `AXIOMA_QBANK_DATA_DIR`(또는 레거시 `MEDTUTOR_DATA_DIR`)를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일:
 - 글로벌: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
 - 사용자 분리 저장: `users/<user_id>/questions.json`, `users/<user_id>/exam_history.json`, `users/<user_id>/user_settings.json`, `users/<user_id>/audit_log.jsonl`
@@ -77,7 +77,7 @@ streamlit run app.py
 ## Deployment
 - Python 없이 실행하는 배포 방법: GitHub Actions standalone 빌드(`.app`/`.exe`)를 릴리즈에 올려 배포
 - Desktop 패키징: `.github/workflows/build-standalone.yml`로 macOS/Windows standalone 빌드
-- 로컬 배포: Release Assets(`MedTutor-macos.zip`, `MedTutor-windows.zip`) 전달
+- 로컬 배포: Release Assets(`AxiomaQbank-macos.zip`, `AxiomaQbank-windows.zip`) 전달
 - 웹 배포(무료 데모 권장): Streamlit Community Cloud
 - Streamlit Cloud 배포 순서:
 1. 저장소를 GitHub에 푸시하고 Public 또는 접근 가능한 상태로 둡니다.

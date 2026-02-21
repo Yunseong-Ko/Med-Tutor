@@ -38,7 +38,7 @@ def resolve_app_path(file_path=None, executable_path=None, meipass_path=None, cw
 
 def write_error_log(detail):
     try:
-        log_dir = Path.home() / "MedTutor"
+        log_dir = Path.home() / "AxiomaQbank"
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / "launcher_error.log"
         with open(log_path, "a", encoding="utf-8") as f:
@@ -62,7 +62,7 @@ def main():
     except Exception as exc:
         detail = traceback.format_exc()
         log_path = write_error_log(detail)
-        message = f"MedTutor launch failed: {exc}"
+        message = f"Axioma Qbank launch failed: {exc}"
         if log_path is not None:
             message += f" (log: {log_path})"
         print(message, file=sys.stderr)
