@@ -4154,10 +4154,59 @@ PROMPT_ESSAY = """
 ]
 """
 
+def detect_term_language_mode(style_text: str):
+    """기출 스타일 텍스트에서 '용어 표기' 혼용을 추정한다.
+
+    Returns:
+        (mode, pattern)
+        - mode: "ko" | "en" | "mixed"
+        - pattern: "ko(en)" | "en(ko)" | ""
+    """
+    s = str(style_text or "").strip()
+    if not s:
+        return ("mixed", "")
+
+    # Pattern-based mixed style detection
+    ko_en = len(re.findall(r"[가-힣]{2,}\s*\([A-Za-z][^)]{2,}\)", s))
+    en_ko = len(re.findall(r"[A-Za-z]{2,}(?:[ -][A-Za-z]{2,})*\s*\([가-힣]{2,}[^)]*\)", s))
+    if ko_en or en_ko:
+        if ko_en >= en_ko and ko_en > 0:
+            return ("mixed", "ko(en)")
+        if en_ko > ko_en:
+            return ("mixed", "en(ko)")
+        return ("mixed", "")
+
+    # Fallback: character ratio (Hangul vs Latin)
+    hangul_chars = len(re.findall(r"[가-힣]", s))
+    latin_chars = len(re.findall(r"[A-Za-z]", s))
+    denom = hangul_chars + latin_chars
+    if denom == 0:
+        return ("mixed", "")
+
+    ratio_ko = hangul_chars / denom
+    ratio_en = latin_chars / denom
+    if ratio_ko >= 0.85:
+        return ("ko", "")
+    if ratio_en >= 0.85:
+        return ("en", "")
+    return ("mixed", "")
+
 def build_style_instructions(style_text):
     if not style_text:
         return ""
     excerpt = style_text[:8000]
+    mode, pattern = detect_term_language_mode(style_text)
+    if mode == "ko":
+        term_rule = "- 용어 표기: 가능한 한 한국어 용어를 사용(표준 약어/단위는 허용). 영어 풀네임 병기는 최소화."
+    elif mode == "en":
+        term_rule = "- 용어 표기: 핵심 의학 용어는 영어로 표기. 불필요한 한국어 번역/병기는 최소화."
+    else:
+        if pattern == "ko(en)":
+            term_rule = "- 용어 표기: 한국어 용어 뒤에 (영어)로 병기하는 스타일을 유지. 예: 노신경(radial nerve)"
+        elif pattern == "en(ko)":
+            term_rule = "- 용어 표기: 영어 용어 뒤에 (한국어)로 병기하는 스타일을 유지."
+        else:
+            term_rule = "- 용어 표기: 한국어/영어 혼용 스타일을 유지(기출문제 표현 우선)."
     return f"""
 [기출문제 스타일 참고]
 {excerpt}
@@ -4166,6 +4215,7 @@ def build_style_instructions(style_text):
 - 위 기출문제의 질문 구조, 난이도, 문장 길이, 선지 톤/표현을 최대한 모사
 - 내용은 강의록 기반으로 생성
 - 출력 형식 규칙은 반드시 유지
+{term_rule}
 """
 
 def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None, style_text=None):
@@ -5185,6 +5235,16 @@ with tab_gen:
                 style_text = extract_text_from_file(style_file)
         except Exception as e:
             st.warning(f"기출문제 스타일 파일 처리 실패: {str(e)}")
+    if style_text:
+        mode, pattern = detect_term_language_mode(style_text)
+        label = "혼용"
+        if mode == "ko":
+            label = "한국어 용어 중심"
+        elif mode == "en":
+            label = "영어 용어 중심"
+        elif pattern:
+            label = f"혼용 ({pattern})"
+        st.caption(f"스타일 자동 감지: 용어 표기 = {label}")
     
     if uploaded_file:
         st.info(f"📄 **{uploaded_file.name}** ({uploaded_file.size:,} bytes)")

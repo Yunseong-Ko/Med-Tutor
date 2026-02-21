@@ -48,6 +48,24 @@ def _load_namespace(function_names, extra=None):
 
 
 class ReproducibleFlowTests(unittest.TestCase):
+    def test_detect_term_language_mode_korean(self):
+        namespace = _load_namespace(["detect_term_language_mode"])
+        mode, pattern = namespace["detect_term_language_mode"]("환자는 복통과 발열로 내원하였다. 진단은 무엇인가?")
+        self.assertEqual(mode, "ko")
+        self.assertEqual(pattern, "")
+
+    def test_detect_term_language_mode_english(self):
+        namespace = _load_namespace(["detect_term_language_mode"])
+        mode, pattern = namespace["detect_term_language_mode"]("A 55-year-old man presents with chest pain. Which is the diagnosis?")
+        self.assertEqual(mode, "en")
+        self.assertEqual(pattern, "")
+
+    def test_detect_term_language_mode_mixed_with_parentheses(self):
+        namespace = _load_namespace(["detect_term_language_mode"])
+        mode, pattern = namespace["detect_term_language_mode"]("노신경(radial nerve) 손상으로 손목 처짐(wrist drop)이 발생한다.")
+        self.assertEqual(mode, "mixed")
+        self.assertEqual(pattern, "ko(en)")
+
     def test_subject_unit_hierarchy_filter(self):
         namespace = _load_namespace(
             [
