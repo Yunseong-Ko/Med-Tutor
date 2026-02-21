@@ -447,8 +447,24 @@ def get_query_param(name, default=None):
         except Exception:
             return default
 
+def resolve_theme_mode_from_query(theme_param, default="Light"):
+    value = str(theme_param or "").strip().lower()
+    if value == "dark":
+        return "Dark"
+    if value == "light":
+        return "Light"
+    return default
+
+def resolve_mobile_flag_from_query(mobile_param):
+    value = str(mobile_param or "").strip().lower()
+    return value in {"1", "true", "yes", "y", "mobile"}
+
 safe_param = get_query_param("safe", None)
 ping_param = get_query_param("ping", "0")
+theme_param = get_query_param("theme", None)
+mobile_param = get_query_param("mobile", "0")
+resolved_theme_mode = resolve_theme_mode_from_query(theme_param, default="Light")
+MOBILE_CLIENT = resolve_mobile_flag_from_query(mobile_param)
 
 DEBUG_MODE = str(ping_param) == "1"
 if DEBUG_MODE:
@@ -522,7 +538,7 @@ if "wrong_weight_recent" not in st.session_state:
 if "wrong_weight_count" not in st.session_state:
     st.session_state.wrong_weight_count = 0.3
 if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "Light"
+    st.session_state.theme_mode = resolved_theme_mode
 if "theme_bg" not in st.session_state:
     st.session_state.theme_bg = "Gradient"
 if "last_action_notice" not in st.session_state:
@@ -2690,6 +2706,39 @@ def should_apply_custom_theme(theme_enabled, theme_mode):
     # Dark mode should be visible even when the custom-theme switch is off.
     return bool(theme_enabled) or str(theme_mode) == "Dark"
 
+def apply_mobile_exam_styles():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stRadio"] [role="radiogroup"] > label {
+            padding: 0.55rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 0.35rem;
+            background: var(--surface);
+        }
+        [data-testid="stSelectbox"] label p,
+        [data-testid="stRadio"] label p,
+        [data-testid="stTextInput"] label p {
+            font-size: 1rem !important;
+        }
+        .stButton > button {
+            min-height: 44px;
+            font-size: 1rem;
+        }
+        input[type="text"] {
+            font-size: 16px !important;
+        }
+        .mobile-exam-caption {
+            font-size: 0.95rem;
+            color: var(--muted);
+            margin-bottom: 0.3rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 def show_action_notice():
     msg = st.session_state.get("last_action_notice", "")
     if msg:
@@ -4676,7 +4725,7 @@ with st.sidebar:
     st.session_state.explanation_default = st.checkbox("해설 기본 열기", value=st.session_state.explanation_default)
 
     st.session_state.theme_enabled = False if LOCK_SAFE else True
-    st.session_state.theme_mode = "Light"
+    st.session_state.theme_mode = resolved_theme_mode
     st.session_state.theme_bg = "Gradient"
 
 # 블록 외에서도 접근 가능하도록 로컬 변수에 할당
@@ -4696,6 +4745,8 @@ THEME_ENABLED = should_apply_custom_theme(
 )
 if THEME_ENABLED:
     apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
+if MOBILE_CLIENT:
+    apply_mobile_exam_styles()
 
 if not st.session_state.get("auth_user_id"):
     st.title("Axioma Qbank")
@@ -6209,20 +6260,34 @@ with tab_exam:
                     st.rerun()
 
         # 시험/학습 설정
-        c_mode, c_type, c_img = st.columns([1.2, 1, 1])
-        with c_mode:
-            mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=True)
-        with c_type:
+        if MOBILE_CLIENT:
+            st.markdown("<div class='mobile-exam-caption'>모바일 풀이 모드: 터치 중심 UI</div>", unsafe_allow_html=True)
+            mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=False)
             exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
-        with c_img:
+            mobile_image_width = max(220, min(640, int(st.session_state.image_display_width)))
             st.session_state.image_display_width = st.slider(
                 "문항 이미지 크기(px)",
-                240,
-                900,
-                st.session_state.image_display_width,
-                step=20,
+                220,
+                640,
+                mobile_image_width,
+                step=10,
                 key="image_display_width_slider"
             )
+        else:
+            c_mode, c_type, c_img = st.columns([1.2, 1, 1])
+            with c_mode:
+                mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=True)
+            with c_type:
+                exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+            with c_img:
+                st.session_state.image_display_width = st.slider(
+                    "문항 이미지 크기(px)",
+                    240,
+                    900,
+                    st.session_state.image_display_width,
+                    step=20,
+                    key="image_display_width_slider"
+                )
 
         questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
         subject_unit_map = collect_subject_unit_map(questions_all)
@@ -6751,12 +6816,13 @@ with tab_exam:
                             else:
                                 st.session_state.user_answers.pop(idx, None)
 
-                        st.text_input(
-                            "키보드 입력 (A-E 또는 1-5)",
-                            key=f"shortcut_{idx}",
-                            on_change=apply_mcq_shortcut,
-                            args=(idx,)
-                        )
+                        if not MOBILE_CLIENT:
+                            st.text_input(
+                                "키보드 입력 (A-E 또는 1-5)",
+                                key=f"shortcut_{idx}",
+                                on_change=apply_mcq_shortcut,
+                                args=(idx,)
+                            )
 
                         if idx in st.session_state.user_answers:
                             your = st.session_state.user_answers[idx]
@@ -6813,13 +6879,22 @@ with tab_exam:
                         status = "✅" if i in answered_idx else "○"
                         return f"{i + 1} {status}"
 
-                    nav_idx = nav_slot.selectbox(
-                        "문항 이동",
-                        nav_options,
-                        index=idx,
-                        format_func=nav_format,
-                        key="nav_select",
-                    )
+                    if MOBILE_CLIENT:
+                        nav_idx = nav_slot.select_slider(
+                            "문항 이동",
+                            options=nav_options,
+                            value=idx,
+                            format_func=nav_format,
+                            key="nav_select_mobile",
+                        )
+                    else:
+                        nav_idx = nav_slot.selectbox(
+                            "문항 이동",
+                            nav_options,
+                            index=idx,
+                            format_func=nav_format,
+                            key="nav_select",
+                        )
                     if nav_idx != idx:
                         st.session_state.current_question_idx = nav_idx
 

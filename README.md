@@ -51,6 +51,26 @@ Assets가 안 보이거나 다운로드가 안 될 때:
 4. 학습 모드 또는 시험 모드로 바로 풀이를 시작합니다.
 5. 필요 시 API 키를 입력합니다(운영 정책에 따라 서버 측 설정 가능).
 
+### Mobile Version (iOS/Android WebView)
+1. 이 방식은 웹 UI를 앱 컨테이너(WebView)로 여는 방식입니다. 핵심 화면/기능은 웹과 동일합니다.
+2. 기본 목적은 모바일에서 `풀이 중심` 사용입니다. 문항 생성/대용량 업로드는 PC 사용을 권장합니다.
+3. 모바일 래퍼는 `?mobile=1`을 전달해 실전 시험 화면을 터치 친화 UI로 표시합니다.
+4. 테마는 앱 상단 메뉴에서 `System/Light/Dark`를 바꿀 수 있고, 웹앱에 `?theme=light|dark`로 전달됩니다.
+5. Flutter SDK 설치 후 프로젝트 루트에서 아래를 실행합니다.
+```bash
+./scripts/create_mobile_shell.sh
+```
+6. Android 실행:
+```bash
+cd mobile_shell
+flutter run -d android
+```
+7. iOS 실행(macOS + Xcode 필요):
+```bash
+cd mobile_shell
+flutter run -d ios
+```
+
 ## Current Status
 - 상태: MVP (실사용 테스트 단계)
 - 강점: 로컬 실행, 빠른 문항화/시험화, 기본 복습 흐름
@@ -79,6 +99,7 @@ streamlit run app.py
 - Desktop 패키징: `.github/workflows/build-standalone.yml`로 macOS/Windows standalone 빌드
 - 로컬 배포: Release Assets(`AxiomaQbank-macos.zip`, `AxiomaQbank-windows.zip`) 전달
 - 웹 배포(무료 데모 권장): Streamlit Community Cloud
+- 모바일 WebView 배포: `mobile_shell/` Flutter 프로젝트를 빌드해 Android/iOS로 배포
 - Streamlit Cloud 배포 순서:
 1. 저장소를 GitHub에 푸시하고 Public 또는 접근 가능한 상태로 둡니다.
 2. [Streamlit Community Cloud](https://share.streamlit.io/)에서 `New app` 선택
