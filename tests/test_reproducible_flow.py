@@ -66,6 +66,61 @@ class ReproducibleFlowTests(unittest.TestCase):
         self.assertEqual(mode, "mixed")
         self.assertEqual(pattern, "ko(en)")
 
+    def test_get_configured_admin_users_from_env(self):
+        namespace = _load_namespace(
+            ["get_configured_admin_users"],
+            extra={"os": __import__("os")},
+        )
+        os_mod = namespace["os"]
+        prev = os_mod.environ.get("AXIOMA_ADMIN_USERS")
+        os_mod.environ["AXIOMA_ADMIN_USERS"] = "Admin1, admin2@example.com"
+        try:
+            admins = namespace["get_configured_admin_users"]()
+        finally:
+            if prev is None:
+                del os_mod.environ["AXIOMA_ADMIN_USERS"]
+            else:
+                os_mod.environ["AXIOMA_ADMIN_USERS"] = prev
+        self.assertIn("admin1", admins)
+        self.assertIn("admin2@example.com", admins)
+
+    def test_is_admin_user_true_when_email_matches(self):
+        namespace = _load_namespace(
+            ["get_configured_admin_users", "is_admin_user"],
+            extra={"os": __import__("os")},
+        )
+        os_mod = namespace["os"]
+        prev = os_mod.environ.get("AXIOMA_ADMIN_USERS")
+        os_mod.environ["AXIOMA_ADMIN_USERS"] = "owner@example.com"
+        try:
+            state = _SessionState()
+            state.auth_user_id = "user1"
+            state.auth_email = "owner@example.com"
+            namespace["st"].session_state = state
+            self.assertTrue(namespace["is_admin_user"]())
+        finally:
+            if prev is None:
+                del os_mod.environ["AXIOMA_ADMIN_USERS"]
+            else:
+                os_mod.environ["AXIOMA_ADMIN_USERS"] = prev
+
+    def test_estimate_cost_usd_from_summary(self):
+        namespace = _load_namespace(
+            ["estimate_cost_usd_from_summary"],
+            extra={
+                "MODEL_PRICING_USD_PER_1M": {
+                    "gpt-4o-mini": {"input": 0.15, "output": 0.60, "blended": 0.30}
+                }
+            },
+        )
+        total, rows = namespace["estimate_cost_usd_from_summary"](
+            {"gpt-4o-mini": {"calls": 2, "tokens": 1000000, "gen_calls": 2, "grade_calls": 0}}
+        )
+        self.assertAlmostEqual(total, 0.30, places=6)
+        self.assertEqual(rows[0]["model"], "gpt-4o-mini")
+        self.assertEqual(rows[0]["calls"], 2)
+        self.assertEqual(rows[0]["tokens"], 1000000)
+
     def test_subject_unit_hierarchy_filter(self):
         namespace = _load_namespace(
             [

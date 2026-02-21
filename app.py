@@ -166,6 +166,110 @@ def get_user_settings_file(user_id=None):
 def get_audit_log_file(user_id=None):
     return str(get_user_data_dir(user_id) / "audit_log.jsonl")
 
+MODEL_PRICING_USD_PER_1M = {
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60, "blended": 0.30},
+    "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40, "blended": 0.20},
+    "gemini-2.5-flash": {"input": 0.30, "output": 2.50, "blended": 0.90},
+}
+
+def get_configured_admin_users():
+    raw = os.getenv("AXIOMA_ADMIN_USERS", "").strip()
+    if not raw:
+        raw = os.getenv("MEDTUTOR_ADMIN_USERS", "").strip()
+    users = set()
+    for token in raw.split(","):
+        value = token.strip()
+        if value:
+            users.add(value.lower())
+    return users
+
+def is_admin_user():
+    admins = get_configured_admin_users()
+    if not admins:
+        return False
+    uid = str(st.session_state.get("auth_user_id", "")).strip().lower()
+    email = str(st.session_state.get("auth_email", "")).strip().lower()
+    return uid in admins or email in admins
+
+def list_local_user_ids():
+    users_dir = DATA_DIR / "users"
+    if not users_dir.exists():
+        return []
+    result = []
+    for item in users_dir.iterdir():
+        if item.is_dir():
+            result.append(item.name)
+    return sorted(result)
+
+def read_audit_rows_for_user(user_id):
+    rows = []
+    path = Path(get_audit_log_file(user_id))
+    if not path.exists():
+        return rows
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+    except Exception:
+        return []
+    return rows
+
+def summarize_usage_rows(rows):
+    summary_by_model = {}
+    for row in rows:
+        model = str(row.get("model") or "unknown")
+        event = str(row.get("event") or "")
+        usage_tokens = row.get("usage_tokens")
+        item = summary_by_model.setdefault(
+            model,
+            {
+                "calls": 0,
+                "tokens": 0,
+                "gen_calls": 0,
+                "grade_calls": 0,
+            },
+        )
+        item["calls"] += 1
+        if isinstance(usage_tokens, int):
+            item["tokens"] += usage_tokens
+        if event == "gen.question":
+            item["gen_calls"] += 1
+        if event.startswith("grade."):
+            item["grade_calls"] += 1
+    return summary_by_model
+
+def estimate_cost_usd_from_summary(summary_by_model):
+    total = 0.0
+    breakdown = []
+    for model, item in summary_by_model.items():
+        tokens = int(item.get("tokens", 0))
+        price = MODEL_PRICING_USD_PER_1M.get(model, {}).get("blended")
+        if price is None:
+            usd = None
+        else:
+            usd = (tokens / 1_000_000.0) * price
+            total += usd
+        breakdown.append(
+            {
+                "model": model,
+                "calls": int(item.get("calls", 0)),
+                "tokens": tokens,
+                "est_cost_usd": usd,
+                "gen_calls": int(item.get("gen_calls", 0)),
+                "grade_calls": int(item.get("grade_calls", 0)),
+            }
+        )
+    breakdown.sort(key=lambda x: (x["tokens"], x["calls"]), reverse=True)
+    return total, breakdown
+
 def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
@@ -4485,6 +4589,8 @@ with st.sidebar:
     if st.session_state.auth_user_id:
         who = st.session_state.get("auth_email") or st.session_state.auth_user_id
         st.success(f"로그인됨: {who}")
+        if is_admin_user():
+            st.caption("운영자 권한: 활성")
         if st.button("로그아웃", key="auth_logout_btn"):
             reset_runtime_state_for_auth_change()
             st.session_state.auth_user_id = ""
@@ -4521,6 +4627,8 @@ with st.sidebar:
             st.caption("Supabase Auth 모드: 이메일/비밀번호 로그인")
         else:
             st.caption("로컬 계정 모드: 서버 재시작 시 계정이 유지되지 않을 수 있습니다.")
+    if not get_configured_admin_users():
+        st.caption("운영자 계정 설정: AXIOMA_ADMIN_USERS=admin_id1,admin2")
 
     st.markdown("---")
     st.header("⚙️ 설정 & 모드")
@@ -4585,7 +4693,16 @@ if not st.session_state.get("auth_user_id"):
 # ============================================================================
 # 메인 UI: 탭 구조
 # ============================================================================
-tab_home, tab_gen, tab_convert, tab_exam, tab_notes = st.tabs(["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험", "🗒️ 노트"])
+admin_mode = is_admin_user()
+tab_labels = ["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험", "🗒️ 노트"]
+if admin_mode:
+    tab_labels.append("🛠️ 운영")
+tab_objs = st.tabs(tab_labels)
+if admin_mode:
+    tab_home, tab_gen, tab_convert, tab_exam, tab_notes, tab_admin = tab_objs
+else:
+    tab_home, tab_gen, tab_convert, tab_exam, tab_notes = tab_objs
+    tab_admin = None
 
 # ============================================================================
 # TAB: 홈
@@ -5203,6 +5320,66 @@ with tab_home:
                             st.altair_chart(heatmap, use_container_width=True)
                         except Exception:
                             safe_dataframe(heat, use_container_width=True, hide_index=True)
+
+if admin_mode and tab_admin is not None:
+    with tab_admin:
+        st.title("🛠️ 운영자 콘솔")
+        st.caption("사용자별 API 사용량, 호출 건수, 추정 비용을 확인합니다.")
+
+        all_users = list_local_user_ids()
+        if not all_users:
+            st.info("로컬 사용자 데이터가 없습니다.")
+        else:
+            selected = st.selectbox("대상 사용자", ["전체"] + all_users, index=0, key="admin_user_filter")
+            days = st.slider("조회 기간(일)", 1, 365, 30, 1, key="admin_days_filter")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+            rows = []
+            target_users = all_users if selected == "전체" else [selected]
+            for uid in target_users:
+                for row in read_audit_rows_for_user(uid):
+                    ts_raw = str(row.get("timestamp") or "")
+                    try:
+                        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        continue
+                    if ts < cutoff:
+                        continue
+                    enriched = dict(row)
+                    enriched["user_id"] = uid
+                    rows.append(enriched)
+
+            if not rows:
+                st.warning("선택한 조건에서 조회된 로그가 없습니다.")
+            else:
+                summary = summarize_usage_rows(rows)
+                total_est, breakdown = estimate_cost_usd_from_summary(summary)
+                total_calls = sum(x.get("calls", 0) for x in summary.values())
+                total_tokens = sum(x.get("tokens", 0) for x in summary.values())
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("총 API 호출", f"{total_calls:,}")
+                m2.metric("총 토큰", f"{total_tokens:,}")
+                m3.metric("추정 비용(USD)", f"${total_est:.4f}")
+
+                st.markdown("### 모델별 사용량")
+                safe_dataframe(breakdown, use_container_width=True, hide_index=True)
+
+                st.markdown("### 최근 로그")
+                latest = sorted(rows, key=lambda x: str(x.get("timestamp") or ""), reverse=True)[:50]
+                latest_view = [
+                    {
+                        "timestamp": r.get("timestamp"),
+                        "user_id": r.get("user_id"),
+                        "event": r.get("event"),
+                        "model": r.get("model"),
+                        "usage_tokens": r.get("usage_tokens"),
+                    }
+                    for r in latest
+                ]
+                safe_dataframe(latest_view, use_container_width=True, hide_index=True)
 
 # ============================================================================
 # TAB: 문제 생성
