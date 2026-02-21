@@ -44,7 +44,7 @@ def append_audit_log(event: str, payload: dict):
             "event": event,
             **(payload or {}),
         }
-        with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
+        with open(get_audit_log_file(), "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception:
         # 감사 로그 실패는 앱 실행을 막지 않음
@@ -128,6 +128,37 @@ QUESTION_BANK_FILE = str(DATA_DIR / "questions.json")
 EXAM_HISTORY_FILE = str(DATA_DIR / "exam_history.json")
 USER_SETTINGS_FILE = str(DATA_DIR / "user_settings.json")
 AUDIT_LOG_FILE = str(DATA_DIR / "audit_log.jsonl")
+AUTH_USERS_FILE = str(DATA_DIR / "auth_users.json")
+
+def sanitize_user_id(user_id):
+    text = (user_id or "").strip()
+    if not text:
+        return "guest"
+    return re.sub(r"[^a-zA-Z0-9._-]", "_", text)[:80] or "guest"
+
+def get_current_user_id():
+    return sanitize_user_id(st.session_state.get("auth_user_id", "guest"))
+
+def get_user_data_dir(user_id=None):
+    uid = sanitize_user_id(user_id) if user_id is not None else get_current_user_id()
+    base = DATA_DIR / "users" / uid
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return base
+
+def get_question_bank_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "questions.json")
+
+def get_exam_history_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "exam_history.json")
+
+def get_user_settings_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "user_settings.json")
+
+def get_audit_log_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "audit_log.jsonl")
 
 PROMPT_VERSION = "v1"
 GRADER_VERSION = "v1"
@@ -169,6 +200,8 @@ LOCK_THEME = str(safe_param) == "0"
 
 if "theme_enabled" not in st.session_state:
     st.session_state.theme_enabled = False if safe_param is None else LOCK_THEME
+if "auth_user_id" not in st.session_state:
+    st.session_state.auth_user_id = ""
 
 # Session State 초기화
 if "current_question_idx" not in st.session_state:
@@ -265,29 +298,104 @@ if "image_display_width" not in st.session_state:
 if "past_exam_anchors" not in st.session_state:
     st.session_state.past_exam_anchors = {}
 
+def reset_runtime_state_for_auth_change():
+    volatile_keys = [
+        "exam_questions",
+        "user_answers",
+        "revealed_answers",
+        "graded_questions",
+        "current_exam_meta",
+        "exam_started",
+        "exam_finished",
+        "exam_history_saved",
+        "generation_preview_items",
+        "generation_failure",
+        "last_action_notice",
+        "past_exam_items",
+        "past_exam_images",
+        "past_exam_text",
+        "fsrs_settings_initialized",
+    ]
+    for key in volatile_keys:
+        if key in st.session_state:
+            del st.session_state[key]
+
 # ============================================================================
 # JSON 데이터 관리 함수
 # ============================================================================
-def load_questions() -> dict:
-    """questions.json 파일 로드"""
-    if os.path.exists(QUESTION_BANK_FILE):
+def load_auth_users():
+    if os.path.exists(AUTH_USERS_FILE):
         try:
-            with open(QUESTION_BANK_FILE, 'r', encoding='utf-8') as f:
+            with open(AUTH_USERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+def save_auth_users(data):
+    with open(AUTH_USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def _hash_password(password, salt_hex):
+    raw = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), 120000)
+    return raw.hex()
+
+def register_user_account(user_id, password):
+    uid = sanitize_user_id(user_id)
+    if uid == "guest":
+        return False, "아이디를 입력해주세요."
+    if len(password or "") < 6:
+        return False, "비밀번호는 6자 이상이어야 합니다."
+    users = load_auth_users()
+    if uid in users:
+        return False, "이미 존재하는 아이디입니다."
+    salt_hex = os.urandom(16).hex()
+    users[uid] = {
+        "salt": salt_hex,
+        "password_hash": _hash_password(password, salt_hex),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_auth_users(users)
+    get_user_data_dir(uid)
+    return True, "회원가입이 완료되었습니다."
+
+def authenticate_user_account(user_id, password):
+    uid = sanitize_user_id(user_id)
+    users = load_auth_users()
+    row = users.get(uid)
+    if not isinstance(row, dict):
+        return False, "아이디 또는 비밀번호가 올바르지 않습니다."
+    salt_hex = row.get("salt", "")
+    expected = row.get("password_hash", "")
+    if not salt_hex or not expected:
+        return False, "계정 정보가 손상되었습니다."
+    current = _hash_password(password or "", salt_hex)
+    if current != expected:
+        return False, "아이디 또는 비밀번호가 올바르지 않습니다."
+    return True, uid
+
+def load_questions(user_id=None) -> dict:
+    """questions.json 파일 로드"""
+    question_bank_file = get_question_bank_file(user_id)
+    if os.path.exists(question_bank_file):
+        try:
+            with open(question_bank_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 # 마이그레이션: 기존 형식 확인 및 필요시 변환
                 if data and isinstance(data.get("text"), list) and len(data.get("text", [])) > 0:
                     first = data["text"][0]
                     if isinstance(first, dict) and "content" in first and "type" not in first:
                         # 기존 형식 (content 필드) -> 새 형식으로 마이그레이션
-                        migrate_old_format(data)
-                        return load_questions()  # 다시 로드
+                        migrate_old_format(data, user_id=user_id)
+                        return load_questions(user_id=user_id)  # 다시 로드
                 data = ensure_question_ids(data)
                 return data
         except:
             return {"text": [], "cloze": []}
     return {"text": [], "cloze": []}
 
-def migrate_old_format(data: dict):
+def migrate_old_format(data: dict, user_id=None):
     """기존 형식의 questions.json을 새 형식으로 마이그레이션"""
     try:
         migrated_text = []
@@ -323,7 +431,7 @@ def migrate_old_format(data: dict):
         # 새 형식으로 저장
         data["text"] = migrated_text
         data["cloze"] = migrated_cloze
-        save_questions(data)
+        save_questions(data, user_id=user_id)
         
         import sys
         print(f"[MIGRATION] {len(migrated_text)}개 MCQ, {len(migrated_cloze)}개 Cloze 마이그레이션 완료", file=sys.stderr)
@@ -331,57 +439,62 @@ def migrate_old_format(data: dict):
         import sys
         print(f"[MIGRATION ERROR] {str(e)}", file=sys.stderr)
 
-def save_questions(data: dict):
+def save_questions(data: dict, user_id=None):
     """questions.json 파일 저장"""
-    with open(QUESTION_BANK_FILE, 'w', encoding='utf-8') as f:
+    question_bank_file = get_question_bank_file(user_id)
+    with open(question_bank_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def load_exam_history():
-    if os.path.exists(EXAM_HISTORY_FILE):
+def load_exam_history(user_id=None):
+    exam_history_file = get_exam_history_file(user_id)
+    if os.path.exists(exam_history_file):
         try:
-            with open(EXAM_HISTORY_FILE, "r", encoding="utf-8") as f:
+            with open(exam_history_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data if isinstance(data, list) else []
         except Exception:
             return []
     return []
 
-def save_exam_history(items):
-    with open(EXAM_HISTORY_FILE, "w", encoding="utf-8") as f:
+def save_exam_history(items, user_id=None):
+    exam_history_file = get_exam_history_file(user_id)
+    with open(exam_history_file, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
 
-def add_exam_history(session):
-    history = load_exam_history()
+def add_exam_history(session, user_id=None):
+    history = load_exam_history(user_id=user_id)
     history.insert(0, session)
-    save_exam_history(history[:200])
+    save_exam_history(history[:200], user_id=user_id)
     return history
 
-def clear_question_bank(mode="all"):
-    data = load_questions()
+def clear_question_bank(mode="all", user_id=None):
+    data = load_questions(user_id=user_id)
     if mode == "mcq":
         data["text"] = []
     elif mode == "cloze":
         data["cloze"] = []
     else:
         data = {"text": [], "cloze": []}
-    save_questions(data)
+    save_questions(data, user_id=user_id)
     return data
 
-def clear_exam_history():
-    save_exam_history([])
+def clear_exam_history(user_id=None):
+    save_exam_history([], user_id=user_id)
 
-def load_user_settings():
-    if os.path.exists(USER_SETTINGS_FILE):
+def load_user_settings(user_id=None):
+    user_settings_file = get_user_settings_file(user_id)
+    if os.path.exists(user_settings_file):
         try:
-            with open(USER_SETTINGS_FILE, "r", encoding="utf-8") as f:
+            with open(user_settings_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data if isinstance(data, dict) else {}
         except Exception:
             return {}
     return {}
 
-def save_user_settings(data):
-    with open(USER_SETTINGS_FILE, "w", encoding="utf-8") as f:
+def save_user_settings(data, user_id=None):
+    user_settings_file = get_user_settings_file(user_id)
+    with open(user_settings_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_fsrs_settings():
@@ -4306,6 +4419,39 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
 # ============================================================================
 with st.sidebar:
     render_generation_recovery_panel()
+    st.header("👤 계정")
+    if st.session_state.auth_user_id:
+        st.success(f"로그인됨: {st.session_state.auth_user_id}")
+        if st.button("로그아웃", key="auth_logout_btn"):
+            reset_runtime_state_for_auth_change()
+            st.session_state.auth_user_id = ""
+            st.rerun()
+    else:
+        with st.form("auth_login_form", clear_on_submit=False):
+            login_user_id = st.text_input("아이디", key="auth_login_user_id")
+            login_password = st.text_input("비밀번호", type="password", key="auth_login_password")
+            login_submit = st.form_submit_button("로그인")
+        if login_submit:
+            ok, result = authenticate_user_account(login_user_id, login_password)
+            if ok:
+                reset_runtime_state_for_auth_change()
+                st.session_state.auth_user_id = result
+                st.rerun()
+            else:
+                st.error(result)
+
+        with st.form("auth_signup_form", clear_on_submit=True):
+            signup_user_id = st.text_input("새 아이디", key="auth_signup_user_id")
+            signup_password = st.text_input("새 비밀번호 (6자 이상)", type="password", key="auth_signup_password")
+            signup_submit = st.form_submit_button("회원가입")
+        if signup_submit:
+            ok, message = register_user_account(signup_user_id, signup_password)
+            if ok:
+                st.success(message)
+            else:
+                st.error(message)
+
+    st.markdown("---")
     st.header("⚙️ 설정 & 모드")
     
     st.session_state.ai_model = st.radio(
@@ -4370,6 +4516,11 @@ auto_tag_enabled = st.session_state.get("auto_tag_enabled", True)
 THEME_ENABLED = bool(st.session_state.get("theme_enabled"))
 if THEME_ENABLED:
     apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
+
+if not st.session_state.get("auth_user_id"):
+    st.title("MedTutor")
+    st.info("왼쪽 사이드바에서 로그인 또는 회원가입 후 시작하세요.")
+    st.stop()
 
 # ============================================================================
 # 메인 UI: 탭 구조
