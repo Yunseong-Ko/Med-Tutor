@@ -2331,7 +2331,7 @@ def apply_theme(theme_mode, bg_mode):
             --border: {border};
             --radius: 14px;
         }}
-        html, body, [class*="css"] {{
+        html, body {{
             font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans KR', sans-serif;
         }}
         .stApp {{
@@ -2573,6 +2573,10 @@ def apply_theme(theme_mode, bg_mode):
         """,
         unsafe_allow_html=True
     )
+
+def should_apply_custom_theme(theme_enabled, theme_mode):
+    # Dark mode should be visible even when the custom-theme switch is off.
+    return bool(theme_enabled) or str(theme_mode) == "Dark"
 
 def show_action_notice():
     msg = st.session_state.get("last_action_notice", "")
@@ -4513,7 +4517,10 @@ min_length = st.session_state.get("min_length", 30)
 auto_tag_enabled = st.session_state.get("auto_tag_enabled", True)
 
 # Apply theme (skip if disabled)
-THEME_ENABLED = bool(st.session_state.get("theme_enabled"))
+THEME_ENABLED = should_apply_custom_theme(
+    st.session_state.get("theme_enabled"),
+    st.session_state.get("theme_mode"),
+)
 if THEME_ENABLED:
     apply_theme(st.session_state.theme_mode, st.session_state.theme_bg)
 
