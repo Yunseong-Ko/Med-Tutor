@@ -30,3 +30,4 @@ user_settings.json
 build/
 dist/
 *.spec
+!AxiomaQbank.spec
