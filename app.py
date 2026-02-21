@@ -4547,52 +4547,13 @@ with tab_home:
     acc = compute_overall_accuracy(all_questions)
     acc_text = f"{acc['accuracy']:.1f}%" if acc else "—"
 
-    if not THEME_ENABLED:
-        st.info("Safe mode: 커스텀 테마/히어로를 비활성화했습니다. 사이드바에서 '커스텀 테마 사용'을 켜면 적용됩니다.")
-        st.header("MedTutor")
-        st.write("강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.")
-        st.write(f"전체 정답률: {acc_text}")
-        st.write(f"저장된 객관식: {stats['total_text']} · 저장된 빈칸: {stats['total_cloze']}")
-    else:
-        st.markdown(
-            f"""
-            <div class="lamp-glow"></div>
-            <div class="hero">
-              <div>
-                <div class="pill">MedTutor</div>
-                <h1>MedTutor</h1>
-                <p>강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.</p>
-                <div class="hero-actions">
-                  <div class="btn-primary">문제 생성 시작</div>
-                  <div class="btn-outline">실전 시험 모드</div>
-                </div>
-                <div class="hero-meta">
-                  <span>USMLE 스타일</span>
-                  <span>FSRS 복습</span>
-                  <span>Obsidian 연동</span>
-                </div>
-              </div>
-              <div class="hero-stack">
-                <div class="hero-card">
-                  <div class="card-title">오늘의 흐름</div>
-                  <div class="stat-row"><span>전체 정답률</span><strong>{acc_text}</strong></div>
-                  <div class="stat-row"><span>저장된 객관식</span><strong>{stats["total_text"]}</strong></div>
-                  <div class="stat-row"><span>저장된 빈칸</span><strong>{stats["total_cloze"]}</strong></div>
-                </div>
-                <div class="hero-card">
-                  <div class="card-title">빠른 시작</div>
-                  <div class="card-sub">강의록 → 문제 생성 → 복습</div>
-                  <div class="tag-row">
-                    <span class="tag">Case Study</span>
-                    <span class="tag">Cloze</span>
-                    <span class="tag">FSRS</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    if not st.session_state.get("theme_enabled"):
+        st.info("커스텀 테마를 켜면 배경/색상 스타일이 적용됩니다.")
+
+    st.header("MedTutor")
+    st.write("강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.")
+    st.write(f"전체 정답률: {acc_text}")
+    st.write(f"저장된 객관식: {stats['total_text']} · 저장된 빈칸: {stats['total_cloze']}")
 
     with st.expander("🔐 초기 이용자용: API 키 발급 가이드", expanded=False):
         st.caption("문항 생성/변환/AI 보조 기능은 아래 모델 키가 필요합니다.")
