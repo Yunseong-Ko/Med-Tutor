@@ -273,6 +273,16 @@ def estimate_cost_usd_from_summary(summary_by_model):
 def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
+def is_supabase_required():
+    value = os.getenv("AXIOMA_REQUIRE_SUPABASE", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+if is_supabase_required() and not is_supabase_enabled():
+    st.title("Axioma Qbank")
+    st.error("이 배포는 Supabase 인증/저장을 필수로 사용합니다.")
+    st.info("Secrets에 SUPABASE_URL, SUPABASE_ANON_KEY를 설정한 뒤 앱을 재시작하세요.")
+    st.stop()
+
 def _supabase_headers(access_token=None):
     token = access_token or SUPABASE_ANON_KEY
     return {
@@ -625,6 +635,8 @@ def _hash_password(password, salt_hex):
     return raw.hex()
 
 def register_user_account(user_id, password):
+    if is_supabase_required() and not is_supabase_enabled():
+        return False, "Supabase 설정이 필요합니다. 운영자에게 문의하세요."
     if is_supabase_enabled():
         return supabase_sign_up(user_id, password)
     uid = sanitize_user_id(user_id)
@@ -646,6 +658,8 @@ def register_user_account(user_id, password):
     return True, "회원가입이 완료되었습니다."
 
 def authenticate_user_account(user_id, password):
+    if is_supabase_required() and not is_supabase_enabled():
+        return False, "Supabase 설정이 필요합니다. 운영자에게 문의하세요."
     if is_supabase_enabled():
         ok, payload = supabase_sign_in(user_id, password)
         if not ok:

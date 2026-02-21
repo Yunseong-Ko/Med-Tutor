@@ -89,6 +89,7 @@ streamlit run app.py
 - Env/Secrets:
 - `OPENAI_API_KEY`, `GEMINI_API_KEY` (선택)
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
+- `AXIOMA_REQUIRE_SUPABASE` (기본값 `1`, `1`이면 Supabase 미설정 시 앱 시작 차단)
 - 데이터 경로: `AXIOMA_QBANK_DATA_DIR`(또는 레거시 `MEDTUTOR_DATA_DIR`)를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일:
 - 글로벌: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
@@ -158,6 +159,7 @@ for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 - 로컬 저장소 기반이므로 다중 사용자 동시 편집에는 적합하지 않습니다.
 - Supabase 미설정 상태에서는 로컬 파일 기반 로그인으로 동작하며 서버 재시작 시 데이터가 유지되지 않을 수 있습니다.
 - Streamlit Community Cloud 무료 플랜은 절전/재시작이 발생할 수 있어 베타에서 지연이 생길 수 있습니다.
+- `AXIOMA_REQUIRE_SUPABASE=1` 환경에서는 Supabase Secrets 미설정 시 앱이 시작되지 않습니다.
 
 ## Disclaimer (If Relevant)
 - 본 도구는 학습 보조용이며 의료 판단/진단 도구가 아닙니다.
