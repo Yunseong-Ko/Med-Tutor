@@ -101,6 +101,14 @@ MODE_ESSAY = "🧾 서술형 문제"
 st.set_page_config(page_title="MedTutor", page_icon="🧬", layout="wide")
 
 def get_app_data_dir():
+    env_dir = os.getenv("MEDTUTOR_DATA_DIR", "").strip()
+    if env_dir:
+        base = Path(env_dir).expanduser()
+        try:
+            base.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return base
     if getattr(sys, "frozen", False):
         base = Path.home() / "MedTutor"
         try:
@@ -108,7 +116,12 @@ def get_app_data_dir():
         except Exception:
             pass
         return base
-    return Path.cwd()
+    base = Path.cwd()
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return base
 
 DATA_DIR = get_app_data_dir()
 QUESTION_BANK_FILE = str(DATA_DIR / "questions.json")

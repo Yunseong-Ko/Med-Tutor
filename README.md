@@ -36,6 +36,9 @@ Python 설치 필요 여부:
 Assets가 안 보이거나 다운로드가 안 될 때:
 - 해당 릴리즈 빌드가 완료되지 않았을 수 있습니다.
 - [Actions](https://github.com/Yunseong-Ko/Med-Tutor/actions)에서 `Build Standalone Apps` 성공 여부를 먼저 확인하세요.
+- `Source code (zip)`은 실행 파일이 아니므로 받지 않습니다.
+- macOS 실행 권한 오류가 나면 `chmod +x "/경로/MedTutor.app/Contents/MacOS/MedTutor"`를 실행합니다.
+- 실행 실패 로그는 `launcher_error.log` 파일에서 확인합니다.
 
 ### Web Version
 1. 운영자가 제공한 배포 URL(예: Streamlit Cloud/Render 링크)로 접속합니다.
@@ -59,12 +62,20 @@ streamlit run app.py
 ```
 - Dependency: `requirements.txt` 기준
 - Env/Secrets: API 키는 사이드바 입력 또는 환경변수로 관리
+- 데이터 경로: `MEDTUTOR_DATA_DIR`를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
 
 ## Deployment
+- Python 없이 실행하는 배포 방법: GitHub Actions standalone 빌드(`.app`/`.exe`)를 릴리즈에 올려 배포
 - Desktop 패키징: `.github/workflows/build-standalone.yml`로 macOS/Windows standalone 빌드
 - 로컬 배포: Release Assets(`MedTutor-macos.zip`, `MedTutor-windows.zip`) 전달
-- 웹 배포: Streamlit Community Cloud 또는 Render/Fly/Railway
+- 웹 배포(무료 데모 권장): Streamlit Community Cloud
+- Streamlit Cloud 배포 순서:
+1. 저장소를 GitHub에 푸시하고 Public 또는 접근 가능한 상태로 둡니다.
+2. [Streamlit Community Cloud](https://share.streamlit.io/)에서 `New app` 선택
+3. Repository: `Yunseong-Ko/Med-Tutor`, Branch: `main`, Main file path: `app.py`
+4. Secrets에 필요한 키를 등록합니다(`OPENAI_API_KEY`, `GEMINI_API_KEY`)
+5. Deploy 후 제공된 URL로 접속합니다.
 - 단일 사용자/단일 인스턴스: 로컬 JSON/SQLite로 충분
 - 다중 사용자 확장: 서버 DB(Postgres 등)와 인증 계층 필요
 
