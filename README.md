@@ -85,6 +85,20 @@ streamlit run app.py
 3. Repository: `Yunseong-Ko/Med-Tutor`, Branch: `main`, Main file path: `app.py`
 4. Secrets에 필요한 키를 등록합니다(`OPENAI_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`)
 5. Deploy 후 제공된 URL로 접속합니다.
+- Streamlit Cloud 반영 확인 순서(운영자 체크리스트):
+1. GitHub `main` 최신 커밋 해시를 확인합니다.
+2. Streamlit Cloud 앱의 `Manage app` → `Reboot app`을 실행합니다.
+3. `Logs`에서 아래 순서를 확인합니다.
+   - `Pulling code changes from Github...`
+   - `Processed dependencies!`
+   - `Updated app!`
+4. URL 접속 후 강제 새로고침(`Ctrl+Shift+R` 또는 `Cmd+Shift+R`)합니다.
+5. 앱에서 방금 수정한 화면 요소가 보이는지 확인합니다.
+   - 예: 생성/변환 탭의 저작권 확인 체크 UI
+6. 반영이 안 되면 아래를 점검합니다.
+   - 저장소가 `private`이면 Streamlit Cloud GitHub 연동 권한이 유효한지 확인
+   - `fatal: could not read Username for 'https://github.com'`가 로그에 있으면 앱을 GitHub 재연결
+   - Secrets 수정 후에는 반드시 `Reboot app` 재실행
 - 베타 권장: Supabase Auth Email provider를 활성화하고, 초기 테스트에서는 이메일 확인 요구를 비활성화(선택)하면 가입/로그인이 빠릅니다.
 - Supabase 테이블 생성(SQL Editor):
 ```sql
