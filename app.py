@@ -2696,6 +2696,18 @@ def show_action_notice():
         st.success(msg)
         st.session_state.last_action_notice = ""
 
+def render_copyright_ack(scope_key: str):
+    st.info("업로드 자료는 권리를 보유하거나 사용 허락을 받은 자료만 사용하세요. 원문 파일은 영구 저장하지 않고 세션 처리 후 폐기됩니다.")
+    ack_rights = st.checkbox(
+        "업로드 자료에 대한 이용 권리를 보유/허락받았음을 확인합니다.",
+        key=f"copyright_ack_rights_{scope_key}",
+    )
+    ack_no_redistribute = st.checkbox(
+        "타인의 저작물을 무단 재배포하지 않겠습니다.",
+        key=f"copyright_ack_no_redistribute_{scope_key}",
+    )
+    return bool(ack_rights and ack_no_redistribute)
+
 def render_generation_recovery_panel():
     if not st.session_state.get("generation_failure"):
         return
@@ -5401,8 +5413,11 @@ with tab_gen:
     # 파일 업로드
     uploaded_file = st.file_uploader("강의 자료 업로드", type=["pdf", "docx", "pptx", "hwp"])
     style_file = st.file_uploader("기출문제 스타일 업로드 (선택)", type=["pdf", "docx", "pptx", "hwp", "txt", "tsv", "json"], key="style_upload")
+    gen_copyright_ok = render_copyright_ack("gen")
+    if (uploaded_file or style_file) and not gen_copyright_ok:
+        st.warning("파일 분석/문제 생성을 시작하려면 저작권 확인 체크를 완료하세요.")
     style_text = None
-    if style_file:
+    if style_file and gen_copyright_ok:
         try:
             if Path(style_file.name).suffix.lower() in [".txt", ".tsv"]:
                 style_text = style_file.read().decode("utf-8", errors="ignore")
@@ -5412,6 +5427,8 @@ with tab_gen:
                 style_text = extract_text_from_file(style_file)
         except Exception as e:
             st.warning(f"기출문제 스타일 파일 처리 실패: {str(e)}")
+    elif style_file and not gen_copyright_ok:
+        st.caption("권리 확인 체크 전에는 스타일 파일을 분석하지 않습니다.")
     if style_text:
         mode, pattern = detect_term_language_mode(style_text)
         label = "혼용"
@@ -5443,6 +5460,8 @@ with tab_gen:
         
         if not ai_model_key_ready:
             st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="API 키를 먼저 입력해 주세요.")
+        elif not gen_copyright_ok:
+            st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="저작권 확인 체크를 완료해 주세요.")
         elif st.button("🚀 문제 생성 시작", use_container_width=True):
             try:
                 with st.spinner("📖 강의 자료 분석 중..."):
@@ -5560,6 +5579,9 @@ with tab_gen:
 with tab_convert:
     st.title("🧾 기출문제 전용 변환")
     st.caption("HWP/PDF/DOCX/PPTX/TXT/TSV 파일을 기출문제 형식으로 변환하여 저장합니다.")
+    convert_copyright_ok = render_copyright_ack("convert")
+    if not convert_copyright_ok:
+        st.warning("저작권 확인 체크를 완료해야 파일 변환을 실행할 수 있습니다.")
 
     with st.expander("🧩 HWP+PDF 듀얼 업로드(수동 최소화)", expanded=False):
         st.caption("HWP에서 문항 텍스트를 추출하고, PDF에서 이미지/페이지 정보를 연결합니다.")
@@ -5574,7 +5596,7 @@ with tab_convert:
 
         dual_threshold = st.slider("자동 매칭 신뢰도 기준", 0.05, 0.6, 0.2, step=0.05, key="dual_threshold")
 
-        if st.button("🔗 듀얼 자동 매칭 실행", use_container_width=True, key="dual_run"):
+        if st.button("🔗 듀얼 자동 매칭 실행", use_container_width=True, key="dual_run", disabled=not convert_copyright_ok):
             if not dual_hwp or not dual_pdf:
                 st.error("HWP와 PDF를 모두 업로드해주세요.")
             else:
@@ -5622,7 +5644,7 @@ with tab_convert:
             weak = [i for i, v in st.session_state.dual_match_scores.items() if v.get("score", 0) < dual_threshold]
             st.caption(f"자동 매칭 신뢰도 낮음: {len(weak)}개 문항 → 아래 편집 탭에서 수동 보정하세요.")
 
-        if st.button("📝 HWP 텍스트만 추출", use_container_width=True, key="dual_text_only"):
+        if st.button("📝 HWP 텍스트만 추출", use_container_width=True, key="dual_text_only", disabled=not convert_copyright_ok):
             if not dual_hwp:
                 st.error("HWP 파일을 업로드해주세요.")
             else:
@@ -5647,7 +5669,9 @@ with tab_convert:
         key="past_exam_upload"
     )
 
-    if uploaded_exam:
+    if uploaded_exam and not convert_copyright_ok:
+        st.warning("저작권 확인 체크를 완료하면 업로드 파일을 변환할 수 있습니다.")
+    elif uploaded_exam:
         file_ext = Path(uploaded_exam.name).suffix.lower()
         ocr_enabled = True
         ocr_engine = "auto"
