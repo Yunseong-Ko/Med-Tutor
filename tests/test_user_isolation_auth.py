@@ -33,6 +33,7 @@ def _load_functions(function_names, base_dir):
         "DATA_DIR": Path(base_dir),
         "AUTH_USERS_FILE": str(Path(base_dir) / "auth_users.json"),
         "st": fake_st,
+        "is_supabase_enabled": lambda: False,
     }
     exec(compile(module, APP_PATH, "exec"), namespace)
     return namespace

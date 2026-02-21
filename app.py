@@ -27,6 +27,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import importlib.util
 import hashlib
+import requests
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -129,6 +130,9 @@ EXAM_HISTORY_FILE = str(DATA_DIR / "exam_history.json")
 USER_SETTINGS_FILE = str(DATA_DIR / "user_settings.json")
 AUDIT_LOG_FILE = str(DATA_DIR / "audit_log.jsonl")
 AUTH_USERS_FILE = str(DATA_DIR / "auth_users.json")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_TABLE = "medtutor_user_data"
 
 def sanitize_user_id(user_id):
     text = (user_id or "").strip()
@@ -159,6 +163,158 @@ def get_user_settings_file(user_id=None):
 
 def get_audit_log_file(user_id=None):
     return str(get_user_data_dir(user_id) / "audit_log.jsonl")
+
+def is_supabase_enabled():
+    return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+
+def _supabase_headers(access_token=None):
+    token = access_token or SUPABASE_ANON_KEY
+    return {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+def _supabase_error_message(response):
+    try:
+        data = response.json()
+        return data.get("msg") or data.get("error_description") or data.get("message") or f"HTTP {response.status_code}"
+    except Exception:
+        return f"HTTP {response.status_code}"
+
+def _default_remote_bundle():
+    return {
+        "questions": {"text": [], "cloze": []},
+        "exam_history": [],
+        "user_settings": {},
+    }
+
+def _normalize_remote_bundle(bundle):
+    data = bundle if isinstance(bundle, dict) else {}
+    questions = data.get("questions")
+    exam_history = data.get("exam_history")
+    user_settings = data.get("user_settings")
+    return {
+        "questions": questions if isinstance(questions, dict) else {"text": [], "cloze": []},
+        "exam_history": exam_history if isinstance(exam_history, list) else [],
+        "user_settings": user_settings if isinstance(user_settings, dict) else {},
+    }
+
+def supabase_sign_up(email, password):
+    if not is_supabase_enabled():
+        return False, "SUPABASE_URL / SUPABASE_ANON_KEY 설정이 필요합니다."
+    payload = {"email": (email or "").strip(), "password": password or ""}
+    if not payload["email"]:
+        return False, "이메일을 입력해주세요."
+    if len(payload["password"]) < 6:
+        return False, "비밀번호는 6자 이상이어야 합니다."
+    resp = requests.post(
+        f"{SUPABASE_URL}/auth/v1/signup",
+        headers=_supabase_headers(),
+        json=payload,
+        timeout=10,
+    )
+    if resp.status_code not in (200, 201):
+        return False, _supabase_error_message(resp)
+    return True, "회원가입이 완료되었습니다. 이메일 인증 설정이 켜져 있다면 인증 후 로그인하세요."
+
+def supabase_sign_in(email, password):
+    if not is_supabase_enabled():
+        return False, "SUPABASE_URL / SUPABASE_ANON_KEY 설정이 필요합니다."
+    payload = {"email": (email or "").strip(), "password": password or ""}
+    if not payload["email"] or not payload["password"]:
+        return False, "이메일과 비밀번호를 입력해주세요."
+    resp = requests.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers=_supabase_headers(),
+        json=payload,
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return False, _supabase_error_message(resp)
+    data = resp.json() or {}
+    access_token = data.get("access_token")
+    user = data.get("user") or {}
+    user_id = user.get("id")
+    email_value = user.get("email") or payload["email"]
+    if not access_token or not user_id:
+        return False, "로그인 토큰 정보를 읽지 못했습니다."
+    return True, {"user_id": user_id, "email": email_value, "access_token": access_token}
+
+def supabase_fetch_user_bundle(user_id, access_token):
+    if not (is_supabase_enabled() and user_id and access_token):
+        return None
+    params = {"select": "questions,exam_history,user_settings", "user_id": f"eq.{user_id}"}
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+        headers=_supabase_headers(access_token),
+        params=params,
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None
+    rows = resp.json() or []
+    if not rows:
+        return _default_remote_bundle()
+    return _normalize_remote_bundle(rows[0])
+
+def supabase_upsert_user_bundle(user_id, access_token, bundle):
+    if not (is_supabase_enabled() and user_id and access_token):
+        return False
+    body = {
+        "user_id": user_id,
+        "questions": (bundle or {}).get("questions", {"text": [], "cloze": []}),
+        "exam_history": (bundle or {}).get("exam_history", []),
+        "user_settings": (bundle or {}).get("user_settings", {}),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    headers = _supabase_headers(access_token)
+    headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+    resp = requests.post(
+        f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+        headers=headers,
+        json=body,
+        timeout=10,
+    )
+    return resp.status_code in (200, 201)
+
+def use_remote_user_store(user_id=None):
+    if not is_supabase_enabled():
+        return False
+    uid = sanitize_user_id(user_id) if user_id is not None else sanitize_user_id(st.session_state.get("auth_user_id", ""))
+    token = st.session_state.get("auth_access_token")
+    return bool(uid and uid != "guest" and token)
+
+def load_remote_bundle(force=False):
+    if not use_remote_user_store():
+        return None
+    uid = sanitize_user_id(st.session_state.get("auth_user_id", ""))
+    token = st.session_state.get("auth_access_token")
+    cache_key = f"remote_bundle:{uid}"
+    cache = st.session_state.get("remote_bundle_cache", {})
+    if not force and cache_key in cache:
+        return _normalize_remote_bundle(cache[cache_key])
+    bundle = supabase_fetch_user_bundle(uid, token)
+    if bundle is None:
+        return None
+    if bundle == _default_remote_bundle():
+        supabase_upsert_user_bundle(uid, token, bundle)
+    cache[cache_key] = bundle
+    st.session_state.remote_bundle_cache = cache
+    return _normalize_remote_bundle(bundle)
+
+def save_remote_bundle(bundle):
+    if not use_remote_user_store():
+        return False
+    uid = sanitize_user_id(st.session_state.get("auth_user_id", ""))
+    token = st.session_state.get("auth_access_token")
+    norm = _normalize_remote_bundle(bundle)
+    ok = supabase_upsert_user_bundle(uid, token, norm)
+    if ok:
+        cache = st.session_state.get("remote_bundle_cache", {})
+        cache[f"remote_bundle:{uid}"] = norm
+        st.session_state.remote_bundle_cache = cache
+    return ok
 
 PROMPT_VERSION = "v1"
 GRADER_VERSION = "v1"
@@ -199,9 +355,13 @@ LOCK_SAFE = str(safe_param) == "1"
 LOCK_THEME = str(safe_param) == "0"
 
 if "theme_enabled" not in st.session_state:
-    st.session_state.theme_enabled = False if safe_param is None else LOCK_THEME
+    st.session_state.theme_enabled = True if safe_param is None else LOCK_THEME
 if "auth_user_id" not in st.session_state:
     st.session_state.auth_user_id = ""
+if "auth_access_token" not in st.session_state:
+    st.session_state.auth_access_token = ""
+if "auth_email" not in st.session_state:
+    st.session_state.auth_email = ""
 
 # Session State 초기화
 if "current_question_idx" not in st.session_state:
@@ -315,6 +475,7 @@ def reset_runtime_state_for_auth_change():
         "past_exam_images",
         "past_exam_text",
         "fsrs_settings_initialized",
+        "remote_bundle_cache",
     ]
     for key in volatile_keys:
         if key in st.session_state:
@@ -342,6 +503,8 @@ def _hash_password(password, salt_hex):
     return raw.hex()
 
 def register_user_account(user_id, password):
+    if is_supabase_enabled():
+        return supabase_sign_up(user_id, password)
     uid = sanitize_user_id(user_id)
     if uid == "guest":
         return False, "아이디를 입력해주세요."
@@ -361,6 +524,13 @@ def register_user_account(user_id, password):
     return True, "회원가입이 완료되었습니다."
 
 def authenticate_user_account(user_id, password):
+    if is_supabase_enabled():
+        ok, payload = supabase_sign_in(user_id, password)
+        if not ok:
+            return False, payload
+        st.session_state.auth_access_token = payload["access_token"]
+        st.session_state.auth_email = payload["email"]
+        return True, payload["user_id"]
     uid = sanitize_user_id(user_id)
     users = load_auth_users()
     row = users.get(uid)
@@ -377,6 +547,11 @@ def authenticate_user_account(user_id, password):
 
 def load_questions(user_id=None) -> dict:
     """questions.json 파일 로드"""
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle()
+        if bundle is not None:
+            data = ensure_question_ids(bundle.get("questions", {"text": [], "cloze": []}))
+            return data
     question_bank_file = get_question_bank_file(user_id)
     if os.path.exists(question_bank_file):
         try:
@@ -441,11 +616,21 @@ def migrate_old_format(data: dict, user_id=None):
 
 def save_questions(data: dict, user_id=None):
     """questions.json 파일 저장"""
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["questions"] = data
+        if save_remote_bundle(bundle):
+            return
     question_bank_file = get_question_bank_file(user_id)
     with open(question_bank_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_exam_history(user_id=None):
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle()
+        if bundle is not None:
+            data = bundle.get("exam_history", [])
+            return data if isinstance(data, list) else []
     exam_history_file = get_exam_history_file(user_id)
     if os.path.exists(exam_history_file):
         try:
@@ -457,6 +642,11 @@ def load_exam_history(user_id=None):
     return []
 
 def save_exam_history(items, user_id=None):
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["exam_history"] = items if isinstance(items, list) else []
+        if save_remote_bundle(bundle):
+            return
     exam_history_file = get_exam_history_file(user_id)
     with open(exam_history_file, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
@@ -482,6 +672,11 @@ def clear_exam_history(user_id=None):
     save_exam_history([], user_id=user_id)
 
 def load_user_settings(user_id=None):
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle()
+        if bundle is not None:
+            data = bundle.get("user_settings", {})
+            return data if isinstance(data, dict) else {}
     user_settings_file = get_user_settings_file(user_id)
     if os.path.exists(user_settings_file):
         try:
@@ -493,6 +688,11 @@ def load_user_settings(user_id=None):
     return {}
 
 def save_user_settings(data, user_id=None):
+    if user_id is None and use_remote_user_store():
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["user_settings"] = data if isinstance(data, dict) else {}
+        if save_remote_bundle(bundle):
+            return
     user_settings_file = get_user_settings_file(user_id)
     with open(user_settings_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -4213,14 +4413,19 @@ with st.sidebar:
     render_generation_recovery_panel()
     st.header("👤 계정")
     if st.session_state.auth_user_id:
-        st.success(f"로그인됨: {st.session_state.auth_user_id}")
+        who = st.session_state.get("auth_email") or st.session_state.auth_user_id
+        st.success(f"로그인됨: {who}")
         if st.button("로그아웃", key="auth_logout_btn"):
             reset_runtime_state_for_auth_change()
             st.session_state.auth_user_id = ""
+            st.session_state.auth_access_token = ""
+            st.session_state.auth_email = ""
             st.rerun()
     else:
+        id_label = "이메일" if is_supabase_enabled() else "아이디"
+        id_label_new = "새 이메일" if is_supabase_enabled() else "새 아이디"
         with st.form("auth_login_form", clear_on_submit=False):
-            login_user_id = st.text_input("아이디", key="auth_login_user_id")
+            login_user_id = st.text_input(id_label, key="auth_login_user_id")
             login_password = st.text_input("비밀번호", type="password", key="auth_login_password")
             login_submit = st.form_submit_button("로그인")
         if login_submit:
@@ -4233,7 +4438,7 @@ with st.sidebar:
                 st.error(result)
 
         with st.form("auth_signup_form", clear_on_submit=True):
-            signup_user_id = st.text_input("새 아이디", key="auth_signup_user_id")
+            signup_user_id = st.text_input(id_label_new, key="auth_signup_user_id")
             signup_password = st.text_input("새 비밀번호 (6자 이상)", type="password", key="auth_signup_password")
             signup_submit = st.form_submit_button("회원가입")
         if signup_submit:
@@ -4242,6 +4447,10 @@ with st.sidebar:
                 st.success(message)
             else:
                 st.error(message)
+        if is_supabase_enabled():
+            st.caption("Supabase Auth 모드: 이메일/비밀번호 로그인")
+        else:
+            st.caption("로컬 계정 모드: 서버 재시작 시 계정이 유지되지 않을 수 있습니다.")
 
     st.markdown("---")
     st.header("⚙️ 설정 & 모드")
@@ -4276,22 +4485,8 @@ with st.sidebar:
     st.session_state.auto_tag_enabled = st.checkbox("자동 난이도/카테고리 태깅", value=True)
     st.session_state.explanation_default = st.checkbox("해설 기본 열기", value=st.session_state.explanation_default)
 
-    st.markdown("---")
-    st.subheader("🎨 테마")
-    if not LOCK_SAFE and not LOCK_THEME:
-        st.session_state.theme_enabled = st.toggle("커스텀 테마 사용", value=st.session_state.theme_enabled)
-    elif LOCK_SAFE:
-        st.info("Safe mode 활성화됨 (URL에 ?safe=1).")
-        st.session_state.theme_enabled = False
-    elif LOCK_THEME:
-        st.info("테마 강제 활성화됨 (URL에 ?safe=0).")
-        st.session_state.theme_enabled = True
-
-    if hasattr(st, "toggle"):
-        dark_on = st.toggle("다크 모드", value=(st.session_state.theme_mode == "Dark"))
-    else:
-        dark_on = st.checkbox("다크 모드", value=(st.session_state.theme_mode == "Dark"))
-    st.session_state.theme_mode = "Dark" if dark_on else "Light"
+    st.session_state.theme_enabled = False if LOCK_SAFE else True
+    st.session_state.theme_mode = "Light"
     st.session_state.theme_bg = "Gradient"
 
 # 블록 외에서도 접근 가능하도록 로컬 변수에 할당
@@ -4336,7 +4531,7 @@ with tab_home:
     acc_text = f"{acc['accuracy']:.1f}%" if acc else "—"
 
     if not st.session_state.get("theme_enabled"):
-        st.info("커스텀 테마를 켜면 배경/색상 스타일이 적용됩니다.")
+        st.info("Safe mode에서 테마가 비활성화되었습니다.")
 
     st.header("MedTutor")
     st.write("강의록과 기출문제를 연결해 학습-시험-복습 흐름을 만듭니다.")

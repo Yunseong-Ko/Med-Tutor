@@ -20,7 +20,7 @@ MedTutor는 로컬 문서(PDF, DOCX, PPTX, HWP 등)를 기반으로 문제를 �
 - FSRS(설치 시) 또는 기본 복습 스케줄 폴백
 - 선택한 분과/단원 문항을 문제집 형식(DOCX)으로 내보내기
 - 로컬 JSON/JSONL 저장(`questions.json`, `exam_history.json`, `audit_log.jsonl`)
-- 로그인 기반 사용자별 데이터 분리 저장(`users/<user_id>/...`)
+- Supabase Auth 기반 사용자 로그인 및 사용자별 데이터 분리 저장
 
 ## How To Use
 
@@ -63,7 +63,9 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 - Dependency: `requirements.txt` 기준
-- Env/Secrets: API 키는 사이드바 입력 또는 환경변수로 관리
+- Env/Secrets:
+- `OPENAI_API_KEY`, `GEMINI_API_KEY` (선택)
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
 - 데이터 경로: `MEDTUTOR_DATA_DIR`를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
 
@@ -76,8 +78,29 @@ streamlit run app.py
 1. 저장소를 GitHub에 푸시하고 Public 또는 접근 가능한 상태로 둡니다.
 2. [Streamlit Community Cloud](https://share.streamlit.io/)에서 `New app` 선택
 3. Repository: `Yunseong-Ko/Med-Tutor`, Branch: `main`, Main file path: `app.py`
-4. Secrets에 필요한 키를 등록합니다(`OPENAI_API_KEY`, `GEMINI_API_KEY`)
+4. Secrets에 필요한 키를 등록합니다(`OPENAI_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`)
 5. Deploy 후 제공된 URL로 접속합니다.
+- Supabase 테이블 생성(SQL Editor):
+```sql
+create table if not exists public.medtutor_user_data (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  questions jsonb not null default '{"text":[],"cloze":[]}'::jsonb,
+  exam_history jsonb not null default '[]'::jsonb,
+  user_settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.medtutor_user_data enable row level security;
+
+create policy if not exists "select own data" on public.medtutor_user_data
+for select using (auth.uid() = user_id);
+
+create policy if not exists "insert own data" on public.medtutor_user_data
+for insert with check (auth.uid() = user_id);
+
+create policy if not exists "update own data" on public.medtutor_user_data
+for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
 - 단일 사용자/단일 인스턴스: 로컬 JSON/SQLite로 충분
 - 다중 사용자 확장: 서버 DB(Postgres 등)와 인증 계층 필요
 
@@ -92,7 +115,7 @@ streamlit run app.py
 - 이미지-문항 자동 매칭은 완전 자동화가 어렵고 확인 단계가 필요합니다.
 - Desktop 번들은 용량이 큽니다(파이썬 런타임 포함).
 - 로컬 저장소 기반이므로 다중 사용자 동시 편집에는 적합하지 않습니다.
-- 현재 사용자 분리는 파일 기반(`users/<id>`)이며, 대규모 운영에는 DB 기반 인증/권한 관리가 필요합니다.
+- Supabase 미설정 상태에서는 로컬 파일 기반 로그인으로 동작하며 서버 재시작 시 데이터가 유지되지 않을 수 있습니다.
 
 ## Disclaimer (If Relevant)
 - 본 도구는 학습 보조용이며 의료 판단/진단 도구가 아닙니다.
