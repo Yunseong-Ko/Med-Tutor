@@ -2269,57 +2269,38 @@ def parse_qa_to_cloze(text):
     return results
 
 def apply_theme(theme_mode, bg_mode):
-    # color palette
     if theme_mode == "Dark":
-        base_bg = "#0b1220"
+        base_bg = "#0f172a"
         surface = "#111827"
-        surface_2 = "#0f1b30"
-        text = "#f8fafc"
-        subtext = "#cbd5f5"
-        accent = "#7dd3fc"
-        accent2 = "#fbbf24"
-        border = "#1f2a44"
-        lamp_glow = "radial-gradient(ellipse at center, rgba(255,204,138,0.62) 0%, rgba(255,204,138,0.35) 35%, rgba(255,204,138,0) 70%)"
+        surface_2 = "#0b1220"
+        text = "#e5e7eb"
+        subtext = "#94a3b8"
+        accent = "#38bdf8"
+        accent2 = "#22d3ee"
+        border = "#1f2937"
     else:
-        base_bg = "#f7f5f2"
+        base_bg = "#f8fafc"
         surface = "#ffffff"
         surface_2 = "#f1f5f9"
-        text = "#1f2937"
-        subtext = "#6b7280"
+        text = "#111827"
+        subtext = "#4b5563"
         accent = "#0ea5a4"
-        accent2 = "#d97706"
+        accent2 = "#14b8a6"
         border = "#e5e7eb"
-        lamp_glow = "radial-gradient(ellipse at center, rgba(255,204,138,0.0) 0%, rgba(255,204,138,0.0) 70%)"
 
-    if bg_mode == "Grid":
-        bg = "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.03) 100%)"
-        bg_size = "24px 24px, auto"
-    elif bg_mode == "Paper":
-        bg = "linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.03) 100%), repeating-linear-gradient(0deg, rgba(0,0,0,0.02), rgba(0,0,0,0.02) 1px, transparent 1px, transparent 28px)"
-        bg_size = "auto, auto"
-    elif bg_mode == "None":
+    if bg_mode == "None":
         bg = "none"
-        bg_size = "auto"
-    else:  # Gradient
+    elif bg_mode == "Grid":
+        bg = "radial-gradient(circle, rgba(148,163,184,0.2) 1px, transparent 1px)"
+    else:
         if theme_mode == "Dark":
-            bg = (
-                "radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8) 0, transparent 60%),"
-                "radial-gradient(1px 1px at 80% 40%, rgba(255,255,255,0.6) 0, transparent 60%),"
-                "radial-gradient(1.2px 1.2px at 60% 15%, rgba(255,255,255,0.7) 0, transparent 60%),"
-                "radial-gradient(1px 1px at 35% 70%, rgba(255,255,255,0.5) 0, transparent 60%),"
-                "radial-gradient(900px 500px at 10% 0%, rgba(29,78,216,0.25), transparent 60%),"
-                "radial-gradient(800px 480px at 90% 10%, rgba(56,189,248,0.18), transparent 55%),"
-                "linear-gradient(180deg, rgba(9,12,24,1) 0%, rgba(12,18,40,1) 100%)"
-            )
-            bg_size = "auto"
+            bg = "radial-gradient(1200px 600px at 10% 0%, rgba(59,130,246,0.15), transparent 60%), linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
         else:
-            bg = "radial-gradient(1200px 600px at 10% 0%, rgba(14,165,164,0.18), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(217,119,6,0.14), transparent 55%)"
-            bg_size = "auto"
+            bg = "radial-gradient(1200px 600px at 10% 0%, rgba(20,184,166,0.12), transparent 60%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)"
 
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap');
         :root {{
             --bg: {base_bg};
             --surface: {surface};
@@ -2329,249 +2310,56 @@ def apply_theme(theme_mode, bg_mode):
             --accent: {accent};
             --accent-2: {accent2};
             --border: {border};
-            --radius: 14px;
         }}
         html, body {{
-            font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans KR', sans-serif;
-        }}
-        .stApp {{
-            position: relative;
-            background-color: var(--bg);
-            background-image: {bg};
-            background-size: {bg_size};
             color: var(--text);
         }}
-        [data-testid="stHeader"] {{
-            background: transparent;
+        .stApp {{
+            background-color: var(--bg);
+            background-image: {bg};
+            color: var(--text);
         }}
         [data-testid="stSidebar"] {{
             background: var(--surface);
             border-right: 1px solid var(--border);
         }}
-        .block-container {{
-            padding-top: 1.5rem;
-            position: relative;
-            z-index: 1;
-        }}
-        .stMetric {{
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px 14px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        [data-testid="stHeader"] {{
+            background: transparent;
         }}
         .stButton>button {{
             background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 0.6rem 1rem;
-            font-weight: 600;
-            box-shadow: 0 10px 18px rgba(14,165,164,0.18);
+            color: #ffffff;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
         }}
         .stButton>button:hover {{
             background: var(--accent-2);
-            color: white;
+            color: #ffffff;
         }}
-        .stMarkdown, .stText, .stCaption {{
-            color: var(--text);
-        }}
-        .caption-muted {{
-            color: var(--muted);
-        }}
-        a {{
-            color: var(--accent);
-        }}
-        .obsidian-note {{
-            font-family: 'Source Serif 4', 'Noto Serif KR', serif;
-            color: var(--text);
-            line-height: 1.7;
-            background: var(--surface);
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="select"] > div,
+        .stTextArea textarea {{
+            background: var(--surface-2);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 18px 20px;
-            box-shadow: 0 10px 22px rgba(0,0,0,0.06);
-        }}
-        .hero {{
-            display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 28px;
-            align-items: center;
-            padding: 28px 0 12px 0;
-        }}
-        .hero h1 {{
-            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
-            font-size: 46px;
-            line-height: 1.1;
-            margin-bottom: 14px;
-        }}
-        .hero p {{
-            color: var(--muted);
-            font-size: 18px;
-        }}
-        .pill {{
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            border-radius: 999px;
-            background: rgba(14,165,164,0.12);
-            color: var(--accent);
-            border: 1px solid rgba(14,165,164,0.24);
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }}
-        .hero-card {{
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 16px;
-            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
-        }}
-        .lamp-glow {{
-            position: absolute;
-            top: -120px;
-            left: 50%;
-            width: 520px;
-            height: 260px;
-            transform: translateX(-50%);
-            background: {lamp_glow};
-            filter: blur(8px);
-            opacity: 0.85;
-            pointer-events: none;
-            z-index: 0;
-        }}
-        .hero-stack {{
-            display: grid;
-            gap: 14px;
-        }}
-        .card-title {{
-            font-weight: 700;
-            margin-bottom: 6px;
-        }}
-        .card-sub {{
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 8px;
-        }}
-        .stat-row {{
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px dashed rgba(148,163,184,0.2);
-        }}
-        .stat-row:last-child {{
-            border-bottom: none;
-        }}
-        .hero-actions {{
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }}
-        .hero-meta {{
-            display: flex;
-            gap: 16px;
-            margin-top: 14px;
-            color: var(--muted);
-            font-size: 13px;
-        }}
-        .tag-row {{
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }}
-        .tag {{
-            padding: 4px 10px;
-            border-radius: 999px;
-            background: rgba(125, 211, 252, 0.12);
-            border: 1px solid rgba(125, 211, 252, 0.25);
-            font-size: 12px;
-            color: var(--accent);
-        }}
-        .hero-image {{
-            border-radius: 18px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 20px 30px rgba(0,0,0,0.15);
-        }}
-        .btn-outline {{
-            border: 1px solid var(--border);
-            background: var(--surface);
             color: var(--text);
-            border-radius: 999px;
-            padding: 10px 16px;
-            font-weight: 600;
-        }}
-        .btn-primary {{
-            background: var(--accent);
-            color: white;
-            border-radius: 999px;
-            padding: 10px 18px;
-            font-weight: 700;
-            box-shadow: 0 10px 20px rgba(14,165,164,0.25);
         }}
         .stTabs [data-baseweb="tab-list"] {{
-            gap: 6px;
             background: var(--surface);
             border: 1px solid var(--border);
-            padding: 6px;
-            border-radius: 12px;
-        }}
-        .stTabs [data-baseweb="tab"] {{
-            padding: 8px 14px;
             border-radius: 10px;
-            font-weight: 600;
         }}
         .stTabs [aria-selected="true"] {{
             background: var(--accent);
-            color: white !important;
+            color: #fff !important;
         }}
-        div[data-baseweb="input"] > div {{
-            background: var(--surface-2);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }}
-        textarea, input {{
-            color: var(--text) !important;
-        }}
-        div[data-baseweb="select"] > div {{
-            background: var(--surface-2);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }}
-        .stTextArea textarea {{
-            background: var(--surface-2);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }}
-        .stExpander {{
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
+        .stAlert, .stExpander, .stMetric {{
             background: var(--surface);
-        }}
-        .stAlert {{
-            border-radius: var(--radius);
             border: 1px solid var(--border);
-            background: var(--surface);
-        }}
-        @media (max-width: 900px) {{
-            .hero {{
-                grid-template-columns: 1fr;
-            }}
-        }}
-        .section-title {{
-            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-            margin: 18px 0 8px 0;
-        }}
-        .section-sub {{
-            color: var(--muted);
+            color: var(--text);
         }}
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 def should_apply_custom_theme(theme_enabled, theme_mode):
