@@ -90,6 +90,7 @@ streamlit run app.py
 - `OPENAI_API_KEY`, `GEMINI_API_KEY` (선택)
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
 - `AXIOMA_REQUIRE_SUPABASE` (기본값 `1`, `1`이면 Supabase 미설정 시 앱 시작 차단)
+- `AXIOMA_REQUIRE_SUPABASE=1`일 때는 Supabase 저장 실패 시 로컬 파일 폴백을 하지 않음
 - 데이터 경로: `AXIOMA_QBANK_DATA_DIR`(또는 레거시 `MEDTUTOR_DATA_DIR`)를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일:
 - 글로벌: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`

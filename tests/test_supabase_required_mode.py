@@ -1,4 +1,5 @@
 import ast
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -71,6 +72,37 @@ class SupabaseRequiredModeTests(unittest.TestCase):
                 del os.environ["AXIOMA_REQUIRE_SUPABASE"]
             else:
                 os.environ["AXIOMA_REQUIRE_SUPABASE"] = prev
+
+    def test_save_questions_does_not_fallback_to_local_when_required(self):
+        import json
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_file = Path(tmpdir) / "questions.json"
+            ns = _load_functions(
+                ["is_supabase_required", "notify_remote_store_failure", "save_questions"],
+                {
+                    "os": os,
+                    "json": json,
+                    "st": SimpleNamespace(session_state={}),
+                    "use_remote_user_store": lambda: True,
+                    "load_remote_bundle": lambda: {"questions": {"text": [], "cloze": []}},
+                    "_default_remote_bundle": lambda: {"questions": {"text": [], "cloze": []}},
+                    "save_remote_bundle": lambda bundle: False,
+                    "get_question_bank_file": lambda user_id=None: str(local_file),
+                },
+            )
+            prev = os.environ.get("AXIOMA_REQUIRE_SUPABASE")
+            try:
+                os.environ["AXIOMA_REQUIRE_SUPABASE"] = "1"
+                ok = ns["save_questions"]({"text": [{"id": "x"}], "cloze": []})
+            finally:
+                if prev is None:
+                    del os.environ["AXIOMA_REQUIRE_SUPABASE"]
+                else:
+                    os.environ["AXIOMA_REQUIRE_SUPABASE"] = prev
+            self.assertFalse(ok)
+            self.assertFalse(local_file.exists())
 
 
 if __name__ == "__main__":

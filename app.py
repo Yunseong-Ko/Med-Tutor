@@ -424,6 +424,12 @@ def save_remote_bundle(bundle):
         st.session_state.remote_bundle_cache = cache
     return ok
 
+def notify_remote_store_failure(message):
+    try:
+        st.session_state.last_action_notice = message
+    except Exception:
+        pass
+
 PROMPT_VERSION = "v1"
 GRADER_VERSION = "v1"
 LLM_TEMPERATURE = 0.0
@@ -673,6 +679,14 @@ def authenticate_user_account(user_id, password):
 
 def load_questions(user_id=None) -> dict:
     """questions.json 파일 로드"""
+    if user_id is None and is_supabase_required():
+        if use_remote_user_store():
+            bundle = load_remote_bundle()
+            if bundle is not None:
+                data = ensure_question_ids(bundle.get("questions", {"text": [], "cloze": []}))
+                return data
+            notify_remote_store_failure("⚠️ Supabase에서 문항 데이터를 불러오지 못했습니다.")
+        return {"text": [], "cloze": []}
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
@@ -742,16 +756,35 @@ def migrate_old_format(data: dict, user_id=None):
 
 def save_questions(data: dict, user_id=None):
     """questions.json 파일 저장"""
+    if user_id is None and is_supabase_required():
+        if not use_remote_user_store():
+            notify_remote_store_failure("⚠️ Supabase 로그인 상태가 아니어서 저장할 수 없습니다.")
+            return False
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["questions"] = data
+        if save_remote_bundle(bundle):
+            return True
+        notify_remote_store_failure("⚠️ Supabase 저장 실패로 문항 저장이 취소되었습니다.")
+        return False
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["questions"] = data
         if save_remote_bundle(bundle):
-            return
+            return True
     question_bank_file = get_question_bank_file(user_id)
     with open(question_bank_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    return True
 
 def load_exam_history(user_id=None):
+    if user_id is None and is_supabase_required():
+        if use_remote_user_store():
+            bundle = load_remote_bundle()
+            if bundle is not None:
+                data = bundle.get("exam_history", [])
+                return data if isinstance(data, list) else []
+            notify_remote_store_failure("⚠️ Supabase에서 시험 기록을 불러오지 못했습니다.")
+        return []
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
@@ -768,14 +801,25 @@ def load_exam_history(user_id=None):
     return []
 
 def save_exam_history(items, user_id=None):
+    if user_id is None and is_supabase_required():
+        if not use_remote_user_store():
+            notify_remote_store_failure("⚠️ Supabase 로그인 상태가 아니어서 시험 기록을 저장할 수 없습니다.")
+            return False
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["exam_history"] = items if isinstance(items, list) else []
+        if save_remote_bundle(bundle):
+            return True
+        notify_remote_store_failure("⚠️ Supabase 저장 실패로 시험 기록 저장이 취소되었습니다.")
+        return False
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["exam_history"] = items if isinstance(items, list) else []
         if save_remote_bundle(bundle):
-            return
+            return True
     exam_history_file = get_exam_history_file(user_id)
     with open(exam_history_file, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
+    return True
 
 def add_exam_history(session, user_id=None):
     history = load_exam_history(user_id=user_id)
@@ -798,6 +842,14 @@ def clear_exam_history(user_id=None):
     save_exam_history([], user_id=user_id)
 
 def load_user_settings(user_id=None):
+    if user_id is None and is_supabase_required():
+        if use_remote_user_store():
+            bundle = load_remote_bundle()
+            if bundle is not None:
+                data = bundle.get("user_settings", {})
+                return data if isinstance(data, dict) else {}
+            notify_remote_store_failure("⚠️ Supabase에서 사용자 설정을 불러오지 못했습니다.")
+        return {}
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
@@ -814,14 +866,25 @@ def load_user_settings(user_id=None):
     return {}
 
 def save_user_settings(data, user_id=None):
+    if user_id is None and is_supabase_required():
+        if not use_remote_user_store():
+            notify_remote_store_failure("⚠️ Supabase 로그인 상태가 아니어서 설정을 저장할 수 없습니다.")
+            return False
+        bundle = load_remote_bundle() or _default_remote_bundle()
+        bundle["user_settings"] = data if isinstance(data, dict) else {}
+        if save_remote_bundle(bundle):
+            return True
+        notify_remote_store_failure("⚠️ Supabase 저장 실패로 설정 저장이 취소되었습니다.")
+        return False
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["user_settings"] = data if isinstance(data, dict) else {}
         if save_remote_bundle(bundle):
-            return
+            return True
     user_settings_file = get_user_settings_file(user_id)
     with open(user_settings_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    return True
 
 def load_fsrs_settings():
     data = load_user_settings()
