@@ -21,6 +21,7 @@ MedTutor는 로컬 문서(PDF, DOCX, PPTX, HWP 등)를 기반으로 문제를 �
 - 선택한 분과/단원 문항을 문제집 형식(DOCX)으로 내보내기
 - 로컬 JSON/JSONL 저장(`questions.json`, `exam_history.json`, `audit_log.jsonl`)
 - Supabase Auth 기반 사용자 로그인 및 사용자별 데이터 분리 저장
+- 테마는 기본 적용(라이트 톤)이며, 사이드바 테마 토글은 제거
 
 ## How To Use
 
@@ -44,6 +45,8 @@ Assets가 안 보이거나 다운로드가 안 될 때:
 ### Web Version
 1. 운영자가 제공한 배포 URL(예: Streamlit Cloud/Render 링크)로 접속합니다.
 2. 사이드바에서 회원가입/로그인을 진행합니다.
+   - Supabase 설정 시: 이메일/비밀번호 로그인
+   - Supabase 미설정 시: 로컬 파일 기반 로그인(데모용)
 3. 업로드할 파일을 선택하고 문제를 생성합니다.
 4. 학습 모드 또는 시험 모드로 바로 풀이를 시작합니다.
 5. 필요 시 API 키를 입력합니다(운영 정책에 따라 서버 측 설정 가능).
@@ -67,7 +70,9 @@ streamlit run app.py
 - `OPENAI_API_KEY`, `GEMINI_API_KEY` (선택)
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
 - 데이터 경로: `MEDTUTOR_DATA_DIR`를 설정하면 저장 파일 위치를 고정할 수 있음
-- 주요 로컬 데이터 파일: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
+- 주요 로컬 데이터 파일:
+- 글로벌: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
+- 사용자 분리 저장: `users/<user_id>/questions.json`, `users/<user_id>/exam_history.json`, `users/<user_id>/user_settings.json`, `users/<user_id>/audit_log.jsonl`
 
 ## Deployment
 - Python 없이 실행하는 배포 방법: GitHub Actions standalone 빌드(`.app`/`.exe`)를 릴리즈에 올려 배포
@@ -80,6 +85,7 @@ streamlit run app.py
 3. Repository: `Yunseong-Ko/Med-Tutor`, Branch: `main`, Main file path: `app.py`
 4. Secrets에 필요한 키를 등록합니다(`OPENAI_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`)
 5. Deploy 후 제공된 URL로 접속합니다.
+- 베타 권장: Supabase Auth Email provider를 활성화하고, 초기 테스트에서는 이메일 확인 요구를 비활성화(선택)하면 가입/로그인이 빠릅니다.
 - Supabase 테이블 생성(SQL Editor):
 ```sql
 create table if not exists public.medtutor_user_data (
@@ -116,6 +122,7 @@ for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 - Desktop 번들은 용량이 큽니다(파이썬 런타임 포함).
 - 로컬 저장소 기반이므로 다중 사용자 동시 편집에는 적합하지 않습니다.
 - Supabase 미설정 상태에서는 로컬 파일 기반 로그인으로 동작하며 서버 재시작 시 데이터가 유지되지 않을 수 있습니다.
+- Streamlit Community Cloud 무료 플랜은 절전/재시작이 발생할 수 있어 베타에서 지연이 생길 수 있습니다.
 
 ## Disclaimer (If Relevant)
 - 본 도구는 학습 보조용이며 의료 판단/진단 도구가 아닙니다.
