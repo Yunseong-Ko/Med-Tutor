@@ -2798,9 +2798,18 @@ def apply_theme(theme_mode, bg_mode):
             border: 1px solid var(--border);
             border-radius: 10px;
         }}
+        .stTabs [data-baseweb="tab"] {{
+            background: transparent !important;
+            border-radius: 8px;
+            transition: color 0.22s ease, background-color 0.22s ease;
+        }}
+        .stTabs [data-baseweb="tab"]:hover {{
+            background: var(--surface-2) !important;
+        }}
         .stTabs [aria-selected="true"] {{
-            background: var(--accent);
-            color: #fff !important;
+            background: transparent !important;
+            color: var(--accent) !important;
+            font-weight: 700;
         }}
         .stAlert, .stExpander, .stMetric {{
             background: var(--surface);
