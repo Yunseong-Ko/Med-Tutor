@@ -25,6 +25,14 @@ def _load_functions(names, extra=None):
 
 
 class SupabaseRequiredModeTests(unittest.TestCase):
+    def test_is_valid_email(self):
+        import re
+
+        ns = _load_functions(["is_valid_email"], {"re": re})
+        self.assertTrue(ns["is_valid_email"]("user@example.com"))
+        self.assertFalse(ns["is_valid_email"]("userexample.com"))
+        self.assertFalse(ns["is_valid_email"]("user@"))
+
     def test_is_supabase_required_default_true(self):
         import os
 

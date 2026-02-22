@@ -134,6 +134,10 @@ def sanitize_user_id(user_id):
         return "guest"
     return re.sub(r"[^a-zA-Z0-9._-]", "_", text)[:80] or "guest"
 
+def is_valid_email(value):
+    text = (value or "").strip()
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", text))
+
 def get_current_user_id():
     return sanitize_user_id(st.session_state.get("auth_user_id", "guest"))
 
@@ -531,6 +535,12 @@ if "exam_history_saved" not in st.session_state:
     st.session_state.exam_history_saved = False
 if "gemini_model_id" not in st.session_state:
     st.session_state.gemini_model_id = "gemini-2.5-flash"
+if "ai_model" not in st.session_state:
+    st.session_state.ai_model = "🔵 Google Gemini"
+if "api_key" not in st.session_state:
+    st.session_state.api_key = None
+if "openai_api_key" not in st.session_state:
+    st.session_state.openai_api_key = None
 if "dual_exam_text" not in st.session_state:
     st.session_state.dual_exam_text = ""
 if "dual_exam_images" not in st.session_state:
@@ -2839,6 +2849,116 @@ def apply_mobile_exam_styles():
         unsafe_allow_html=True,
     )
 
+def render_auth_landing_page():
+    st.markdown(
+        """
+        <style>
+        .auth-shell {
+            max-width: 560px;
+            margin: 1.5rem auto 0.5rem auto;
+        }
+        .auth-brand {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            margin-bottom: 0.2rem;
+        }
+        .auth-subtitle {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+        .auth-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem 1rem 0.6rem 1rem;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .auth-help {
+            color: var(--muted);
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='auth-shell'>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-brand'>Axioma Qbank</div>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-subtitle'>이메일 계정으로 로그인하거나 새 계정을 만드세요.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-card'>", unsafe_allow_html=True)
+
+    if is_supabase_required() or is_supabase_enabled():
+        tab_login, tab_signup = st.tabs(["Log in", "Create account"])
+        with tab_login:
+            with st.form("auth_login_form_main", clear_on_submit=False):
+                login_email = st.text_input("EMAIL ADDRESS", key="auth_login_email_main")
+                login_password = st.text_input("PASSWORD", type="password", key="auth_login_password_main")
+                login_submit = st.form_submit_button("Log in", use_container_width=True)
+            if login_submit:
+                if not is_valid_email(login_email):
+                    st.error("이메일 형식을 확인해주세요.")
+                else:
+                    ok, result = authenticate_user_account(login_email, login_password)
+                    if ok:
+                        reset_runtime_state_for_auth_change()
+                        st.session_state.auth_user_id = result
+                        st.rerun()
+                    else:
+                        st.error(result)
+        with tab_signup:
+            with st.form("auth_signup_form_main", clear_on_submit=True):
+                signup_email = st.text_input("EMAIL ADDRESS", key="auth_signup_email_main")
+                signup_password = st.text_input("PASSWORD (6자 이상)", type="password", key="auth_signup_password_main")
+                signup_password_confirm = st.text_input("CONFIRM PASSWORD", type="password", key="auth_signup_password_confirm_main")
+                signup_submit = st.form_submit_button("Create account", use_container_width=True)
+            if signup_submit:
+                if not is_valid_email(signup_email):
+                    st.error("이메일 형식을 확인해주세요.")
+                elif signup_password != signup_password_confirm:
+                    st.error("비밀번호 확인이 일치하지 않습니다.")
+                else:
+                    ok, message = register_user_account(signup_email, signup_password)
+                    if ok:
+                        st.success(message)
+                    else:
+                        st.error(message)
+        st.markdown("<div class='auth-help'>Supabase Auth 모드: 이메일/비밀번호 로그인</div>", unsafe_allow_html=True)
+    else:
+        tab_login, tab_signup = st.tabs(["로그인", "회원가입"])
+        with tab_login:
+            with st.form("auth_login_form_main_local", clear_on_submit=False):
+                login_user_id = st.text_input("아이디", key="auth_login_user_id_main")
+                login_password = st.text_input("비밀번호", type="password", key="auth_login_password_main_local")
+                login_submit = st.form_submit_button("로그인", use_container_width=True)
+            if login_submit:
+                ok, result = authenticate_user_account(login_user_id, login_password)
+                if ok:
+                    reset_runtime_state_for_auth_change()
+                    st.session_state.auth_user_id = result
+                    st.rerun()
+                else:
+                    st.error(result)
+        with tab_signup:
+            with st.form("auth_signup_form_main_local", clear_on_submit=True):
+                signup_user_id = st.text_input("새 아이디", key="auth_signup_user_id_main")
+                signup_password = st.text_input("새 비밀번호 (6자 이상)", type="password", key="auth_signup_password_main_local")
+                signup_submit = st.form_submit_button("회원가입", use_container_width=True)
+            if signup_submit:
+                ok, message = register_user_account(signup_user_id, signup_password)
+                if ok:
+                    st.success(message)
+                else:
+                    st.error(message)
+        st.markdown("<div class='auth-help'>로컬 계정 모드</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 def show_action_notice():
     msg = st.session_state.get("last_action_notice", "")
     if msg:
@@ -4668,70 +4788,44 @@ with st.sidebar:
             st.session_state.auth_email = ""
             st.rerun()
     else:
-        id_label = "이메일" if is_supabase_enabled() else "아이디"
-        id_label_new = "새 이메일" if is_supabase_enabled() else "새 아이디"
-        with st.form("auth_login_form", clear_on_submit=False):
-            login_user_id = st.text_input(id_label, key="auth_login_user_id")
-            login_password = st.text_input("비밀번호", type="password", key="auth_login_password")
-            login_submit = st.form_submit_button("로그인")
-        if login_submit:
-            ok, result = authenticate_user_account(login_user_id, login_password)
-            if ok:
-                reset_runtime_state_for_auth_change()
-                st.session_state.auth_user_id = result
-                st.rerun()
-            else:
-                st.error(result)
-
-        with st.form("auth_signup_form", clear_on_submit=True):
-            signup_user_id = st.text_input(id_label_new, key="auth_signup_user_id")
-            signup_password = st.text_input("새 비밀번호 (6자 이상)", type="password", key="auth_signup_password")
-            signup_submit = st.form_submit_button("회원가입")
-        if signup_submit:
-            ok, message = register_user_account(signup_user_id, signup_password)
-            if ok:
-                st.success(message)
-            else:
-                st.error(message)
-        if is_supabase_enabled():
-            st.caption("Supabase Auth 모드: 이메일/비밀번호 로그인")
-        else:
-            st.caption("로컬 계정 모드: 서버 재시작 시 계정이 유지되지 않을 수 있습니다.")
+        st.info("메인 화면에서 로그인 또는 회원가입을 진행하세요.")
     if not get_configured_admin_users():
         st.caption("운영자 계정 설정: AXIOMA_ADMIN_USERS=admin_id1,admin2")
 
     st.markdown("---")
     st.header("⚙️ 설정 & 모드")
-    
-    st.session_state.ai_model = st.radio(
-        "🤖 AI 모델 선택",
-        ["🔵 Google Gemini", "🟢 OpenAI ChatGPT"]
-    )
-    
-    st.markdown("---")
-    
-    if st.session_state.ai_model == "🔵 Google Gemini":
-        st.session_state.api_key = st.text_input("Gemini API Key 입력", type="password")
-        st.session_state.gemini_model_id = st.text_input(
-            "Gemini 모델 ID",
-            value=st.session_state.gemini_model_id,
-            help="예: gemini-2.0-flash, gemini-2.0-flash-lite"
+    if st.session_state.auth_user_id:
+        st.session_state.ai_model = st.radio(
+            "🤖 AI 모델 선택",
+            ["🔵 Google Gemini", "🟢 OpenAI ChatGPT"]
         )
-        st.session_state.openai_api_key = None
+
+        st.markdown("---")
+
+        if st.session_state.ai_model == "🔵 Google Gemini":
+            st.session_state.api_key = st.text_input("Gemini API Key 입력", type="password")
+            st.session_state.gemini_model_id = st.text_input(
+                "Gemini 모델 ID",
+                value=st.session_state.gemini_model_id,
+                help="예: gemini-2.0-flash, gemini-2.0-flash-lite"
+            )
+            st.session_state.openai_api_key = None
+        else:
+            st.session_state.api_key = None
+            st.session_state.openai_api_key = st.text_input("OpenAI API Key 입력", type="password")
+
+        st.markdown("---")
+        st.session_state.chunk_size = st.slider("청크 크기 (문자 수)", 2000, 30000, 8000, 500)
+        st.session_state.overlap = st.slider("청크 중첩 (문자 수)", 0, 5000, 500, 100)
+
+        st.markdown("---")
+        st.subheader("⚙️ 필터링 옵션")
+        st.session_state.enable_filter = st.checkbox("품질 필터 사용", value=True)
+        st.session_state.min_length = st.slider("최소 문자 수", 10, 200, 30)
+        st.session_state.auto_tag_enabled = st.checkbox("자동 난이도/카테고리 태깅", value=True)
+        st.session_state.explanation_default = st.checkbox("해설 기본 열기", value=st.session_state.explanation_default)
     else:
-        st.session_state.api_key = None
-        st.session_state.openai_api_key = st.text_input("OpenAI API Key 입력", type="password")
-    
-    st.markdown("---")
-    st.session_state.chunk_size = st.slider("청크 크기 (문자 수)", 2000, 30000, 8000, 500)
-    st.session_state.overlap = st.slider("청크 중첩 (문자 수)", 0, 5000, 500, 100)
-    
-    st.markdown("---")
-    st.subheader("⚙️ 필터링 옵션")
-    st.session_state.enable_filter = st.checkbox("품질 필터 사용", value=True)
-    st.session_state.min_length = st.slider("최소 문자 수", 10, 200, 30)
-    st.session_state.auto_tag_enabled = st.checkbox("자동 난이도/카테고리 태깅", value=True)
-    st.session_state.explanation_default = st.checkbox("해설 기본 열기", value=st.session_state.explanation_default)
+        st.caption("로그인 후 AI 키 및 생성 설정을 변경할 수 있습니다.")
 
     st.session_state.theme_enabled = False if LOCK_SAFE else True
     st.session_state.theme_mode = resolved_theme_mode
@@ -4758,8 +4852,7 @@ if MOBILE_CLIENT:
     apply_mobile_exam_styles()
 
 if not st.session_state.get("auth_user_id"):
-    st.title("Axioma Qbank")
-    st.info("왼쪽 사이드바에서 로그인 또는 회원가입 후 시작하세요.")
+    render_auth_landing_page()
     st.stop()
 
 # ============================================================================
