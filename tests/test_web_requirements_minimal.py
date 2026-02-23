@@ -6,10 +6,10 @@ REQ_PATH = Path("/Users/goyunseong/Documents/AI Projects/Med-Tutor/requirements.
 
 
 class WebRequirementsMinimalTests(unittest.TestCase):
-    def test_cloud_requirements_do_not_force_heavy_optional_ocr_packages(self):
+    def test_cloud_requirements_keep_ocr_stack_minimal_but_include_hwp_parser(self):
         text = REQ_PATH.read_text(encoding="utf-8")
         self.assertNotIn("easyocr", text)
-        self.assertNotIn("pyhwp", text)
+        self.assertIn("pyhwp", text)
 
 
 if __name__ == "__main__":
