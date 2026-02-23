@@ -4929,24 +4929,33 @@ if not st.session_state.get("auth_user_id"):
     render_auth_landing_page()
     st.stop()
 
-# ============================================================================
-# 메인 UI: 탭 구조
-# ============================================================================
-admin_mode = is_admin_user()
-tab_labels = ["🏠 홈", "📚 문제 생성", "🧾 기출문제 변환", "🎯 실전 시험"]
-if admin_mode:
-    tab_labels.append("🛠️ 운영")
-tab_objs = st.tabs(tab_labels)
-if admin_mode:
-    tab_home, tab_gen, tab_convert, tab_exam, tab_admin = tab_objs
-else:
-    tab_home, tab_gen, tab_convert, tab_exam = tab_objs
-    tab_admin = None
+def get_main_page_config(admin_mode):
+    pages = [
+        ("home", "🏠 홈"),
+        ("generate", "📚 문제 생성"),
+        ("convert", "🧾 기출문제 변환"),
+        ("exam", "🎯 실전 시험"),
+    ]
+    if admin_mode:
+        pages.append(("admin", "🛠️ 운영"))
+    return pages
 
 # ============================================================================
-# TAB: 홈
+# 메인 UI: 라우팅 구조 (선택한 페이지만 렌더링)
 # ============================================================================
-with tab_home:
+admin_mode = is_admin_user()
+main_pages = get_main_page_config(admin_mode)
+main_labels = [label for _, label in main_pages]
+label_to_page = {label: page for page, label in main_pages}
+if "main_nav_label" not in st.session_state or st.session_state.main_nav_label not in main_labels:
+    st.session_state.main_nav_label = main_labels[0]
+active_label = st.radio("페이지", main_labels, horizontal=True, key="main_nav_label")
+active_page = label_to_page.get(active_label, "home")
+
+# ============================================================================
+# PAGE: 홈
+# ============================================================================
+if active_page == "home":
     st.title("🏠 홈")
     show_action_notice()
 
@@ -5573,8 +5582,7 @@ with tab_home:
                 except Exception:
                     safe_dataframe(heat, use_container_width=True, hide_index=True)
 
-if admin_mode and tab_admin is not None:
-    with tab_admin:
+if active_page == "admin" and admin_mode:
         st.title("🛠️ 운영자 콘솔")
         st.caption("사용자별 API 사용량, 호출 건수, 추정 비용을 확인합니다.")
 
@@ -5634,9 +5642,9 @@ if admin_mode and tab_admin is not None:
                 safe_dataframe(latest_view, use_container_width=True, hide_index=True)
 
 # ============================================================================
-# TAB: 문제 생성
+# PAGE: 문제 생성
 # ============================================================================
-with tab_gen:
+if active_page == "generate":
     st.title("📚 문제 생성 & 저장")
 
     st.subheader("⚡ 빠른 시작")
@@ -5814,9 +5822,9 @@ with tab_gen:
     st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
 
 # ============================================================================
-# TAB: 실전 시험
+# PAGE: 기출문제 변환
 # ============================================================================
-with tab_convert:
+if active_page == "convert":
     st.title("🧾 기출문제 전용 변환")
     st.caption("HWP/PDF/DOCX/PPTX/TXT/TSV 파일을 기출문제 형식으로 변환하여 저장합니다.")
     convert_copyright_ok = render_copyright_ack("convert")
@@ -6416,7 +6424,7 @@ with tab_convert:
         elif uploaded_exam:
             st.info("변환 미리보기를 눌러 문항을 생성하세요.")
 
-with tab_exam:
+if active_page == "exam":
     st.title("🎯 실전 모의고사")
     st.caption("이 탭은 API 키 없이도 저장된 문항으로 학습/시험이 가능합니다.")
     
