@@ -595,6 +595,10 @@ if "image_display_width" not in st.session_state:
     st.session_state.image_display_width = 520
 if "past_exam_anchors" not in st.session_state:
     st.session_state.past_exam_anchors = {}
+if "user_data_cache" not in st.session_state:
+    st.session_state["user_data_cache"] = {}
+if "home_visual_loaded" not in st.session_state:
+    st.session_state.home_visual_loaded = False
 
 def reset_runtime_state_for_auth_change():
     volatile_keys = [
@@ -614,10 +618,41 @@ def reset_runtime_state_for_auth_change():
         "past_exam_text",
         "fsrs_settings_initialized",
         "remote_bundle_cache",
+        "user_data_cache",
     ]
     for key in volatile_keys:
         if key in st.session_state:
             del st.session_state[key]
+
+def _user_data_cache_key(kind, user_id=None):
+    if user_id is not None:
+        uid = sanitize_user_id(user_id)
+        scope = "local"
+    elif use_remote_user_store():
+        uid = sanitize_user_id(st.session_state.get("auth_user_id", ""))
+        scope = "remote"
+    else:
+        uid = get_current_user_id()
+        scope = "local"
+    return f"{kind}:{scope}:{uid}"
+
+def _get_user_data_cache(kind, user_id=None):
+    cache = st.session_state.get("user_data_cache", {})
+    return cache.get(_user_data_cache_key(kind, user_id=user_id))
+
+def _set_user_data_cache(kind, value, user_id=None):
+    cache = st.session_state.get("user_data_cache", {})
+    cache[_user_data_cache_key(kind, user_id=user_id)] = value
+    st.session_state["user_data_cache"] = cache
+    return value
+
+def _get_or_load_user_data(kind, loader, user_id=None, force=False):
+    if not force:
+        cached = _get_user_data_cache(kind, user_id=user_id)
+        if cached is not None:
+            return cached
+    data = loader()
+    return _set_user_data_cache(kind, data, user_id=user_id)
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -689,19 +724,22 @@ def authenticate_user_account(user_id, password):
 
 def load_questions(user_id=None) -> dict:
     """questions.json 파일 로드"""
+    cached = _get_user_data_cache("questions", user_id=user_id)
+    if cached is not None:
+        return ensure_question_ids(cached)
     if user_id is None and is_supabase_required():
         if use_remote_user_store():
             bundle = load_remote_bundle()
             if bundle is not None:
                 data = ensure_question_ids(bundle.get("questions", {"text": [], "cloze": []}))
-                return data
+                return _set_user_data_cache("questions", data, user_id=user_id)
             notify_remote_store_failure("⚠️ Supabase에서 문항 데이터를 불러오지 못했습니다.")
-        return {"text": [], "cloze": []}
+        return _set_user_data_cache("questions", {"text": [], "cloze": []}, user_id=user_id)
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
             data = ensure_question_ids(bundle.get("questions", {"text": [], "cloze": []}))
-            return data
+            return _set_user_data_cache("questions", data, user_id=user_id)
     question_bank_file = get_question_bank_file(user_id)
     if os.path.exists(question_bank_file):
         try:
@@ -715,10 +753,10 @@ def load_questions(user_id=None) -> dict:
                         migrate_old_format(data, user_id=user_id)
                         return load_questions(user_id=user_id)  # 다시 로드
                 data = ensure_question_ids(data)
-                return data
+                return _set_user_data_cache("questions", data, user_id=user_id)
         except:
-            return {"text": [], "cloze": []}
-    return {"text": [], "cloze": []}
+            return _set_user_data_cache("questions", {"text": [], "cloze": []}, user_id=user_id)
+    return _set_user_data_cache("questions", {"text": [], "cloze": []}, user_id=user_id)
 
 def migrate_old_format(data: dict, user_id=None):
     """기존 형식의 questions.json을 새 형식으로 마이그레이션"""
@@ -773,6 +811,7 @@ def save_questions(data: dict, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["questions"] = data
         if save_remote_bundle(bundle):
+            _set_user_data_cache("questions", data, user_id=user_id)
             return True
         notify_remote_store_failure("⚠️ Supabase 저장 실패로 문항 저장이 취소되었습니다.")
         return False
@@ -780,35 +819,46 @@ def save_questions(data: dict, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["questions"] = data
         if save_remote_bundle(bundle):
+            _set_user_data_cache("questions", data, user_id=user_id)
             return True
     question_bank_file = get_question_bank_file(user_id)
     with open(question_bank_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    _set_user_data_cache("questions", data, user_id=user_id)
     return True
 
 def load_exam_history(user_id=None):
+    cached = _get_user_data_cache("exam_history", user_id=user_id)
+    if cached is not None:
+        return cached
     if user_id is None and is_supabase_required():
         if use_remote_user_store():
             bundle = load_remote_bundle()
             if bundle is not None:
                 data = bundle.get("exam_history", [])
-                return data if isinstance(data, list) else []
+                if not isinstance(data, list):
+                    data = []
+                return _set_user_data_cache("exam_history", data, user_id=user_id)
             notify_remote_store_failure("⚠️ Supabase에서 시험 기록을 불러오지 못했습니다.")
-        return []
+        return _set_user_data_cache("exam_history", [], user_id=user_id)
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
             data = bundle.get("exam_history", [])
-            return data if isinstance(data, list) else []
+            if not isinstance(data, list):
+                data = []
+            return _set_user_data_cache("exam_history", data, user_id=user_id)
     exam_history_file = get_exam_history_file(user_id)
     if os.path.exists(exam_history_file):
         try:
             with open(exam_history_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data if isinstance(data, list) else []
+                if not isinstance(data, list):
+                    data = []
+                return _set_user_data_cache("exam_history", data, user_id=user_id)
         except Exception:
-            return []
-    return []
+            return _set_user_data_cache("exam_history", [], user_id=user_id)
+    return _set_user_data_cache("exam_history", [], user_id=user_id)
 
 def save_exam_history(items, user_id=None):
     if user_id is None and is_supabase_required():
@@ -818,6 +868,7 @@ def save_exam_history(items, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["exam_history"] = items if isinstance(items, list) else []
         if save_remote_bundle(bundle):
+            _set_user_data_cache("exam_history", bundle["exam_history"], user_id=user_id)
             return True
         notify_remote_store_failure("⚠️ Supabase 저장 실패로 시험 기록 저장이 취소되었습니다.")
         return False
@@ -825,10 +876,12 @@ def save_exam_history(items, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["exam_history"] = items if isinstance(items, list) else []
         if save_remote_bundle(bundle):
+            _set_user_data_cache("exam_history", bundle["exam_history"], user_id=user_id)
             return True
     exam_history_file = get_exam_history_file(user_id)
     with open(exam_history_file, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
+    _set_user_data_cache("exam_history", items if isinstance(items, list) else [], user_id=user_id)
     return True
 
 def add_exam_history(session, user_id=None):
@@ -852,28 +905,37 @@ def clear_exam_history(user_id=None):
     save_exam_history([], user_id=user_id)
 
 def load_user_settings(user_id=None):
+    cached = _get_user_data_cache("user_settings", user_id=user_id)
+    if cached is not None:
+        return cached
     if user_id is None and is_supabase_required():
         if use_remote_user_store():
             bundle = load_remote_bundle()
             if bundle is not None:
                 data = bundle.get("user_settings", {})
-                return data if isinstance(data, dict) else {}
+                if not isinstance(data, dict):
+                    data = {}
+                return _set_user_data_cache("user_settings", data, user_id=user_id)
             notify_remote_store_failure("⚠️ Supabase에서 사용자 설정을 불러오지 못했습니다.")
-        return {}
+        return _set_user_data_cache("user_settings", {}, user_id=user_id)
     if user_id is None and use_remote_user_store():
         bundle = load_remote_bundle()
         if bundle is not None:
             data = bundle.get("user_settings", {})
-            return data if isinstance(data, dict) else {}
+            if not isinstance(data, dict):
+                data = {}
+            return _set_user_data_cache("user_settings", data, user_id=user_id)
     user_settings_file = get_user_settings_file(user_id)
     if os.path.exists(user_settings_file):
         try:
             with open(user_settings_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data if isinstance(data, dict) else {}
+                if not isinstance(data, dict):
+                    data = {}
+                return _set_user_data_cache("user_settings", data, user_id=user_id)
         except Exception:
-            return {}
-    return {}
+            return _set_user_data_cache("user_settings", {}, user_id=user_id)
+    return _set_user_data_cache("user_settings", {}, user_id=user_id)
 
 def save_user_settings(data, user_id=None):
     if user_id is None and is_supabase_required():
@@ -883,6 +945,7 @@ def save_user_settings(data, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["user_settings"] = data if isinstance(data, dict) else {}
         if save_remote_bundle(bundle):
+            _set_user_data_cache("user_settings", bundle["user_settings"], user_id=user_id)
             return True
         notify_remote_store_failure("⚠️ Supabase 저장 실패로 설정 저장이 취소되었습니다.")
         return False
@@ -890,10 +953,12 @@ def save_user_settings(data, user_id=None):
         bundle = load_remote_bundle() or _default_remote_bundle()
         bundle["user_settings"] = data if isinstance(data, dict) else {}
         if save_remote_bundle(bundle):
+            _set_user_data_cache("user_settings", bundle["user_settings"], user_id=user_id)
             return True
     user_settings_file = get_user_settings_file(user_id)
     with open(user_settings_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    _set_user_data_cache("user_settings", data if isinstance(data, dict) else {}, user_id=user_id)
     return True
 
 def load_fsrs_settings():
@@ -5389,111 +5454,124 @@ with tab_home:
 
     st.markdown("---")
     st.subheader("학습 시각화")
-    colp1, colp2, colp3 = st.columns([1, 1, 1])
-    with colp1:
-        st.session_state.profile_name = st.text_input(
-            "설정 프리셋 이름",
-            value=st.session_state.profile_name,
-            help="히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.",
-        )
-    with colp2:
-        if st.button("불러오기"):
-            profile_name = (st.session_state.profile_name or "").strip()
-            loaded = apply_profile_settings(profile_name)
-            st.session_state.last_action_notice = "프로필 설정을 불러왔습니다." if loaded else "해당 프로필이 없습니다."
-    with colp3:
-        if st.button("저장"):
-            profile_name = (st.session_state.profile_name or "").strip()
-            if not profile_name:
-                profile_name = "default"
-                st.session_state.profile_name = profile_name
-            persist_profile_settings(profile_name)
-            st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
+    colv1, colv2 = st.columns([1, 1])
+    with colv1:
+        if st.button("학습 시각화 불러오기", key="load_home_visuals", use_container_width=True):
+            st.session_state.home_visual_loaded = True
+            st.rerun()
+    with colv2:
+        if st.session_state.home_visual_loaded:
+            if st.button("학습 시각화 숨기기", key="hide_home_visuals", use_container_width=True):
+                st.session_state.home_visual_loaded = False
+                st.rerun()
 
-    st.caption("프리셋은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다. 이름을 적고 저장/불러오기를 눌러주세요.")
-    acc = compute_overall_accuracy(all_questions)
-    heat = compute_activity_heatmap(all_questions, days=365)
-    with st.expander("히트맵 구간/색상 설정", expanded=False):
-        st.caption("문항 수 구간을 조정하면 색 농도가 바뀝니다.")
-        b1 = st.number_input("구간 1 (1회)", min_value=1, value=1)
-        b2 = st.number_input("구간 2 (2~)", min_value=2, value=3)
-        b3 = st.number_input("구간 3 (4~)", min_value=3, value=6)
-        b4 = st.number_input("구간 4 (7~)", min_value=4, value=10)
-        st.session_state.heatmap_bins = [0, b1, b2, b3, b4]
-        st.session_state.heatmap_colors = [
-            "#ffffff",
-            st.color_picker("색상 1", value=st.session_state.heatmap_colors[1]),
-            st.color_picker("색상 2", value=st.session_state.heatmap_colors[2]),
-            st.color_picker("색상 3", value=st.session_state.heatmap_colors[3]),
-            st.color_picker("색상 4", value=st.session_state.heatmap_colors[4]),
-            st.color_picker("색상 5", value=st.session_state.heatmap_colors[5]),
-        ]
-    col_left, col_right = st.columns([1, 2])
-    with col_left:
-        st.markdown("**전체 정답률**")
-        if acc:
-            try:
-                import pandas as pd
-                import altair as alt
+    if not st.session_state.home_visual_loaded:
+        st.caption("성능 최적화를 위해 시각화는 기본 숨김 상태입니다. 필요할 때만 불러오세요.")
+    else:
+        colp1, colp2, colp3 = st.columns([1, 1, 1])
+        with colp1:
+            st.session_state.profile_name = st.text_input(
+                "설정 프리셋 이름",
+                value=st.session_state.profile_name,
+                help="히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.",
+            )
+        with colp2:
+            if st.button("프리셋 불러오기"):
+                profile_name = (st.session_state.profile_name or "").strip()
+                loaded = apply_profile_settings(profile_name)
+                st.session_state.last_action_notice = "프로필 설정을 불러왔습니다." if loaded else "해당 프로필이 없습니다."
+        with colp3:
+            if st.button("프리셋 저장"):
+                profile_name = (st.session_state.profile_name or "").strip()
+                if not profile_name:
+                    profile_name = "default"
+                    st.session_state.profile_name = profile_name
+                persist_profile_settings(profile_name)
+                st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
 
-                df = pd.DataFrame([
-                    {"label": "Correct", "value": acc["correct"]},
-                    {"label": "Wrong", "value": acc["wrong"]},
-                ])
-                base = alt.Chart(df).mark_arc(innerRadius=60, outerRadius=100).encode(
-                    theta=alt.Theta("value:Q"),
-                    color=alt.Color("label:N", scale=alt.Scale(range=["#34d399", "#f87171"]), legend=None),
-                    tooltip=["label:N", "value:Q"]
-                )
-                text = alt.Chart(pd.DataFrame([{"text": f"{acc['accuracy']:.1f}%"}])).mark_text(
-                    size=26, font="IBM Plex Sans", fontWeight="600"
-                ).encode(text="text:N")
-                st.altair_chart((base + text).properties(width=220, height=220), use_container_width=False)
-                st.caption(f"{acc['correct']}/{acc['total']} 정답")
-            except Exception:
-                st.metric("전체 정답률", f"{acc['accuracy']:.1f}%")
-        else:
-            st.info("아직 풀이 기록이 없습니다.")
+        st.caption("프리셋은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.")
+        acc = compute_overall_accuracy(all_questions)
+        heat = compute_activity_heatmap(all_questions, days=365)
+        with st.expander("히트맵 구간/색상 설정", expanded=False):
+            st.caption("문항 수 구간을 조정하면 색 농도가 바뀝니다.")
+            b1 = st.number_input("구간 1 (1회)", min_value=1, value=1)
+            b2 = st.number_input("구간 2 (2~)", min_value=2, value=3)
+            b3 = st.number_input("구간 3 (4~)", min_value=3, value=6)
+            b4 = st.number_input("구간 4 (7~)", min_value=4, value=10)
+            st.session_state.heatmap_bins = [0, b1, b2, b3, b4]
+            st.session_state.heatmap_colors = [
+                "#ffffff",
+                st.color_picker("색상 1", value=st.session_state.heatmap_colors[1]),
+                st.color_picker("색상 2", value=st.session_state.heatmap_colors[2]),
+                st.color_picker("색상 3", value=st.session_state.heatmap_colors[3]),
+                st.color_picker("색상 4", value=st.session_state.heatmap_colors[4]),
+                st.color_picker("색상 5", value=st.session_state.heatmap_colors[5]),
+            ]
+        col_left, col_right = st.columns([1, 2])
+        with col_left:
+            st.markdown("**전체 정답률**")
+            if acc:
+                try:
+                    import pandas as pd
+                    import altair as alt
 
-    with col_right:
-                    st.markdown("**학습 활동 히트맵 (최근 365일)**")
-                    if heat:
-                        try:
-                            import pandas as pd
-                            import altair as alt
+                    df = pd.DataFrame([
+                        {"label": "Correct", "value": acc["correct"]},
+                        {"label": "Wrong", "value": acc["wrong"]},
+                    ])
+                    base = alt.Chart(df).mark_arc(innerRadius=60, outerRadius=100).encode(
+                        theta=alt.Theta("value:Q"),
+                        color=alt.Color("label:N", scale=alt.Scale(range=["#34d399", "#f87171"]), legend=None),
+                        tooltip=["label:N", "value:Q"]
+                    )
+                    text = alt.Chart(pd.DataFrame([{"text": f"{acc['accuracy']:.1f}%"}])).mark_text(
+                        size=26, font="IBM Plex Sans", fontWeight="600"
+                    ).encode(text="text:N")
+                    st.altair_chart((base + text).properties(width=220, height=220), use_container_width=False)
+                    st.caption(f"{acc['correct']}/{acc['total']} 정답")
+                except Exception:
+                    st.metric("전체 정답률", f"{acc['accuracy']:.1f}%")
+            else:
+                st.info("아직 풀이 기록이 없습니다.")
 
-                            df = pd.DataFrame(heat)
-                            df["dow_label"] = df["dow"].map({0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"})
-                            df["week_index"] = df["week_index"].astype(str)
-                            # bucket counts for discrete colors (0 = white)
-                            b = st.session_state.heatmap_bins
-                            labels = ["0", f"1-{b[1]}", f"{b[1]+1}-{b[2]}", f"{b[2]+1}-{b[3]}", f"{b[3]+1}-{b[4]}", f"{b[4]+1}+"]
-                            df["bucket"] = pd.cut(
-                                df["count"],
-                                bins=[-0.1, 0, b[1], b[2], b[3], b[4], 9999],
-                                labels=labels
-                            )
-                            heatmap = (
-                                alt.Chart(df)
-                                .mark_rect(cornerRadius=0)
-                                .encode(
-                                    x=alt.X("week_index:O", axis=None),
-                                    y=alt.Y("dow_label:O", sort=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], axis=None),
-                                    color=alt.Color(
-                                        "bucket:N",
-                                        scale=alt.Scale(
-                                            domain=labels,
-                                            range=st.session_state.heatmap_colors
-                                        ),
-                                        legend=None
-                                    ),
-                                    tooltip=["date:T", "count:Q", "accuracy:Q"]
-                                )
-                                .properties(width=alt.Step(12), height=alt.Step(12))
-                            )
-                            st.altair_chart(heatmap, use_container_width=True)
-                        except Exception:
-                            safe_dataframe(heat, use_container_width=True, hide_index=True)
+        with col_right:
+            st.markdown("**학습 활동 히트맵 (최근 365일)**")
+            if heat:
+                try:
+                    import pandas as pd
+                    import altair as alt
+
+                    df = pd.DataFrame(heat)
+                    df["dow_label"] = df["dow"].map({0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"})
+                    df["week_index"] = df["week_index"].astype(str)
+                    b = st.session_state.heatmap_bins
+                    labels = ["0", f"1-{b[1]}", f"{b[1] + 1}-{b[2]}", f"{b[2] + 1}-{b[3]}", f"{b[3] + 1}-{b[4]}", f"{b[4] + 1}+"]
+                    df["bucket"] = pd.cut(
+                        df["count"],
+                        bins=[-0.1, 0, b[1], b[2], b[3], b[4], 9999],
+                        labels=labels
+                    )
+                    heatmap = (
+                        alt.Chart(df)
+                        .mark_rect(cornerRadius=0)
+                        .encode(
+                            x=alt.X("week_index:O", axis=None),
+                            y=alt.Y("dow_label:O", sort=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], axis=None),
+                            color=alt.Color(
+                                "bucket:N",
+                                scale=alt.Scale(
+                                    domain=labels,
+                                    range=st.session_state.heatmap_colors
+                                ),
+                                legend=None
+                            ),
+                            tooltip=["date:T", "count:Q", "accuracy:Q"]
+                        )
+                        .properties(width=alt.Step(12), height=alt.Step(12))
+                    )
+                    st.altair_chart(heatmap, use_container_width=True)
+                except Exception:
+                    safe_dataframe(heat, use_container_width=True, hide_index=True)
 
 if admin_mode and tab_admin is not None:
     with tab_admin:
