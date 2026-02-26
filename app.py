@@ -569,6 +569,12 @@ if "generation_preview_subject" not in st.session_state:
     st.session_state.generation_preview_subject = "General"
 if "generation_preview_unit" not in st.session_state:
     st.session_state.generation_preview_unit = "미분류"
+if "generation_prewarm_cache" not in st.session_state:
+    st.session_state["generation_prewarm_cache"] = {}
+if "generation_prewarm_errors" not in st.session_state:
+    st.session_state["generation_prewarm_errors"] = {}
+if "generation_async_job" not in st.session_state:
+    st.session_state["generation_async_job"] = None
 if "export_docx_bytes" not in st.session_state:
     st.session_state.export_docx_bytes = b""
 if "exam_mode_entry_anchor" not in st.session_state:
@@ -612,6 +618,9 @@ def reset_runtime_state_for_auth_change():
         "exam_history_saved",
         "generation_preview_items",
         "generation_failure",
+        "generation_prewarm_cache",
+        "generation_prewarm_errors",
+        "generation_async_job",
         "last_action_notice",
         "past_exam_items",
         "past_exam_images",
@@ -653,6 +662,119 @@ def _get_or_load_user_data(kind, loader, user_id=None, force=False):
             return cached
     data = loader()
     return _set_user_data_cache(kind, data, user_id=user_id)
+
+def build_upload_signature(file_name, file_bytes):
+    data = file_bytes if isinstance(file_bytes, (bytes, bytearray)) else b""
+    ext = Path(file_name or "").suffix.lower()
+    digest = hashlib.sha256(data).hexdigest()[:16]
+    return f"{ext}:{len(data)}:{digest}"
+
+def make_uploaded_file_from_bytes(file_name, file_bytes):
+    proxy = io.BytesIO(file_bytes if isinstance(file_bytes, (bytes, bytearray)) else b"")
+    proxy.name = file_name or "uploaded.bin"
+    return proxy
+
+def _prewarm_cache_key(kind, signature):
+    return f"{kind}:{signature}"
+
+def get_generation_prewarm_text(kind, signature):
+    key = _prewarm_cache_key(kind, signature)
+    return st.session_state.get("generation_prewarm_cache", {}).get(key)
+
+def set_generation_prewarm_text(kind, signature, text):
+    key = _prewarm_cache_key(kind, signature)
+    cache = st.session_state.get("generation_prewarm_cache", {})
+    cache[key] = text
+    st.session_state["generation_prewarm_cache"] = cache
+    errors = st.session_state.get("generation_prewarm_errors", {})
+    if key in errors:
+        del errors[key]
+    st.session_state["generation_prewarm_errors"] = errors
+    return text
+
+def get_generation_prewarm_error(kind, signature):
+    key = _prewarm_cache_key(kind, signature)
+    return st.session_state.get("generation_prewarm_errors", {}).get(key)
+
+def set_generation_prewarm_error(kind, signature, error_text):
+    key = _prewarm_cache_key(kind, signature)
+    errors = st.session_state.get("generation_prewarm_errors", {})
+    errors[key] = error_text
+    st.session_state["generation_prewarm_errors"] = errors
+
+def clear_generation_prewarm_error(kind, signature):
+    key = _prewarm_cache_key(kind, signature)
+    errors = st.session_state.get("generation_prewarm_errors", {})
+    if key in errors:
+        del errors[key]
+    st.session_state["generation_prewarm_errors"] = errors
+
+@st.cache_resource(show_spinner=False)
+def get_generation_executor():
+    return concurrent.futures.ThreadPoolExecutor(max_workers=2)
+
+def start_generation_async_job(
+    raw_text,
+    mode,
+    ai_model,
+    num_items,
+    chunk_size,
+    overlap,
+    api_key,
+    openai_api_key,
+    style_text,
+    subject,
+    unit,
+):
+    executor = get_generation_executor()
+    future = executor.submit(
+        generate_content_in_chunks,
+        raw_text,
+        mode,
+        ai_model,
+        num_items,
+        chunk_size,
+        overlap,
+        api_key,
+        openai_api_key,
+        style_text,
+        False,
+    )
+    return {
+        "id": str(uuid.uuid4()),
+        "status": "running",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "future": future,
+        "mode": mode,
+        "subject": subject,
+        "unit": unit,
+        "num_items": int(num_items),
+    }
+
+def update_generation_async_job_state(job):
+    if not isinstance(job, dict):
+        return None
+    status = job.get("status")
+    if status in ("done", "error", "cancelled"):
+        return job
+    future = job.get("future")
+    if future is None:
+        job["status"] = "error"
+        job["error"] = "백그라운드 작업 객체를 찾을 수 없습니다."
+        job["completed_at"] = datetime.now(timezone.utc).isoformat()
+        return job
+    if not future.done():
+        job["status"] = "running"
+        return job
+    try:
+        result = future.result()
+        job["result"] = result if isinstance(result, list) else []
+        job["status"] = "done"
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = str(e)
+    job["completed_at"] = datetime.now(timezone.utc).isoformat()
+    return job
 
 # ============================================================================
 # JSON 데이터 관리 함수
@@ -4781,7 +4903,18 @@ def split_text_into_chunks(text, chunk_size=8000, overlap=500):
         start = end - overlap if end - overlap > start else end
     return chunks
 
-def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=5, chunk_size=8000, overlap=500, api_key=None, openai_api_key=None, style_text=None):
+def generate_content_in_chunks(
+    text_content,
+    selected_mode,
+    ai_model,
+    num_items=5,
+    chunk_size=8000,
+    overlap=500,
+    api_key=None,
+    openai_api_key=None,
+    style_text=None,
+    show_progress=True,
+):
     """텍스트를 청크로 나누어 모델 호출을 여러 번 수행
     
     Returns:
@@ -4802,7 +4935,7 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
     items_per_chunk = [base + (1 if i < rem else 0) for i in range(total_chunks)]
 
     results = [None] * total_chunks
-    progress_bar = st.progress(0)
+    progress_bar = st.progress(0) if show_progress else None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, total_chunks)) as ex:
         futures = {}
@@ -4822,7 +4955,8 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
                 res = f"❌ 청크 처리 실패: {str(e)}"
             results[idx] = res if isinstance(res, str) else str(res)
             completed += 1
-            progress_bar.progress(int(completed / total_chunks * 100))
+            if progress_bar is not None:
+                progress_bar.progress(int(completed / total_chunks * 100))
 
     # 모든 청크 결과 결합
     combined = "\n".join([r for r in results if r])
@@ -4843,6 +4977,94 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
     
     # 필요한 개수만 반환
     return deduped[:num_items]
+
+def render_generated_result_panel(
+    result,
+    mode,
+    subject_input,
+    unit_input,
+    quality_filter=True,
+    min_length=30,
+    key_prefix="generated",
+):
+    if not (result and isinstance(result, list) and len(result) > 0):
+        st.error("❌ 생성 실패! 결과를 확인할 수 없습니다.")
+        st.write(f"반환값: {result}")
+        st.session_state.generation_failure = "생성 결과가 비어 있어 저장되지 않았습니다."
+        return 0
+
+    st.session_state.generation_failure = ""
+    st.session_state.generation_preview_items = result
+    st.session_state.generation_preview_mode = mode
+    st.session_state.generation_preview_subject = subject_input
+    st.session_state.generation_preview_unit = unit_input
+
+    saved_count = add_questions_to_bank(
+        result,
+        mode,
+        subject_input,
+        unit_input,
+        quality_filter=quality_filter,
+        min_length=min_length,
+    )
+    st.success(f"✅ **{saved_count}개 문제** 생성 및 저장 완료!")
+
+    stats = get_question_stats()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("저장된 객관식", stats["total_text"], delta="+" + str(saved_count) if "객관식" in mode else None)
+    with col2:
+        st.metric("저장된 빈칸/단답/서술", stats["total_cloze"], delta="+" + str(saved_count) if mode != MODE_MCQ else None)
+
+    st.markdown("---")
+    with st.expander("📋 생성된 문제 미리보기 (상위 5개)", expanded=True):
+        st.info(f"전체: {len(result)}개 | 저장됨: {saved_count}개")
+        for i, item_data in enumerate(result[:5], 1):
+            if item_data.get("type") == "mcq":
+                st.markdown(f"**문제 {i}** (객관식)")
+                st.write(f"**문항:** {item_data.get('problem', '')[:150]}...")
+                st.write(f"**선지:** {', '.join(item_data.get('options', [])[:3])}...")
+                st.write(f"**정답:** {item_data.get('answer', '?')} 번")
+            else:
+                resp_type = item_data.get("response_type", "cloze")
+                label = "빈칸" if resp_type == "cloze" else ("단답형" if resp_type == "short" else "서술형")
+                st.markdown(f"**문제 {i}** ({label})")
+                st.write(f"**내용:** {item_data.get('front', '')[:150]}...")
+                st.write(f"**정답:** {item_data.get('answer', '?')}")
+            st.divider()
+
+    download_data = json.dumps(result, ensure_ascii=False, indent=2)
+    st.download_button(
+        label="📥 JSON으로 다운로드",
+        data=download_data,
+        file_name="questions.json",
+        mime="application/json",
+        use_container_width=True,
+        key=f"{key_prefix}_download_generated_json",
+    )
+    quick_exam_type = "객관식" if mode == MODE_MCQ else "빈칸"
+    st.markdown("### 바로 풀기")
+    st.caption("아래에서 생성 결과를 즉시 시험/학습 세션으로 바꿔볼 수 있습니다.")
+    col_a, col_b, col_c = st.columns([1, 1, 1])
+    with col_a:
+        if st.button("📝 시험모드 바로 시작", key=f"{key_prefix}_start_gen_exam_now", use_container_width=True):
+            started = start_exam_session_from_items(result, quick_exam_type, "시험모드")
+            if started:
+                st.session_state.last_action_notice = f"생성 문항 {started}개로 시험 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
+                st.session_state.exam_mode_entry_anchor = "시험"
+                st.rerun()
+    with col_b:
+        if st.button("📖 학습모드 바로 시작", key=f"{key_prefix}_start_gen_study_now", use_container_width=True):
+            started = start_exam_session_from_items(result, quick_exam_type, "학습모드")
+            if started:
+                st.session_state.last_action_notice = f"생성 문항 {started}개로 학습 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
+                st.session_state.exam_mode_entry_anchor = "학습"
+                st.rerun()
+    with col_c:
+        if st.button("🔁 즉시 재생성", key=f"{key_prefix}_regen_generated", use_container_width=True):
+            st.session_state.generation_failure = "원문/모드/옵션으로 재생성하려면 실패 알림의 재실행 버튼을 이용하거나 위 조건에서 다시 생성해주세요."
+            st.rerun()
+    return saved_count
 
 # ============================================================================
 # 사이드바 설정
@@ -5664,19 +5886,54 @@ if active_page == "generate":
     gen_copyright_ok = render_copyright_ack("gen")
     if (uploaded_file or style_file) and not gen_copyright_ok:
         st.warning("파일 분석/문제 생성을 시작하려면 저작권 확인 체크를 완료하세요.")
+
+    raw_text_cached = None
     style_text = None
+    uploaded_bytes = uploaded_file.getvalue() if uploaded_file else b""
+    uploaded_signature = build_upload_signature(uploaded_file.name, uploaded_bytes) if uploaded_file else ""
+    style_bytes = style_file.getvalue() if style_file else b""
+    style_signature = build_upload_signature(style_file.name, style_bytes) if style_file else ""
+
+    if uploaded_file and gen_copyright_ok:
+        raw_text_cached = get_generation_prewarm_text("raw", uploaded_signature)
+        raw_error = get_generation_prewarm_error("raw", uploaded_signature)
+        if raw_text_cached is None and not raw_error:
+            try:
+                with st.spinner("사전 준비 중: 강의자료 텍스트 추출"):
+                    raw_text_cached = extract_text_from_file(
+                        make_uploaded_file_from_bytes(uploaded_file.name, uploaded_bytes)
+                    )
+                set_generation_prewarm_text("raw", uploaded_signature, raw_text_cached)
+            except Exception as e:
+                set_generation_prewarm_error("raw", uploaded_signature, str(e))
+                raw_error = str(e)
+        if raw_text_cached:
+            est_chunks = len(split_text_into_chunks(raw_text_cached, chunk_size=chunk_size, overlap=overlap))
+            st.caption(f"사전 준비 완료: 본문 {len(raw_text_cached):,}자 | 예상 청크 {est_chunks}개")
+        elif raw_error:
+            st.warning(f"사전 준비 실패(본문): {raw_error}")
+
     if style_file and gen_copyright_ok:
-        try:
-            if Path(style_file.name).suffix.lower() in [".txt", ".tsv"]:
-                style_text = style_file.read().decode("utf-8", errors="ignore")
-            elif Path(style_file.name).suffix.lower() == ".json":
-                style_text = style_file.read().decode("utf-8", errors="ignore")
-            else:
-                style_text = extract_text_from_file(style_file)
-        except Exception as e:
-            st.warning(f"기출문제 스타일 파일 처리 실패: {str(e)}")
+        style_text = get_generation_prewarm_text("style", style_signature)
+        style_error = get_generation_prewarm_error("style", style_signature)
+        if style_text is None and not style_error:
+            try:
+                ext = Path(style_file.name).suffix.lower()
+                if ext in [".txt", ".tsv", ".json"]:
+                    style_text = style_bytes.decode("utf-8", errors="ignore")
+                else:
+                    style_text = extract_text_from_file(
+                        make_uploaded_file_from_bytes(style_file.name, style_bytes)
+                    )
+                set_generation_prewarm_text("style", style_signature, style_text)
+            except Exception as e:
+                set_generation_prewarm_error("style", style_signature, str(e))
+                style_error = str(e)
+        if style_error:
+            st.warning(f"기출문제 스타일 파일 처리 실패: {style_error}")
     elif style_file and not gen_copyright_ok:
         st.caption("권리 확인 체크 전에는 스타일 파일을 분석하지 않습니다.")
+
     if style_text:
         mode, pattern = detect_term_language_mode(style_text)
         label = "혼용"
@@ -5705,112 +5962,131 @@ if active_page == "generate":
             subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
         with col_unit:
             unit_input = st.text_input("단원명 (선택)", value="미분류")
+
+        if uploaded_file and gen_copyright_ok:
+            col_p1, col_p2 = st.columns([1, 1])
+            with col_p1:
+                if st.button("사전 준비 다시 실행", use_container_width=True, key="regen_prewarm_main"):
+                    clear_generation_prewarm_error("raw", uploaded_signature)
+                    cache_map = st.session_state.get("generation_prewarm_cache", {})
+                    cache_key = _prewarm_cache_key("raw", uploaded_signature)
+                    if cache_key in cache_map:
+                        del cache_map[cache_key]
+                    st.session_state["generation_prewarm_cache"] = cache_map
+                    st.rerun()
+            with col_p2:
+                if style_file and st.button("스타일 사전 준비 다시 실행", use_container_width=True, key="regen_prewarm_style"):
+                    clear_generation_prewarm_error("style", style_signature)
+                    cache_map = st.session_state.get("generation_prewarm_cache", {})
+                    cache_key = _prewarm_cache_key("style", style_signature)
+                    if cache_key in cache_map:
+                        del cache_map[cache_key]
+                    st.session_state["generation_prewarm_cache"] = cache_map
+                    st.rerun()
         
+        async_job = st.session_state.get("generation_async_job")
+        if async_job:
+            async_job = update_generation_async_job_state(async_job)
+            st.session_state["generation_async_job"] = async_job
+            status = async_job.get("status")
+            if status == "running":
+                st.info("⏳ 백그라운드 생성이 진행 중입니다. 다른 탭을 사용한 뒤 다시 돌아와도 됩니다.")
+                col_j1, col_j2 = st.columns([1, 1])
+                with col_j1:
+                    if st.button("🔄 생성 상태 새로고침", use_container_width=True, key="gen_async_refresh"):
+                        st.rerun()
+                with col_j2:
+                    if st.button("⏹ 생성 취소", use_container_width=True, key="gen_async_cancel"):
+                        future = async_job.get("future")
+                        cancelled = False
+                        if future is not None:
+                            try:
+                                cancelled = future.cancel()
+                            except Exception:
+                                cancelled = False
+                        async_job["status"] = "cancelled" if cancelled else "error"
+                        async_job["error"] = "사용자 취소" if cancelled else "이미 실행 중인 작업은 취소할 수 없습니다."
+                        st.session_state["generation_async_job"] = async_job
+                        st.rerun()
+            elif status == "done":
+                done_count = len(async_job.get("result") or [])
+                st.success(f"✅ 백그라운드 생성 완료: {done_count}개")
+                col_j1, col_j2 = st.columns([2, 1])
+                with col_j1:
+                    if st.button("📥 결과 저장/미리보기 반영", use_container_width=True, key="gen_async_apply"):
+                        render_generated_result_panel(
+                            async_job.get("result") or [],
+                            async_job.get("mode", mode),
+                            async_job.get("subject", subject_input),
+                            async_job.get("unit", unit_input),
+                            quality_filter=enable_filter,
+                            min_length=min_length,
+                            key_prefix=f"async_{async_job.get('id', 'job')}",
+                        )
+                        st.session_state["generation_async_job"] = None
+                        st.rerun()
+                with col_j2:
+                    if st.button("🗑 완료 작업 닫기", use_container_width=True, key="gen_async_clear"):
+                        st.session_state["generation_async_job"] = None
+                        st.rerun()
+            elif status == "cancelled":
+                st.warning("생성 작업이 취소되었습니다.")
+                if st.button("🗑 취소 작업 닫기", use_container_width=True, key="gen_async_cancel_clear"):
+                    st.session_state["generation_async_job"] = None
+                    st.rerun()
+            elif status == "error":
+                st.error(f"❌ 백그라운드 생성 실패: {async_job.get('error', '알 수 없는 오류')}")
+                if st.button("🗑 실패 작업 닫기", use_container_width=True, key="gen_async_error_clear"):
+                    st.session_state["generation_async_job"] = None
+                    st.rerun()
+
+        running_job = bool(async_job and async_job.get("status") == "running")
         if not ai_model_key_ready:
             st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="API 키를 먼저 입력해 주세요.")
         elif not gen_copyright_ok:
             st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="저작권 확인 체크를 완료해 주세요.")
+        elif running_job:
+            st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="현재 생성 작업이 진행 중입니다.")
         elif st.button("🚀 문제 생성 시작", use_container_width=True):
             try:
-                with st.spinner("📖 강의 자료 분석 중..."):
-                    raw_text = extract_text_from_file(uploaded_file)
-                    st.caption(f"✅ 추출됨: {len(raw_text):,} 글자")
-                    if not raw_text.strip():
-                        st.error("텍스트 추출 결과가 비어 있습니다. 스캔 PDF 또는 이미지 중심 파일인 경우 OCR/원문 품질을 확인해 주세요.")
-                        st.stop()
-                
-                with st.spinner("⚙️ AI가 문제 생성 중... (1~2분 소요)"):
-                    result = generate_content_in_chunks(
-                        raw_text,
-                        mode,
-                        ai_model,
-                        num_items=num_items,
-                        chunk_size=chunk_size,
-                        overlap=overlap,
-                        api_key=api_key,
-                        openai_api_key=openai_api_key,
-                        style_text=style_text,
-                    )
-                
-                # result는 이제 구조화된 dict 리스트
-                if result and isinstance(result, list) and len(result) > 0:
-                    st.session_state.generation_failure = ""
-                    st.session_state.generation_preview_items = result
-                    st.session_state.generation_preview_mode = mode
-                    st.session_state.generation_preview_subject = subject_input
-                    st.session_state.generation_preview_unit = unit_input
+                raw_text = raw_text_cached
+                if not raw_text:
+                    with st.spinner("📖 강의 자료 분석 중..."):
+                        raw_text = extract_text_from_file(
+                            make_uploaded_file_from_bytes(uploaded_file.name, uploaded_bytes)
+                        )
+                        set_generation_prewarm_text("raw", uploaded_signature, raw_text)
+                st.caption(f"✅ 추출됨: {len(raw_text):,} 글자")
+                if not raw_text.strip():
+                    st.error("텍스트 추출 결과가 비어 있습니다. 스캔 PDF 또는 이미지 중심 파일인 경우 OCR/원문 품질을 확인해 주세요.")
+                    st.stop()
 
-                    # JSON에 저장
-                    saved_count = add_questions_to_bank(result, mode, subject_input, unit_input, quality_filter=enable_filter, min_length=min_length)
-                    st.success(f"✅ **{saved_count}개 문제** 생성 및 저장 완료!")
-                    
-                    # 통계 업데이트
-                    stats = get_question_stats()
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("저장된 객관식", stats["total_text"], delta="+" + str(saved_count) if "객관식" in mode else None)
-                    with col2:
-                        st.metric("저장된 빈칸/단답/서술", stats["total_cloze"], delta="+" + str(saved_count) if mode != MODE_MCQ else None)
-                    
-                    st.markdown("---")
-                    
-                    # 미리보기
-                    with st.expander("📋 생성된 문제 미리보기 (상위 5개)", expanded=True):
-                        if not result:
-                            st.warning("파싱된 문제가 없습니다.")
-                        else:
-                            st.info(f"전체: {len(result)}개 | 저장됨: {saved_count}개")
-                            for i, item_data in enumerate(result[:5], 1):
-                                if item_data.get('type') == 'mcq':
-                                    st.markdown(f"**문제 {i}** (객관식)")
-                                    st.write(f"**문항:** {item_data.get('problem', '')[:150]}...")
-                                    st.write(f"**선지:** {', '.join(item_data.get('options', [])[:3])}...")
-                                    st.write(f"**정답:** {item_data.get('answer', '?')} 번")
-                                else:
-                                    resp_type = item_data.get("response_type", "cloze")
-                                    label = "빈칸" if resp_type == "cloze" else ("단답형" if resp_type == "short" else "서술형")
-                                    st.markdown(f"**문제 {i}** ({label})")
-                                    st.write(f"**내용:** {item_data.get('front', '')[:150]}...")
-                                    st.write(f"**정답:** {item_data.get('answer', '?')}")
-                                st.divider()
-                    
-                # 다운로드 - 구조화된 JSON으로 다운로드
-                    download_data = json.dumps(result, ensure_ascii=False, indent=2)
-                    st.download_button(
-                        label="📥 JSON으로 다운로드",
-                        data=download_data,
-                        file_name="questions.json",
-                        mime="application/json",
-                        use_container_width=True,
-                        key="download_generated_json"
-                    )
-                    quick_exam_type = "객관식" if mode == MODE_MCQ else "빈칸"
-                    st.markdown("### 바로 풀기")
-                    st.caption("아래에서 생성 결과를 즉시 시험/학습 세션으로 바꿔볼 수 있습니다.")
-                    col_a, col_b, col_c = st.columns([1, 1, 1])
-                    with col_a:
-                        if st.button("📝 시험모드 바로 시작", key="start_gen_exam_now", use_container_width=True):
-                            started = start_exam_session_from_items(result, quick_exam_type, "시험모드")
-                            if started:
-                                st.session_state.last_action_notice = f"생성 문항 {started}개로 시험 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
-                                st.session_state.exam_mode_entry_anchor = "시험"
-                                st.rerun()
-                    with col_b:
-                        if st.button("📖 학습모드 바로 시작", key="start_gen_study_now", use_container_width=True):
-                            started = start_exam_session_from_items(result, quick_exam_type, "학습모드")
-                            if started:
-                                st.session_state.last_action_notice = f"생성 문항 {started}개로 학습 모드 세션이 준비됐습니다. 실전 시험 탭에서 이어서 진행하세요."
-                                st.session_state.exam_mode_entry_anchor = "학습"
-                                st.rerun()
-                    with col_c:
-                        if st.button("🔁 즉시 재생성", key="regen_generated", use_container_width=True):
-                            st.session_state.generation_failure = "원문/모드/옵션으로 재생성하려면 실패 알림의 재실행 버튼을 이용하거나 위 조건에서 다시 생성해주세요."
-                            st.rerun()
-                else:
-                    st.error(f"❌ 생성 실패! 결과를 확인할 수 없습니다.")
-                    st.write(f"반환값: {result}")
-                    st.session_state.generation_failure = "생성 결과가 비어 있어 저장되지 않았습니다."
-                    
+                if style_file and not style_text:
+                    ext = Path(style_file.name).suffix.lower()
+                    if ext in [".txt", ".tsv", ".json"]:
+                        style_text = style_bytes.decode("utf-8", errors="ignore")
+                    else:
+                        style_text = extract_text_from_file(
+                            make_uploaded_file_from_bytes(style_file.name, style_bytes)
+                        )
+                    set_generation_prewarm_text("style", style_signature, style_text)
+
+                st.session_state["generation_async_job"] = start_generation_async_job(
+                    raw_text=raw_text,
+                    mode=mode,
+                    ai_model=ai_model,
+                    num_items=num_items,
+                    chunk_size=chunk_size,
+                    overlap=overlap,
+                    api_key=api_key,
+                    openai_api_key=openai_api_key,
+                    style_text=style_text,
+                    subject=subject_input,
+                    unit=unit_input,
+                )
+                st.session_state.generation_failure = ""
+                st.success("백그라운드 생성을 시작했습니다. 잠시 후 상태 새로고침으로 결과를 확인하세요.")
+                st.rerun()
             except Exception as e:
                 import traceback
                 err_msg = f"❌ 오류: {str(e)}"
