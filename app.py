@@ -804,6 +804,7 @@ def save_generation_queue_items(items):
 
 def build_generation_queue_item(
     source_name,
+    source_signature,
     raw_text,
     style_text,
     mode,
@@ -819,6 +820,7 @@ def build_generation_queue_item(
     return {
         "id": str(uuid.uuid4()),
         "source_name": source_name,
+        "source_signature": source_signature or "",
         "status": "queued",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "raw_text": raw_text,
@@ -833,6 +835,32 @@ def build_generation_queue_item(
         "quality_filter": bool(quality_filter),
         "min_length": int(min_length),
     }
+
+def is_duplicate_generation_queue_item(
+    queue_items,
+    source_signature,
+    mode,
+    num_items,
+    subject,
+    unit,
+):
+    items = queue_items if isinstance(queue_items, list) else []
+    sig = str(source_signature or "")
+    for item in items:
+        if item.get("status") not in {"queued", "running"}:
+            continue
+        if str(item.get("source_signature") or "") != sig:
+            continue
+        if str(item.get("mode") or "") != str(mode or ""):
+            continue
+        if int(item.get("num_items", 0)) != int(num_items or 0):
+            continue
+        if str(item.get("subject") or "") != str(subject or ""):
+            continue
+        if str(item.get("unit") or "") != str(unit or ""):
+            continue
+        return True
+    return False
 
 def remove_generation_queue_job(queue_items, job_id):
     items = queue_items if isinstance(queue_items, list) else []
@@ -6272,6 +6300,7 @@ if active_page == "generate":
                 queue_items = load_generation_queue_items()
                 added = 0
                 skipped = 0
+                skipped_duplicate = 0
 
                 style_text_for_queue = style_text
                 if style_file and not style_text_for_queue:
@@ -6285,19 +6314,59 @@ if active_page == "generate":
                     set_generation_prewarm_text("style", style_signature, style_text_for_queue)
 
                 with st.spinner("업로드 파일을 대기열용으로 준비 중..."):
+                    file_payloads = []
                     for uf in uploaded_files:
                         file_bytes = uf.getvalue()
                         file_sig = build_upload_signature(uf.name, file_bytes)
+                        file_payloads.append((uf.name, file_sig, file_bytes))
+
+                    extracted_texts = {}
+                    pending = []
+                    for file_name, file_sig, file_bytes in file_payloads:
                         raw_text = get_generation_prewarm_text("raw", file_sig)
-                        if not raw_text:
-                            raw_text = extract_text_from_file(make_uploaded_file_from_bytes(uf.name, file_bytes))
-                            set_generation_prewarm_text("raw", file_sig, raw_text)
+                        if raw_text:
+                            extracted_texts[file_sig] = raw_text
+                        else:
+                            pending.append((file_name, file_sig, file_bytes))
+
+                    if pending:
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(pending))) as ex:
+                            futures = {}
+                            for file_name, file_sig, file_bytes in pending:
+                                fut = ex.submit(
+                                    extract_text_from_file,
+                                    make_uploaded_file_from_bytes(file_name, file_bytes),
+                                )
+                                futures[fut] = (file_name, file_sig)
+                            for fut in concurrent.futures.as_completed(futures):
+                                file_name, file_sig = futures[fut]
+                                try:
+                                    raw_text = fut.result()
+                                    extracted_texts[file_sig] = raw_text
+                                    set_generation_prewarm_text("raw", file_sig, raw_text)
+                                except Exception as e:
+                                    set_generation_prewarm_error("raw", file_sig, str(e))
+                                    st.warning(f"{file_name}: 텍스트 추출 실패 ({str(e)})")
+
+                    for file_name, file_sig, _ in file_payloads:
+                        raw_text = extracted_texts.get(file_sig) or get_generation_prewarm_text("raw", file_sig)
                         if not (raw_text or "").strip():
                             skipped += 1
                             continue
+                        if is_duplicate_generation_queue_item(
+                            queue_items,
+                            source_signature=file_sig,
+                            mode=mode,
+                            num_items=num_items,
+                            subject=subject_input,
+                            unit=unit_input,
+                        ):
+                            skipped_duplicate += 1
+                            continue
                         queue_items.append(
                             build_generation_queue_item(
-                                source_name=uf.name,
+                                source_name=file_name,
+                                source_signature=file_sig,
                                 raw_text=raw_text,
                                 style_text=style_text_for_queue,
                                 mode=mode,
@@ -6329,6 +6398,8 @@ if active_page == "generate":
                     msg = f"대기열 추가 완료: {added}개"
                     if skipped:
                         msg += f" (건너뜀 {skipped}개)"
+                    if skipped_duplicate:
+                        msg += f" (중복 제외 {skipped_duplicate}개)"
                     st.session_state.last_action_notice = msg
                     st.rerun()
             except Exception as e:
@@ -7092,17 +7163,15 @@ if active_page == "exam":
             if not subject_pool:
                 subject_pool = ["(검색 결과 없음)"]
             if "exam_subject_multi" not in st.session_state:
-                st.session_state.exam_subject_multi = all_subjects
+                st.session_state["exam_subject_multi"] = list(all_subjects)
             selected_subjects = st.multiselect(
                 "분과 선택",
                 options=subject_pool if subject_pool != ["(검색 결과 없음)"] else [],
-                default=[s for s in st.session_state.exam_subject_multi if s in all_subjects and s in subject_pool],
                 key="exam_subject_multi"
             )
             if not selected_subjects:
                 # 빈 선택은 전체 보기로 복구해 실수로 인한 빈 화면을 방지
                 selected_subjects = all_subjects
-                st.session_state.exam_subject_multi = all_subjects
 
             unit_filter_by_subject = {}
             selected_units = []

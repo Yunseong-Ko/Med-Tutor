@@ -41,6 +41,7 @@ class GenerationQueueHelperTests(unittest.TestCase):
         ns = _load_namespace(["build_generation_queue_item"])
         item = ns["build_generation_queue_item"](
             source_name="a.pdf",
+            source_signature="sig123",
             raw_text="abc",
             style_text="",
             mode="mode",
@@ -55,10 +56,42 @@ class GenerationQueueHelperTests(unittest.TestCase):
         )
         self.assertEqual(item["status"], "queued")
         self.assertEqual(item["source_name"], "a.pdf")
+        self.assertEqual(item["source_signature"], "sig123")
         self.assertEqual(item["num_items"], 12)
         self.assertEqual(item["subject"], "S")
         self.assertEqual(item["unit"], "U")
         self.assertIn("id", item)
+
+    def test_is_duplicate_generation_queue_item(self):
+        ns = _load_namespace(["is_duplicate_generation_queue_item"])
+        queue = [
+            {
+                "status": "queued",
+                "source_signature": "s1",
+                "mode": "m",
+                "num_items": 10,
+                "subject": "A",
+                "unit": "U1",
+            },
+            {
+                "status": "done",
+                "source_signature": "s1",
+                "mode": "m",
+                "num_items": 10,
+                "subject": "A",
+                "unit": "U1",
+            },
+        ]
+        self.assertTrue(
+            ns["is_duplicate_generation_queue_item"](
+                queue, "s1", "m", 10, "A", "U1"
+            )
+        )
+        self.assertFalse(
+            ns["is_duplicate_generation_queue_item"](
+                queue, "s2", "m", 10, "A", "U1"
+            )
+        )
 
     def test_remove_generation_queue_job(self):
         ns = _load_namespace(["remove_generation_queue_job"])
