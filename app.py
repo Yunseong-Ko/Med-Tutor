@@ -36,7 +36,7 @@ def _hash_text(text: str) -> str:
         return ""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
-def append_audit_log(event: str, payload: dict):
+def append_audit_log(event: str, payload: dict, user_id=None):
     try:
         row = {
             "run_id": str(int(time.time() * 1000)),
@@ -44,7 +44,7 @@ def append_audit_log(event: str, payload: dict):
             "event": event,
             **(payload or {}),
         }
-        with open(get_audit_log_file(), "a", encoding="utf-8") as f:
+        with open(get_audit_log_file(user_id=user_id), "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception:
         # 감사 로그 실패는 앱 실행을 막지 않음
@@ -713,6 +713,12 @@ def clear_generation_prewarm_error(kind, signature):
 def get_generation_executor():
     return concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
+def get_generation_runtime_context():
+    return {
+        "gemini_model_id": get_gemini_model_id(),
+        "audit_user_id": get_current_user_id(),
+    }
+
 def start_generation_async_job(
     raw_text,
     mode,
@@ -725,7 +731,9 @@ def start_generation_async_job(
     style_text,
     subject,
     unit,
+    runtime_context=None,
 ):
+    context = runtime_context if isinstance(runtime_context, dict) else {}
     executor = get_generation_executor()
     future = executor.submit(
         generate_content_in_chunks,
@@ -739,6 +747,8 @@ def start_generation_async_job(
         openai_api_key,
         style_text,
         False,
+        context.get("gemini_model_id"),
+        context.get("audit_user_id"),
     )
     return {
         "id": str(uuid.uuid4()),
@@ -838,7 +848,7 @@ def _drop_generation_job_payload(item):
     slim.pop("result", None)
     return slim
 
-def start_next_generation_queue_job_if_idle(queue_items, api_key=None, openai_api_key=None):
+def start_next_generation_queue_job_if_idle(queue_items, api_key=None, openai_api_key=None, runtime_context=None):
     items = queue_items if isinstance(queue_items, list) else []
     active = st.session_state.get("generation_async_job")
     if isinstance(active, dict) and active.get("status") == "running":
@@ -858,6 +868,7 @@ def start_next_generation_queue_job_if_idle(queue_items, api_key=None, openai_ap
             style_text=item.get("style_text", ""),
             subject=item.get("subject", "General"),
             unit=item.get("unit", "미분류"),
+            runtime_context=runtime_context,
         )
         job["queue_id"] = item.get("id")
         st.session_state["generation_async_job"] = job
@@ -4990,7 +5001,15 @@ def build_style_instructions(style_text):
 {term_rule}
 """
 
-def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None, style_text=None):
+def generate_content_gemini(
+    text_content,
+    selected_mode,
+    num_items=5,
+    api_key=None,
+    style_text=None,
+    gemini_model_id=None,
+    audit_user_id=None,
+):
     """Gemini를 이용해 콘텐츠 생성"""
     if not api_key:
         return "⚠️ 왼쪽 사이드바에 Gemini API 키를 먼저 입력해주세요."
@@ -5014,8 +5033,9 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
         system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
+        model_name = gemini_model_id or get_gemini_model_id()
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(get_gemini_model_id())
+        model = genai.GenerativeModel(model_name)
         prompt_text = f"{system_prompt}\n\n[강의록 내용]:\n{text_content[:30000]}"
         generation_config = {
             "temperature": LLM_TEMPERATURE,
@@ -5024,7 +5044,7 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
         response = model.generate_content(prompt_text, generation_config=generation_config)
         result_text = response.text
         append_audit_log("gen.question", {
-            "model": get_gemini_model_id(),
+            "model": model_name,
             "temperature": LLM_TEMPERATURE,
             "seed": None,
             "prompt_hash": _hash_text(prompt_text),
@@ -5033,12 +5053,19 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
             "output_text": result_text,
             "usage_tokens": _gemini_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
-        })
+        }, user_id=audit_user_id)
         return result_text
     except Exception as e:
         return f"❌ Gemini 생성 실패: {str(e)}"
 
-def generate_content_openai(text_content, selected_mode, num_items=5, openai_api_key=None, style_text=None):
+def generate_content_openai(
+    text_content,
+    selected_mode,
+    num_items=5,
+    openai_api_key=None,
+    style_text=None,
+    audit_user_id=None,
+):
     """ChatGPT를 이용해 콘텐츠 생성"""
     if not openai_api_key:
         return "⚠️ 왼쪽 사이드바에 OpenAI API 키를 먼저 입력해주세요."
@@ -5102,7 +5129,7 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
             "output_text": result,
             "usage_tokens": _openai_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
-        })
+        }, user_id=audit_user_id)
         return result
     except Exception as e:
         import traceback
@@ -5162,12 +5189,37 @@ def convert_json_mcq_to_text(json_text, num_items):
         return json_text
 
 
-def generate_content(text_content, selected_mode, ai_model, num_items=5, api_key=None, openai_api_key=None, style_text=None):
+def generate_content(
+    text_content,
+    selected_mode,
+    ai_model,
+    num_items=5,
+    api_key=None,
+    openai_api_key=None,
+    style_text=None,
+    gemini_model_id=None,
+    audit_user_id=None,
+):
     """선택된 AI 모델을 사용해 콘텐츠 생성"""
     if ai_model == "🔵 Google Gemini":
-        return generate_content_gemini(text_content, selected_mode, num_items=num_items, api_key=api_key, style_text=style_text)
+        return generate_content_gemini(
+            text_content,
+            selected_mode,
+            num_items=num_items,
+            api_key=api_key,
+            style_text=style_text,
+            gemini_model_id=gemini_model_id,
+            audit_user_id=audit_user_id,
+        )
     else:  # ChatGPT
-        return generate_content_openai(text_content, selected_mode, num_items=num_items, openai_api_key=openai_api_key, style_text=style_text)
+        return generate_content_openai(
+            text_content,
+            selected_mode,
+            num_items=num_items,
+            openai_api_key=openai_api_key,
+            style_text=style_text,
+            audit_user_id=audit_user_id,
+        )
 
 def split_text_into_chunks(text, chunk_size=8000, overlap=500):
     """문자 단위로 텍스트를 분할 (중첩 포함)"""
@@ -5196,6 +5248,8 @@ def generate_content_in_chunks(
     openai_api_key=None,
     style_text=None,
     show_progress=True,
+    gemini_model_id=None,
+    audit_user_id=None,
 ):
     """텍스트를 청크로 나누어 모델 호출을 여러 번 수행
     
@@ -5226,7 +5280,20 @@ def generate_content_in_chunks(
             if n <= 0:
                 results[idx] = ""
                 continue
-            futures[ex.submit(generate_content, chunk, selected_mode, ai_model, n, api_key, openai_api_key, style_text)] = idx
+            futures[
+                ex.submit(
+                    generate_content,
+                    chunk,
+                    selected_mode,
+                    ai_model,
+                    n,
+                    api_key,
+                    openai_api_key,
+                    style_text,
+                    gemini_model_id,
+                    audit_user_id,
+                )
+            ] = idx
 
         completed = 0
         for fut in concurrent.futures.as_completed(futures):
@@ -6154,6 +6221,8 @@ if active_page == "generate":
             label = f"혼용 ({pattern})"
         st.caption(f"스타일 자동 감지: 용어 표기 = {label}")
 
+    runtime_context = get_generation_runtime_context() if ai_model_key_ready else {}
+
     if uploaded_files:
         if len(uploaded_files) == 1:
             st.info(f"📄 **{uploaded_files[0].name}** ({uploaded_files[0].size:,} bytes)")
@@ -6253,6 +6322,7 @@ if active_page == "generate":
                         queue_items,
                         api_key=api_key,
                         openai_api_key=openai_api_key,
+                        runtime_context=runtime_context,
                     )
                     save_generation_queue_items(queue_items)
                     st.session_state.generation_failure = ""
@@ -6281,6 +6351,7 @@ if active_page == "generate":
         queue_items,
         api_key=api_key,
         openai_api_key=openai_api_key,
+        runtime_context=runtime_context,
     )
     if revived or queue_notices or auto_started:
         save_generation_queue_items(queue_items)

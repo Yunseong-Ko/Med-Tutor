@@ -118,7 +118,47 @@ class GenerationAsyncJobTests(unittest.TestCase):
         self.assertEqual(len(fake_executor.calls), 1)
         _, args = fake_executor.calls[0]
         self.assertEqual(args[0], "abc")
-        self.assertEqual(args[-1], False)
+        self.assertEqual(args[-3], False)
+        self.assertIsNone(args[-2])
+        self.assertIsNone(args[-1])
+
+    def test_start_generation_async_job_passes_runtime_context(self):
+        fake_executor = _FakeExecutor()
+
+        def _fake_get_generation_executor():
+            return fake_executor
+
+        def _fake_generate_content_in_chunks(*args, **kwargs):
+            return []
+
+        ns = _load_functions(
+            ["start_generation_async_job"],
+            extra={
+                "get_generation_executor": _fake_get_generation_executor,
+                "generate_content_in_chunks": _fake_generate_content_in_chunks,
+                "uuid": __import__("uuid"),
+            },
+        )
+
+        ns["start_generation_async_job"](
+            raw_text="abc",
+            mode="mode",
+            ai_model="model",
+            num_items=5,
+            chunk_size=8000,
+            overlap=500,
+            api_key="k1",
+            openai_api_key="k2",
+            style_text="style",
+            subject="S",
+            unit="U",
+            runtime_context={"gemini_model_id": "gemini-2.5-flash", "audit_user_id": "u1"},
+        )
+
+        _, args = fake_executor.calls[0]
+        self.assertEqual(args[-3], False)
+        self.assertEqual(args[-2], "gemini-2.5-flash")
+        self.assertEqual(args[-1], "u1")
 
 
 if __name__ == "__main__":
