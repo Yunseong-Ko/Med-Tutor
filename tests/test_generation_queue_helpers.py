@@ -44,6 +44,9 @@ class GenerationQueueHelperTests(unittest.TestCase):
             source_signature="sig123",
             raw_text="abc",
             style_text="",
+            flavor_choice="자동 판별(Auto)",
+            resolved_flavor="basic",
+            mix_basic_ratio=70,
             mode="mode",
             num_items=12,
             subject="S",
@@ -57,6 +60,7 @@ class GenerationQueueHelperTests(unittest.TestCase):
         self.assertEqual(item["status"], "queued")
         self.assertEqual(item["source_name"], "a.pdf")
         self.assertEqual(item["source_signature"], "sig123")
+        self.assertEqual(item["resolved_flavor"], "basic")
         self.assertEqual(item["num_items"], 12)
         self.assertEqual(item["subject"], "S")
         self.assertEqual(item["unit"], "U")
@@ -68,6 +72,7 @@ class GenerationQueueHelperTests(unittest.TestCase):
             {
                 "status": "queued",
                 "source_signature": "s1",
+                "flavor_choice": "자동 판별(Auto)",
                 "mode": "m",
                 "num_items": 10,
                 "subject": "A",
@@ -76,6 +81,7 @@ class GenerationQueueHelperTests(unittest.TestCase):
             {
                 "status": "done",
                 "source_signature": "s1",
+                "flavor_choice": "자동 판별(Auto)",
                 "mode": "m",
                 "num_items": 10,
                 "subject": "A",
@@ -84,12 +90,12 @@ class GenerationQueueHelperTests(unittest.TestCase):
         ]
         self.assertTrue(
             ns["is_duplicate_generation_queue_item"](
-                queue, "s1", "m", 10, "A", "U1"
+                queue, "s1", "자동 판별(Auto)", "m", 10, "A", "U1"
             )
         )
         self.assertFalse(
             ns["is_duplicate_generation_queue_item"](
-                queue, "s2", "m", 10, "A", "U1"
+                queue, "s2", "자동 판별(Auto)", "m", 10, "A", "U1"
             )
         )
 

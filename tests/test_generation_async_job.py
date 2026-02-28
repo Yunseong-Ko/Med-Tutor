@@ -118,9 +118,11 @@ class GenerationAsyncJobTests(unittest.TestCase):
         self.assertEqual(len(fake_executor.calls), 1)
         _, args = fake_executor.calls[0]
         self.assertEqual(args[0], "abc")
-        self.assertEqual(args[-3], False)
+        self.assertEqual(args[-5], False)
+        self.assertIsNone(args[-4])
+        self.assertIsNone(args[-3])
         self.assertIsNone(args[-2])
-        self.assertIsNone(args[-1])
+        self.assertEqual(args[-1], 70)
 
     def test_start_generation_async_job_passes_runtime_context(self):
         fake_executor = _FakeExecutor()
@@ -156,9 +158,11 @@ class GenerationAsyncJobTests(unittest.TestCase):
         )
 
         _, args = fake_executor.calls[0]
-        self.assertEqual(args[-3], False)
-        self.assertEqual(args[-2], "gemini-2.5-flash")
-        self.assertEqual(args[-1], "u1")
+        self.assertEqual(args[-5], False)
+        self.assertEqual(args[-4], "gemini-2.5-flash")
+        self.assertEqual(args[-3], "u1")
+        self.assertIsNone(args[-2])
+        self.assertEqual(args[-1], 70)
 
 
 if __name__ == "__main__":

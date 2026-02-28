@@ -66,6 +66,32 @@ class ReproducibleFlowTests(unittest.TestCase):
         self.assertEqual(mode, "mixed")
         self.assertEqual(pattern, "ko(en)")
 
+    def test_resolve_generation_flavor_basic_subject(self):
+        namespace = _load_namespace(["detect_question_flavor_scores", "resolve_generation_flavor"])
+        flavor = namespace["resolve_generation_flavor"](
+            "자동 판별(Auto)",
+            raw_text="세포막의 막전위와 이온 이동 기전을 설명한다.",
+            style_text="",
+            subject="생리학",
+        )
+        self.assertEqual(flavor, "basic")
+
+    def test_resolve_generation_flavor_case_subject(self):
+        namespace = _load_namespace(["detect_question_flavor_scores", "resolve_generation_flavor"])
+        flavor = namespace["resolve_generation_flavor"](
+            "자동 판별(Auto)",
+            raw_text="55세 환자가 흉통으로 내원하였다.",
+            style_text="",
+            subject="내과",
+        )
+        self.assertEqual(flavor, "case")
+
+    def test_build_flavor_instructions_mix_ratio(self):
+        namespace = _load_namespace(["build_flavor_instructions"])
+        block = namespace["build_flavor_instructions"]("📝 객관식 문제 (Case Study)", "mix", mix_basic_ratio=70)
+        self.assertIn("70%", block)
+        self.assertIn("30%", block)
+
     def test_get_configured_admin_users_from_env(self):
         namespace = _load_namespace(
             ["get_configured_admin_users"],

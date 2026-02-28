@@ -731,6 +731,8 @@ def start_generation_async_job(
     style_text,
     subject,
     unit,
+    resolved_flavor=None,
+    mix_basic_ratio=70,
     runtime_context=None,
 ):
     context = runtime_context if isinstance(runtime_context, dict) else {}
@@ -749,6 +751,8 @@ def start_generation_async_job(
         False,
         context.get("gemini_model_id"),
         context.get("audit_user_id"),
+        resolved_flavor,
+        mix_basic_ratio,
     )
     return {
         "id": str(uuid.uuid4()),
@@ -759,6 +763,8 @@ def start_generation_async_job(
         "subject": subject,
         "unit": unit,
         "num_items": int(num_items),
+        "resolved_flavor": resolved_flavor or "",
+        "mix_basic_ratio": int(mix_basic_ratio or 70),
     }
 
 def update_generation_async_job_state(job):
@@ -807,6 +813,9 @@ def build_generation_queue_item(
     source_signature,
     raw_text,
     style_text,
+    flavor_choice,
+    resolved_flavor,
+    mix_basic_ratio,
     mode,
     num_items,
     subject,
@@ -825,6 +834,9 @@ def build_generation_queue_item(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "raw_text": raw_text,
         "style_text": style_text or "",
+        "flavor_choice": str(flavor_choice or ""),
+        "resolved_flavor": str(resolved_flavor or ""),
+        "mix_basic_ratio": int(mix_basic_ratio or 70),
         "mode": mode,
         "num_items": int(num_items),
         "subject": subject,
@@ -839,6 +851,7 @@ def build_generation_queue_item(
 def is_duplicate_generation_queue_item(
     queue_items,
     source_signature,
+    flavor_choice,
     mode,
     num_items,
     subject,
@@ -852,6 +865,8 @@ def is_duplicate_generation_queue_item(
         if str(item.get("source_signature") or "") != sig:
             continue
         if str(item.get("mode") or "") != str(mode or ""):
+            continue
+        if str(item.get("flavor_choice") or "") != str(flavor_choice or ""):
             continue
         if int(item.get("num_items", 0)) != int(num_items or 0):
             continue
@@ -896,6 +911,8 @@ def start_next_generation_queue_job_if_idle(queue_items, api_key=None, openai_ap
             style_text=item.get("style_text", ""),
             subject=item.get("subject", "General"),
             unit=item.get("unit", "미분류"),
+            resolved_flavor=item.get("resolved_flavor", ""),
+            mix_basic_ratio=int(item.get("mix_basic_ratio", 70)),
             runtime_context=runtime_context,
         )
         job["queue_id"] = item.get("id")
@@ -5002,6 +5019,102 @@ def detect_term_language_mode(style_text: str):
         return ("en", "")
     return ("mixed", "")
 
+def detect_question_flavor_scores(text):
+    s = str(text or "")
+    if not s.strip():
+        return {"basic": 0, "case": 0}
+    case_patterns = [
+        r"\d+\s*세",
+        r"환자",
+        r"내원",
+        r"주호소",
+        r"증상",
+        r"진단",
+        r"치료",
+        r"처치",
+        r"검사",
+        r"혈압",
+        r"맥박",
+        r"호흡수",
+        r"체온",
+        r"응급",
+    ]
+    basic_patterns = [
+        r"기전",
+        r"정의",
+        r"분류",
+        r"구조",
+        r"위치",
+        r"유래",
+        r"발생",
+        r"막전위",
+        r"이온",
+        r"효소",
+        r"대사",
+        r"경로",
+        r"수송",
+        r"계산",
+        r"equation",
+        r"pathway",
+        r"origin",
+    ]
+    case_score = sum(len(re.findall(p, s, flags=re.IGNORECASE)) for p in case_patterns)
+    basic_score = sum(len(re.findall(p, s, flags=re.IGNORECASE)) for p in basic_patterns)
+    return {"basic": basic_score, "case": case_score}
+
+def resolve_generation_flavor(flavor_choice, raw_text="", style_text="", subject=""):
+    choice = str(flavor_choice or "").strip().lower()
+    if "basic" in choice:
+        return "basic"
+    if "case" in choice:
+        return "case"
+    if "mix" in choice:
+        return "mix"
+
+    subj = str(subject or "").lower()
+    basic_subject_keywords = ["해부", "생리", "생화학", "면역", "발생", "조직", "약리", "기초", "anatom", "physio", "biochem", "immun"]
+    case_subject_keywords = ["내과", "외과", "소아", "산부", "정신", "응급", "가정", "신경과", "진단", "임상", "internal", "surgery", "pedi", "obgyn"]
+
+    basic_subj = any(k in subj for k in basic_subject_keywords)
+    case_subj = any(k in subj for k in case_subject_keywords)
+    if basic_subj and not case_subj:
+        return "basic"
+    if case_subj and not basic_subj:
+        return "case"
+
+    style_scores = detect_question_flavor_scores(str(style_text or "")[:12000])
+    raw_scores = detect_question_flavor_scores(str(raw_text or "")[:12000])
+    basic_score = style_scores["basic"] * 2 + raw_scores["basic"]
+    case_score = style_scores["case"] * 2 + raw_scores["case"]
+    return "basic" if basic_score >= case_score else "case"
+
+def build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=70):
+    flavor = str(resolved_flavor or "").lower()
+    if flavor not in {"basic", "case", "mix"}:
+        return ""
+    basic_ratio = max(0, min(100, int(mix_basic_ratio or 70)))
+    case_ratio = 100 - basic_ratio
+    if flavor == "basic":
+        return """
+[문항 성격 지시: 기초의학형]
+- 임상 진단/처방 중심 증례형을 배제하세요.
+- 기전(Mechanism), 해부학적 위치/주행, 분류, 정의, 계산(공식/수치 해석) 중심으로 출제하세요.
+- 한국어 설명 + 핵심 의학 용어는 영어(또는 한영 병기)로 작성하세요.
+"""
+    if flavor == "case":
+        return """
+[문항 성격 지시: 케이스형]
+- 환자 정보(연령/성별/증상/검사 소견)를 포함한 임상 증례형으로 출제하세요.
+- 진단, 다음 검사, 치료 선택/금기 판단을 중심으로 구성하세요.
+- 단순 정의 암기형 문항 비율을 낮추세요.
+"""
+    return f"""
+[문항 성격 지시: 혼합형]
+- 전체 문항을 기초의학형 약 {basic_ratio}%, 케이스형 약 {case_ratio}% 비율로 구성하세요.
+- 기초의학형: 기전/해부학/분류/계산 중심
+- 케이스형: 임상 증례 기반 진단/검사/치료 판단 중심
+"""
+
 def build_style_instructions(style_text):
     if not style_text:
         return ""
@@ -5037,6 +5150,8 @@ def generate_content_gemini(
     style_text=None,
     gemini_model_id=None,
     audit_user_id=None,
+    resolved_flavor=None,
+    mix_basic_ratio=70,
 ):
     """Gemini를 이용해 콘텐츠 생성"""
     if not api_key:
@@ -5051,14 +5166,15 @@ def generate_content_gemini(
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
+    flavor_block = build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
     if selected_mode == mode_mcq:
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + flavor_block
     elif selected_mode == mode_cloze:
-        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     elif selected_mode == mode_short:
-        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_short + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     else:
-        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_essay + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         model_name = gemini_model_id or get_gemini_model_id()
@@ -5093,6 +5209,8 @@ def generate_content_openai(
     openai_api_key=None,
     style_text=None,
     audit_user_id=None,
+    resolved_flavor=None,
+    mix_basic_ratio=70,
 ):
     """ChatGPT를 이용해 콘텐츠 생성"""
     if not openai_api_key:
@@ -5107,14 +5225,15 @@ def generate_content_openai(
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
+    flavor_block = build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
     if selected_mode == mode_mcq:
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + flavor_block
     elif selected_mode == mode_cloze:
-        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     elif selected_mode == mode_short:
-        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_short + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     else:
-        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_essay + style_block + flavor_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         import sys
@@ -5227,6 +5346,8 @@ def generate_content(
     style_text=None,
     gemini_model_id=None,
     audit_user_id=None,
+    resolved_flavor=None,
+    mix_basic_ratio=70,
 ):
     """선택된 AI 모델을 사용해 콘텐츠 생성"""
     if ai_model == "🔵 Google Gemini":
@@ -5238,6 +5359,8 @@ def generate_content(
             style_text=style_text,
             gemini_model_id=gemini_model_id,
             audit_user_id=audit_user_id,
+            resolved_flavor=resolved_flavor,
+            mix_basic_ratio=mix_basic_ratio,
         )
     else:  # ChatGPT
         return generate_content_openai(
@@ -5247,6 +5370,8 @@ def generate_content(
             openai_api_key=openai_api_key,
             style_text=style_text,
             audit_user_id=audit_user_id,
+            resolved_flavor=resolved_flavor,
+            mix_basic_ratio=mix_basic_ratio,
         )
 
 def split_text_into_chunks(text, chunk_size=8000, overlap=500):
@@ -5278,6 +5403,8 @@ def generate_content_in_chunks(
     show_progress=True,
     gemini_model_id=None,
     audit_user_id=None,
+    resolved_flavor=None,
+    mix_basic_ratio=70,
 ):
     """텍스트를 청크로 나누어 모델 호출을 여러 번 수행
     
@@ -5320,6 +5447,8 @@ def generate_content_in_chunks(
                     style_text,
                     gemini_model_id,
                     audit_user_id,
+                    resolved_flavor,
+                    mix_basic_ratio,
                 )
             ] = idx
 
@@ -6190,6 +6319,8 @@ if active_page == "generate":
     num_items = 10
     subject_input = "General"
     unit_input = "미분류"
+    flavor_choice = "선택하세요"
+    mix_basic_ratio = 70
 
     raw_text_cached = None
     style_text = None
@@ -6264,11 +6395,28 @@ if active_page == "generate":
         with col2:
             num_items = st.slider("생성 개수", 1, 50, 10)
 
+        flavor_choice = st.selectbox(
+            "문항 성격",
+            ["선택하세요", "자동 판별(Auto)", "기초의학형(Basic)", "케이스형(Case)", "혼합(Mix)"],
+            index=0,
+            key="generation_flavor_choice",
+        )
+        if flavor_choice == "혼합(Mix)":
+            st.caption("혼합 비율: Basic 70% / Case 30%")
+
         col_subj, col_unit = st.columns(2)
         with col_subj:
             subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
         with col_unit:
             unit_input = st.text_input("단원명 (선택)", value="미분류")
+        if flavor_choice == "자동 판별(Auto)" and uploaded_file:
+            preview_flavor = resolve_generation_flavor(
+                flavor_choice,
+                raw_text=raw_text_cached or "",
+                style_text=style_text or "",
+                subject=subject_input,
+            )
+            st.caption(f"자동 판별 예상: `{preview_flavor}`")
 
         if gen_copyright_ok:
             col_p1, col_p2 = st.columns([1, 1])
@@ -6295,6 +6443,8 @@ if active_page == "generate":
             st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True, disabled=True, help="API 키를 먼저 입력해 주세요.")
         elif not gen_copyright_ok:
             st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True, disabled=True, help="저작권 확인 체크를 완료해 주세요.")
+        elif flavor_choice == "선택하세요":
+            st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True, disabled=True, help="문항 성격을 선택해 주세요.")
         elif st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True):
             try:
                 queue_items = load_generation_queue_items()
@@ -6353,9 +6503,16 @@ if active_page == "generate":
                         if not (raw_text or "").strip():
                             skipped += 1
                             continue
+                        resolved_flavor = resolve_generation_flavor(
+                            flavor_choice,
+                            raw_text=raw_text,
+                            style_text=style_text_for_queue,
+                            subject=subject_input,
+                        )
                         if is_duplicate_generation_queue_item(
                             queue_items,
                             source_signature=file_sig,
+                            flavor_choice=flavor_choice,
                             mode=mode,
                             num_items=num_items,
                             subject=subject_input,
@@ -6369,6 +6526,9 @@ if active_page == "generate":
                                 source_signature=file_sig,
                                 raw_text=raw_text,
                                 style_text=style_text_for_queue,
+                                flavor_choice=flavor_choice,
+                                resolved_flavor=resolved_flavor,
+                                mix_basic_ratio=mix_basic_ratio,
                                 mode=mode,
                                 num_items=num_items,
                                 subject=subject_input,
@@ -6447,6 +6607,7 @@ if active_page == "generate":
                 st.markdown(
                     f"**{idx}. {item.get('source_name', 'unknown')}**  \n"
                     f"- 상태: `{status_label.get(item.get('status'), item.get('status'))}` | "
+                    f"문항성격: `{item.get('resolved_flavor') or item.get('flavor_choice') or '-'}` | "
                     f"모드: `{item.get('mode', '')}` | 문항수: `{item.get('num_items', 0)}` | "
                     f"과목/단원: `{item.get('subject', 'General')} / {item.get('unit', '미분류')}`"
                 )
