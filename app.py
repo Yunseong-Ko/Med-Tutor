@@ -3773,6 +3773,59 @@ def ocr_pdf_bytes(pdf_bytes, engine="easyocr", langs=("ko", "en"), max_pages=0, 
     doc.close()
     return "\n".join(texts).strip()
 
+def _ocr_pdf_page_with_ai(page_image_bytes, ai_model, api_key=None, openai_api_key=None):
+    prompt = (
+        "이 페이지에 보이는 텍스트를 가능한 한 정확하게 추출해서 JSON이나 해설 없이 \n"
+        "순수 텍스트만 줄바꿈 유지 형식으로 반환하세요.\n"
+        "표/문항 번호/선지 등은 모두 읽을 수 있는 그대로 보존하세요."
+    )
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return ""
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(get_gemini_model_id())
+            response = model.generate_content([prompt, page_image_bytes])
+            return (response.text or "").strip()
+        if not openai_api_key:
+            return ""
+        client = OpenAI(api_key=openai_api_key)
+        image_url = data_uri_from_bytes(page_image_bytes, ext="png")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+            ],
+            temperature=0,
+        )
+        return (response.choices[0].message.content or "").strip()
+    except Exception:
+        return ""
+
+
+def ocr_pdf_bytes_with_ai(pdf_bytes, ai_model, api_key=None, openai_api_key=None, max_pages=0, zoom=2.0):
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    texts = []
+    total_pages = doc.page_count
+    limit = total_pages if max_pages in (0, None) else min(total_pages, max_pages)
+    for i in range(limit):
+        page = doc.load_page(i)
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        image_bytes = pix.tobytes("png")
+        page_text = _ocr_pdf_page_with_ai(image_bytes, ai_model, api_key=api_key, openai_api_key=openai_api_key)
+        if page_text.strip():
+            texts.append(f"=== 페이지 {i + 1} ===")
+            texts.append(page_text)
+            texts.append("")
+    doc.close()
+    return "\n".join(texts).strip()
+
 def data_uri_from_bytes(data, ext):
     ext = ext.lower().replace(".", "")
     if ext in ("jpg", "jpeg"):
@@ -4618,7 +4671,19 @@ def auto_attach_images_to_items(items, images, strategy="page", max_per_question
 
     return items
 
-def extract_text_from_pdf(uploaded_file, enable_ocr=True, ocr_engine="auto", ocr_langs=("ko", "en"), ocr_max_pages=0, min_text_len=200, include_page_markers=False):
+def extract_text_from_pdf(
+    uploaded_file,
+    enable_ocr=True,
+    ocr_engine="auto",
+    ocr_langs=("ko", "en"),
+    ocr_max_pages=0,
+    min_text_len=40,
+    include_page_markers=False,
+    ai_fallback=False,
+    ai_model="",
+    api_key=None,
+    openai_api_key=None,
+):
     """PDF에서 텍스트 추출"""
     try:
         pdf_bytes = uploaded_file.read()
@@ -4635,8 +4700,19 @@ def extract_text_from_pdf(uploaded_file, enable_ocr=True, ocr_engine="auto", ocr
         if len(text.strip()) >= min_text_len:
             return text
         # OCR fallback (스캔 PDF 등)
-        if not enable_ocr:
+        if not (enable_ocr or ai_fallback):
             return text
+        if ai_fallback and ai_model:
+            ai_text = ocr_pdf_bytes_with_ai(
+                pdf_bytes,
+                ai_model=ai_model,
+                api_key=api_key,
+                openai_api_key=openai_api_key,
+                max_pages=ocr_max_pages,
+                zoom=2.0,
+            )
+            if ai_text.strip():
+                return ai_text
         engines = available_ocr_engines()
         if not engines:
             return text
@@ -6336,7 +6412,11 @@ if active_page == "generate":
             try:
                 with st.spinner("사전 준비 중: 강의자료 텍스트 추출"):
                     raw_text_cached = extract_text_from_file(
-                        make_uploaded_file_from_bytes(uploaded_file.name, uploaded_bytes)
+                        make_uploaded_file_from_bytes(uploaded_file.name, uploaded_bytes),
+                        ai_model=ai_model,
+                        ai_fallback=True,
+                        api_key=api_key,
+                        openai_api_key=openai_api_key,
                     )
                 set_generation_prewarm_text("raw", uploaded_signature, raw_text_cached)
             except Exception as e:
@@ -6450,6 +6530,7 @@ if active_page == "generate":
                 queue_items = load_generation_queue_items()
                 added = 0
                 skipped = 0
+                skipped_short = 0
                 skipped_duplicate = 0
 
                 style_text_for_queue = style_text
@@ -6486,6 +6567,10 @@ if active_page == "generate":
                                 fut = ex.submit(
                                     extract_text_from_file,
                                     make_uploaded_file_from_bytes(file_name, file_bytes),
+                                    ai_model=ai_model,
+                                    ai_fallback=True,
+                                    api_key=api_key,
+                                    openai_api_key=openai_api_key,
                                 )
                                 futures[fut] = (file_name, file_sig)
                             for fut in concurrent.futures.as_completed(futures):
@@ -6500,8 +6585,13 @@ if active_page == "generate":
 
                     for file_name, file_sig, _ in file_payloads:
                         raw_text = extracted_texts.get(file_sig) or get_generation_prewarm_text("raw", file_sig)
-                        if not (raw_text or "").strip():
+                        raw_text = (raw_text or "").strip()
+                        if not raw_text:
                             skipped += 1
+                            continue
+                        if len(raw_text) < 20:
+                            skipped += 1
+                            skipped_short += 1
                             continue
                         resolved_flavor = resolve_generation_flavor(
                             flavor_choice,
@@ -6543,7 +6633,10 @@ if active_page == "generate":
                         added += 1
 
                 if added <= 0:
-                    st.warning("대기열에 추가할 수 있는 텍스트 문서가 없습니다.")
+                    if skipped_short:
+                        st.warning(f"대기열에 추가할 텍스트 문서는 추출되었지만, 유효 분량이 부족합니다. PDF(강의록)은 AI 폴백을 켜고 재시도하세요. 건너뜀: {skipped}개")
+                    else:
+                        st.warning("대기열에 추가할 텍스트 문서가 없습니다.")
                 elif not save_generation_queue_items(queue_items):
                     st.error("대기열 저장 실패: 사용자 설정 저장 중 오류가 발생했습니다.")
                 else:
