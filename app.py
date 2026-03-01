@@ -3784,9 +3784,38 @@ def _ocr_pdf_page_with_ai(page_image_bytes, ai_model, api_key=None, openai_api_k
             if not api_key:
                 return ""
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(get_gemini_model_id())
-            response = model.generate_content([prompt, page_image_bytes])
-            return (response.text or "").strip()
+            requested_model = get_gemini_model_id()
+            model_candidates = [requested_model]
+            if requested_model != "gemini-2.0-flash":
+                model_candidates.append("gemini-2.0-flash")
+
+            # google-generativeai 버전별 허용 입력 포맷이 달라서 순차 시도
+            img_pil = None
+            try:
+                img_pil = Image.open(io.BytesIO(page_image_bytes))
+            except Exception:
+                img_pil = None
+
+            payloads = []
+            if img_pil is not None:
+                payloads.append([prompt, img_pil])
+            payloads.append([prompt, {"mime_type": "image/png", "data": page_image_bytes}])
+            payloads.append([prompt, page_image_bytes])
+
+            for model_name in model_candidates:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    for payload in payloads:
+                        try:
+                            response = model.generate_content(payload)
+                            text = (getattr(response, "text", "") or "").strip()
+                            if text:
+                                return text
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+            return ""
         if not openai_api_key:
             return ""
         client = OpenAI(api_key=openai_api_key)
@@ -6636,7 +6665,10 @@ if active_page == "generate":
                     if skipped_short:
                         st.warning(f"대기열에 추가할 텍스트 문서는 추출되었지만, 유효 분량이 부족합니다. PDF(강의록)은 AI 폴백을 켜고 재시도하세요. 건너뜀: {skipped}개")
                     else:
-                        st.warning("대기열에 추가할 텍스트 문서가 없습니다.")
+                        st.warning(
+                            "대기열에 추가할 텍스트 문서가 없습니다. "
+                            f"(분석 파일 {len(uploaded_files)}개, 건너뜀 {skipped}개, 중복 {skipped_duplicate}개)"
+                        )
                 elif not save_generation_queue_items(queue_items):
                     st.error("대기열 저장 실패: 사용자 설정 저장 중 오류가 발생했습니다.")
                 else:
