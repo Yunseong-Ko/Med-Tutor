@@ -719,6 +719,19 @@ def get_generation_runtime_context():
         "audit_user_id": get_current_user_id(),
     }
 
+def estimate_generation_runtime_minutes(total_bytes, num_files, num_items, has_style_file=False):
+    mb = float(total_bytes or 0) / (1024.0 * 1024.0)
+    files = max(1, int(num_files or 1))
+    requested = max(1, int(num_items or 1))
+    base = 0.8 + (0.28 * files) + (0.055 * requested) + (0.07 * mb)
+    if requested >= 20:
+        base += 0.8
+    if requested >= 30:
+        base += 0.8
+    if has_style_file:
+        base += 0.4
+    return max(1.0, round(base, 1))
+
 def start_generation_async_job(
     raw_text,
     mode,
@@ -6514,6 +6527,29 @@ if active_page == "generate":
     st.markdown("### 3단계로 시작하기")
     st.markdown("1) 자료 업로드 → 2) 모드/문항 수 설정 → 3) 문제 생성 시작")
     st.markdown("API 키가 없다면 사이드바 입력 후 다시 진행하세요.")
+    with st.expander("🔒 데이터 처리/보안 안내", expanded=False):
+        st.markdown(
+            """
+            - 업로드 자료는 **현재 로그인한 본인 계정의 생성 작업에만 사용**됩니다.
+            - 다른 사용자 계정의 문제 생성에 업로드 원문이 재사용되지 않습니다.
+            - 원문 파일 자체는 영구 저장하지 않고, 처리 후 텍스트/문항 결과만 계정 데이터로 저장됩니다.
+            - 권리를 보유했거나 사용 허락을 받은 자료만 업로드해 주세요.
+            """
+        )
+    with st.expander("❓ 자주 묻는 질문 (베타)", expanded=False):
+        st.markdown(
+            """
+            **Q1. 손글씨도 읽나요?**  
+            A. 인식은 가능하지만, 필기체/저화질 스캔에서는 정확도가 떨어질 수 있습니다.
+
+            **Q2. 한 번에 몇 문제를 요청하는 게 좋나요?**  
+            A. 권장값은 파일당 10~15문항입니다. 20문항 이상부터 처리 시간이 길어질 수 있습니다.
+
+            **Q3. 속도는 무엇에 영향받나요?**  
+            A. 파일 페이지 수, 스캔 품질(OCR 여부), 요청 문항 수, 스타일 파일 사용 여부의 영향을 받습니다.
+            """
+        )
+    st.caption("처리 단계: 텍스트 추출 → OCR/AI 폴백 → 문항 생성 → 저장")
 
     ai_model_key_ready = bool(api_key) if ai_model == "🔵 Google Gemini" else bool(openai_api_key)
     if not ai_model_key_ready:
@@ -6534,6 +6570,12 @@ if active_page == "generate":
         type=["pdf", "docx", "pptx", "hwp", "txt", "tsv", "json"],
         key="style_upload",
     )
+    if uploaded_files:
+        total_size = sum(getattr(f, "size", 0) for f in uploaded_files)
+        st.caption(
+            f"업로드 용량: {len(uploaded_files)}개 파일 / {total_size / (1024 * 1024):.1f} MB "
+            f"(권장: 한 번에 1~5개 파일)"
+        )
     gen_copyright_ok = render_copyright_ack("gen")
     if (uploaded_files or style_file) and not gen_copyright_ok:
         st.warning("파일 분석/문제 생성을 시작하려면 저작권 확인 체크를 완료하세요.")
@@ -6621,6 +6663,8 @@ if active_page == "generate":
             mode = st.radio("모드", [MODE_MCQ, MODE_CLOZE, MODE_SHORT, MODE_ESSAY])
         with col2:
             num_items = st.slider("생성 개수", 1, 50, 10)
+            if num_items >= 20:
+                st.caption("안내: 20개 이상 요청 시 처리 시간이 길어질 수 있습니다.")
 
         flavor_choice = st.selectbox(
             "문항 성격",
@@ -6636,6 +6680,15 @@ if active_page == "generate":
             subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
         with col_unit:
             unit_input = st.text_input("단원명 (선택)", value="미분류")
+        estimated_minutes = estimate_generation_runtime_minutes(
+            total_bytes=sum(getattr(f, "size", 0) for f in uploaded_files),
+            num_files=len(uploaded_files),
+            num_items=num_items,
+            has_style_file=bool(style_file),
+        )
+        low = max(1, int(round(estimated_minutes * 0.7)))
+        high = max(low + 1, int(round(estimated_minutes * 1.6)))
+        st.caption(f"예상 처리 시간(대기열 추가+생성): 약 {low}~{high}분")
         if flavor_choice == "자동 판별(Auto)" and uploaded_file:
             preview_flavor = resolve_generation_flavor(
                 flavor_choice,
