@@ -1,0 +1,3 @@
+from .generation_prompts import PROMPT_MCQ, PROMPT_CLOZE, PROMPT_SHORT, PROMPT_ESSAY
+
+__all__ = ["PROMPT_MCQ", "PROMPT_CLOZE", "PROMPT_SHORT", "PROMPT_ESSAY"]

@@ -27,6 +27,7 @@ import xml.etree.ElementTree as ET
 import importlib.util
 import hashlib
 import requests
+from src.prompts import PROMPT_MCQ, PROMPT_CLOZE, PROMPT_SHORT, PROMPT_ESSAY
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -5115,77 +5116,6 @@ def parse_uploaded_question_file(uploaded_file, mode_hint="auto"):
 # ============================================================================
 # AI 콘텐츠 생성
 # ============================================================================
-PROMPT_MCQ = """
-당신은 의과대학 교수입니다. 강의록을 분석하여 '임상 증례형 객관식 문제(5지 선다)'를 5문제 출제하세요.
-
-[출제 지침]
-1. 단순 암기보다 증상, 검사 소견을 보고 진단/치료를 고르는 문제 위주.
-2. 각 문제마다 명확한 증례 제시.
-3. 선지는 정확히 5개만 작성할 것.
-4. 해설에 정답 이유와 오답 이유를 명확히 설명할 것.
-5. 정확히 JSON 형식으로만 출력할 것.
-
-[필수 출력 형식 - JSON 배열]
-[
-  {
-    "problem": "[문제] 임상 증례... 증상 + 검사 소견 + 진단 질문",
-    "options": ["선지 1", "선지 2", "선지 3", "선지 4", "선지 5"],
-    "answer": 1,
-    "explanation": "정답(①) 이유: ... | ②번 오답 이유: ... | ③번 오답 이유: ... | ④번 오답 이유: ... | ⑤번 오답 이유: ..."
-  },
-  {
-    "problem": "[문제] 다른 증례...",
-    "options": ["선지 1", "선지 2", "선지 3", "선지 4", "선지 5"],
-    "answer": 2,
-    "explanation": "..."
-  }
-]
-
-[중요 규칙]:
-- 반드시 유효한 JSON 배열만 출력
-- answer는 1~5 숫자 (1 = ①, 2 = ②, 3 = ③, 4 = ④, 5 = ⑤)
-- 각 문제는 독립적이어야 함
-"""
-
-
-PROMPT_CLOZE = """
-당신은 의대생 튜터입니다. 텍스트에서 중요한 개념, 병명, 증상, 수치를 Anki Cloze(빈칸) 형식으로 변환하세요.
-
-[작성 지침]
-1. 문맥상 핵심 키워드를 `{{c1::정답}}`으로 감싸세요.
-2. 한 줄에 하나의 사실(Fact)만 작성하세요.
-3. 예시: "α-thalassemia due to a three gene deletion presents with {{c1::HbH}} disease."
-4. 불필요한 서론/결론 없이 변환된 문장만 나열하세요.
-"""
-
-PROMPT_SHORT = """
-당신은 의대생 튜터입니다. 강의록에서 단답형 문항을 만드세요.
-
-[출력 규칙]
-1. 반드시 JSON 배열만 출력.
-2. 각 항목은 front(문항), answer(정답), explanation(짧은 해설) 포함.
-3. 문항은 짧고 명확하게 작성.
-
-[JSON 형식]
-[
-  {"front": "문항", "answer": "정답", "explanation": "해설"}
-]
-"""
-
-PROMPT_ESSAY = """
-당신은 의대생 튜터입니다. 강의록에서 서술형 문항을 만드세요.
-
-[출력 규칙]
-1. 반드시 JSON 배열만 출력.
-2. 각 항목은 front(문항), answer(모범답안), explanation(채점 포인트) 포함.
-3. 문항은 임상 추론/설명형으로 작성.
-
-[JSON 형식]
-[
-  {"front": "문항", "answer": "모범답안", "explanation": "채점 포인트"}
-]
-"""
-
 def detect_term_language_mode(style_text: str):
     """기출 스타일 텍스트에서 '용어 표기' 혼용을 추정한다.
 
@@ -5369,8 +5299,10 @@ def generate_content_gemini(
     mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
-    style_block = build_style_instructions(style_text)
-    flavor_block = build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
+    style_builder = globals().get("build_style_instructions", lambda _style_text: "")
+    flavor_builder = globals().get("build_flavor_instructions", lambda *_args, **_kwargs: "")
+    style_block = style_builder(style_text)
+    flavor_block = flavor_builder(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
     if selected_mode == mode_mcq:
         system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + flavor_block
     elif selected_mode == mode_cloze:
@@ -5391,7 +5323,7 @@ def generate_content_gemini(
         }
         response = model.generate_content(prompt_text, generation_config=generation_config)
         result_text = response.text
-        append_audit_log("gen.question", {
+        payload = {
             "model": model_name,
             "temperature": LLM_TEMPERATURE,
             "seed": None,
@@ -5401,7 +5333,11 @@ def generate_content_gemini(
             "output_text": result_text,
             "usage_tokens": _gemini_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
-        }, user_id=audit_user_id)
+        }
+        try:
+            append_audit_log("gen.question", payload, user_id=audit_user_id)
+        except TypeError:
+            append_audit_log("gen.question", payload)
         return result_text
     except Exception as e:
         return f"❌ Gemini 생성 실패: {str(e)}"
@@ -5428,8 +5364,10 @@ def generate_content_openai(
     mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
-    style_block = build_style_instructions(style_text)
-    flavor_block = build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
+    style_builder = globals().get("build_style_instructions", lambda _style_text: "")
+    flavor_builder = globals().get("build_flavor_instructions", lambda *_args, **_kwargs: "")
+    style_block = style_builder(style_text)
+    flavor_block = flavor_builder(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
     if selected_mode == mode_mcq:
         system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + flavor_block
     elif selected_mode == mode_cloze:
@@ -5470,7 +5408,7 @@ def generate_content_openai(
         if selected_mode == mode_mcq:
             result = convert_json_mcq_to_text(result, num_items)
         
-        append_audit_log("gen.question", {
+        payload = {
             "model": "gpt-4o-mini",
             "temperature": LLM_TEMPERATURE,
             "seed": LLM_SEED,
@@ -5480,7 +5418,11 @@ def generate_content_openai(
             "output_text": result,
             "usage_tokens": _openai_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
-        }, user_id=audit_user_id)
+        }
+        try:
+            append_audit_log("gen.question", payload, user_id=audit_user_id)
+        except TypeError:
+            append_audit_log("gen.question", payload)
         return result
     except Exception as e:
         import traceback
