@@ -29,6 +29,7 @@ import hashlib
 import requests
 from src.prompts import PROMPT_MCQ, PROMPT_CLOZE, PROMPT_SHORT, PROMPT_ESSAY
 from src.repositories import load_json_file, save_json_file
+from src.services import reconcile_generation_queue_items
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -949,54 +950,17 @@ def reconcile_generation_queue_with_async(queue_items, default_quality_filter=Tr
     status = async_job.get("status")
     if status == "running":
         return items, notices
-
-    queue_id = str(async_job.get("queue_id") or "")
-    target_idx = -1
-    for idx, item in enumerate(items):
-        if str(item.get("id")) == queue_id:
-            target_idx = idx
-            break
-    if target_idx < 0:
-        st.session_state["generation_async_job"] = None
-        return items, notices
-
-    target = dict(items[target_idx])
-    target["completed_at"] = datetime.now(timezone.utc).isoformat()
-
-    if status == "done":
-        result = async_job.get("result") or []
-        if result and isinstance(result, list):
-            saved_count = add_questions_to_bank(
-                result,
-                target.get("mode", MODE_MCQ),
-                target.get("subject", "General"),
-                target.get("unit", "미분류"),
-                quality_filter=bool(target.get("quality_filter", default_quality_filter)),
-                min_length=int(target.get("min_length", default_min_length)),
-            )
-            target["status"] = "done"
-            target["result_count"] = len(result)
-            target["saved_count"] = int(saved_count)
-            dropped = max(0, int(target["result_count"]) - int(saved_count))
-            notices.append(
-                f"생성 완료: {target.get('source_name', '')} "
-                f"(요청 {target['result_count']}개 / 저장 {saved_count}개 / 중복·필터 제외 {dropped}개)"
-            )
-        else:
-            target["status"] = "failed"
-            target["error"] = "생성 결과가 비어 있습니다."
-            notices.append(f"생성 실패: {target.get('source_name', '')} (결과 없음)")
-    elif status == "cancelled":
-        target["status"] = "cancelled"
-        target["error"] = async_job.get("error", "사용자 취소")
-        notices.append(f"작업 취소: {target.get('source_name', '')}")
-    else:
-        target["status"] = "failed"
-        target["error"] = async_job.get("error", "알 수 없는 오류")
-        notices.append(f"생성 실패: {target.get('source_name', '')}")
-
-    items[target_idx] = _drop_generation_job_payload(target)
-    st.session_state["generation_async_job"] = None
+    items, next_async_job, notices = reconcile_generation_queue_items(
+        items=items,
+        async_job=async_job,
+        add_questions_fn=add_questions_to_bank,
+        drop_payload_fn=_drop_generation_job_payload,
+        now_iso=datetime.now(timezone.utc).isoformat(),
+        default_quality_filter=default_quality_filter,
+        default_min_length=default_min_length,
+        mode_mcq=MODE_MCQ,
+    )
+    st.session_state["generation_async_job"] = next_async_job
     return items, notices
 
 def revive_stale_running_queue_items(queue_items):
