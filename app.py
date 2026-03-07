@@ -28,6 +28,7 @@ import importlib.util
 import hashlib
 import requests
 from src.prompts import PROMPT_MCQ, PROMPT_CLOZE, PROMPT_SHORT, PROMPT_ESSAY
+from src.repositories import load_json_file, save_json_file
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -1100,22 +1101,16 @@ def load_questions(user_id=None) -> dict:
             data = ensure_question_ids(bundle.get("questions", {"text": [], "cloze": []}))
             return _set_user_data_cache("questions", data, user_id=user_id)
     question_bank_file = get_question_bank_file(user_id)
-    if os.path.exists(question_bank_file):
-        try:
-            with open(question_bank_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # 마이그레이션: 기존 형식 확인 및 필요시 변환
-                if data and isinstance(data.get("text"), list) and len(data.get("text", [])) > 0:
-                    first = data["text"][0]
-                    if isinstance(first, dict) and "content" in first and "type" not in first:
-                        # 기존 형식 (content 필드) -> 새 형식으로 마이그레이션
-                        migrate_old_format(data, user_id=user_id)
-                        return load_questions(user_id=user_id)  # 다시 로드
-                data = ensure_question_ids(data)
-                return _set_user_data_cache("questions", data, user_id=user_id)
-        except:
-            return _set_user_data_cache("questions", {"text": [], "cloze": []}, user_id=user_id)
-    return _set_user_data_cache("questions", {"text": [], "cloze": []}, user_id=user_id)
+    data = load_json_file(question_bank_file, {"text": [], "cloze": []})
+    # 마이그레이션: 기존 형식 확인 및 필요시 변환
+    if data and isinstance(data.get("text"), list) and len(data.get("text", [])) > 0:
+        first = data["text"][0]
+        if isinstance(first, dict) and "content" in first and "type" not in first:
+            # 기존 형식 (content 필드) -> 새 형식으로 마이그레이션
+            migrate_old_format(data, user_id=user_id)
+            return load_questions(user_id=user_id)  # 다시 로드
+    data = ensure_question_ids(data)
+    return _set_user_data_cache("questions", data, user_id=user_id)
 
 def migrate_old_format(data: dict, user_id=None):
     """기존 형식의 questions.json을 새 형식으로 마이그레이션"""
@@ -1181,8 +1176,8 @@ def save_questions(data: dict, user_id=None):
             _set_user_data_cache("questions", data, user_id=user_id)
             return True
     question_bank_file = get_question_bank_file(user_id)
-    with open(question_bank_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    if not save_json_file(question_bank_file, data):
+        return False
     _set_user_data_cache("questions", data, user_id=user_id)
     return True
 
@@ -1208,16 +1203,10 @@ def load_exam_history(user_id=None):
                 data = []
             return _set_user_data_cache("exam_history", data, user_id=user_id)
     exam_history_file = get_exam_history_file(user_id)
-    if os.path.exists(exam_history_file):
-        try:
-            with open(exam_history_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if not isinstance(data, list):
-                    data = []
-                return _set_user_data_cache("exam_history", data, user_id=user_id)
-        except Exception:
-            return _set_user_data_cache("exam_history", [], user_id=user_id)
-    return _set_user_data_cache("exam_history", [], user_id=user_id)
+    data = load_json_file(exam_history_file, [])
+    if not isinstance(data, list):
+        data = []
+    return _set_user_data_cache("exam_history", data, user_id=user_id)
 
 def save_exam_history(items, user_id=None):
     if user_id is None and is_supabase_required():
@@ -1238,9 +1227,10 @@ def save_exam_history(items, user_id=None):
             _set_user_data_cache("exam_history", bundle["exam_history"], user_id=user_id)
             return True
     exam_history_file = get_exam_history_file(user_id)
-    with open(exam_history_file, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
-    _set_user_data_cache("exam_history", items if isinstance(items, list) else [], user_id=user_id)
+    normalized = items if isinstance(items, list) else []
+    if not save_json_file(exam_history_file, normalized):
+        return False
+    _set_user_data_cache("exam_history", normalized, user_id=user_id)
     return True
 
 def add_exam_history(session, user_id=None):
@@ -1285,16 +1275,10 @@ def load_user_settings(user_id=None):
                 data = {}
             return _set_user_data_cache("user_settings", data, user_id=user_id)
     user_settings_file = get_user_settings_file(user_id)
-    if os.path.exists(user_settings_file):
-        try:
-            with open(user_settings_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if not isinstance(data, dict):
-                    data = {}
-                return _set_user_data_cache("user_settings", data, user_id=user_id)
-        except Exception:
-            return _set_user_data_cache("user_settings", {}, user_id=user_id)
-    return _set_user_data_cache("user_settings", {}, user_id=user_id)
+    data = load_json_file(user_settings_file, {})
+    if not isinstance(data, dict):
+        data = {}
+    return _set_user_data_cache("user_settings", data, user_id=user_id)
 
 def save_user_settings(data, user_id=None):
     if user_id is None and is_supabase_required():
@@ -1315,9 +1299,10 @@ def save_user_settings(data, user_id=None):
             _set_user_data_cache("user_settings", bundle["user_settings"], user_id=user_id)
             return True
     user_settings_file = get_user_settings_file(user_id)
-    with open(user_settings_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    _set_user_data_cache("user_settings", data if isinstance(data, dict) else {}, user_id=user_id)
+    normalized = data if isinstance(data, dict) else {}
+    if not save_json_file(user_settings_file, normalized):
+        return False
+    _set_user_data_cache("user_settings", normalized, user_id=user_id)
     return True
 
 def load_fsrs_settings():
