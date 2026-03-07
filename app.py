@@ -962,7 +962,11 @@ def reconcile_generation_queue_with_async(queue_items, default_quality_filter=Tr
             target["status"] = "done"
             target["result_count"] = len(result)
             target["saved_count"] = int(saved_count)
-            notices.append(f"생성 완료: {target.get('source_name', '')} ({saved_count}개 저장)")
+            dropped = max(0, int(target["result_count"]) - int(saved_count))
+            notices.append(
+                f"생성 완료: {target.get('source_name', '')} "
+                f"(요청 {target['result_count']}개 / 저장 {saved_count}개 / 중복·필터 제외 {dropped}개)"
+            )
         else:
             target["status"] = "failed"
             target["error"] = "생성 결과가 비어 있습니다."
@@ -1435,6 +1439,23 @@ def ensure_question_ids(data: dict) -> dict:
         save_questions(data)
     return data
 
+def _normalize_text_for_dedupe(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+def build_question_dedupe_key(item, mode=MODE_MCQ):
+    if not isinstance(item, dict):
+        return ""
+    if mode == MODE_MCQ:
+        stem = _normalize_text_for_dedupe(item.get("problem") or item.get("front"))
+        options = item.get("options") or []
+        normalized_options = "|".join(_normalize_text_for_dedupe(opt) for opt in options)
+        answer = str(item.get("answer") or "").strip()
+        return f"mcq::{stem}::{normalized_options}::{answer}"
+    front = _normalize_text_for_dedupe(item.get("front") or item.get("problem"))
+    answer = _normalize_text_for_dedupe(item.get("answer"))
+    response_type = str(item.get("response_type") or "").strip().lower()
+    return f"cloze::{response_type}::{front}::{answer}"
+
 def add_questions_to_bank(questions_data, mode, subject="General", unit="미분류", quality_filter=True, min_length=20, batch_id=None):
     """생성된 문제를 question bank에 추가 (구조화된 JSON 형식)
     
@@ -1459,6 +1480,12 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
         parsed_questions = questions_data if isinstance(questions_data, list) else [questions_data]
     
     added_count = 0
+    target_key = "text" if mode == MODE_MCQ else "cloze"
+    existing_keys = set()
+    for existing_item in bank.get(target_key, []):
+        key = build_question_dedupe_key(existing_item, mode)
+        if key:
+            existing_keys.add(key)
     if not batch_id:
         batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
 
@@ -1485,10 +1512,13 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
             q_data["id"] = str(uuid.uuid4())
         q_data["batch_id"] = q_data.get("batch_id") or batch_id
         
-        if mode == MODE_MCQ:
-            bank["text"].append(q_data)
-        else:
-            bank["cloze"].append(q_data)
+        key = build_question_dedupe_key(q_data, mode)
+        if key and key in existing_keys:
+            continue
+        if key:
+            existing_keys.add(key)
+
+        bank[target_key].append(q_data)
         
         added_count += 1
     
@@ -2070,6 +2100,42 @@ def delete_mcq_by_batch(batch_id):
     save_questions(data)
     return before - len(data.get("text", []))
 
+def delete_questions_by_subject_units(subject_unit_map, mode="all"):
+    if not isinstance(subject_unit_map, dict) or not subject_unit_map:
+        return 0
+
+    normalized = {}
+    for subj, units in subject_unit_map.items():
+        subj_name = str(subj or "General")
+        if not isinstance(units, (list, tuple, set)):
+            continue
+        cleaned = {str(u or "미분류") for u in units if str(u or "").strip()}
+        if cleaned:
+            normalized[subj_name] = cleaned
+    if not normalized:
+        return 0
+
+    keys = ["text", "cloze"] if mode == "all" else (["text"] if mode == "mcq" else ["cloze"])
+    data = load_questions()
+    before = sum(len(data.get(k, [])) for k in keys)
+
+    def _keep(item):
+        subj = str(item.get("subject") or "General")
+        unit = str(item.get("unit") or "미분류")
+        units = normalized.get(subj)
+        if not units:
+            return True
+        return unit not in units
+
+    for key in keys:
+        data[key] = [q for q in data.get(key, []) if _keep(q)]
+
+    after = sum(len(data.get(k, [])) for k in keys)
+    deleted = before - after
+    if deleted > 0:
+        save_questions(data)
+    return deleted
+
 def get_mcq_batches(questions):
     batches = {}
     for q in questions:
@@ -2317,6 +2383,26 @@ def collect_export_questions(questions, selected_subjects, unit_filter_by_subjec
     else:
         items = filter_questions_by_subject_unit_hierarchy(questions, selected_subjects, unit_filter_by_subject)
     out = list(items)
+    deduped = []
+    seen = set()
+    for q in out:
+        qid = str(q.get("id") or "").strip()
+        if qid:
+            key = f"id::{qid}"
+        elif q.get("type") == "cloze":
+            front = " ".join(str(q.get("front") or "").split())
+            answer = " ".join(str(q.get("answer") or "").split())
+            key = f"cloze::{front}::{answer}"
+        else:
+            stem = " ".join(str(q.get("problem") or "").split())
+            options = "|".join(" ".join(str(opt).split()) for opt in (q.get("options") or []))
+            answer = str(q.get("answer") or "")
+            key = f"mcq::{stem}::{options}::{answer}"
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(q)
+    out = deduped
     if randomize and len(out) > 1:
         rng = random.Random(random_seed)
         rng.shuffle(out)
@@ -6003,6 +6089,38 @@ if active_page == "home":
                 deleted = (before_text - len(data.get("text", []))) + (before_cloze - len(data.get("cloze", [])))
                 st.session_state.last_action_notice = f"{deleted}개 문항 삭제됨 (분과: {', '.join(sel_subjects_del)})"
                 st.rerun()
+        unit_subject = st.selectbox("단원별 삭제 대상 분과", ["선택 없음"] + subjects, key="unit_delete_subject")
+        if unit_subject != "선택 없음":
+            subject_units = sorted({
+                (q.get("unit") or "미분류")
+                for q in all_questions
+                if (q.get("subject") or "General") == unit_subject
+            })
+            selected_units = st.multiselect(
+                "삭제할 단원",
+                subject_units,
+                key=f"unit_delete_units_{unit_subject}",
+            )
+            delete_mode_label = st.radio(
+                "단원 삭제 문항 유형",
+                ["전체", "객관식", "빈칸"],
+                horizontal=True,
+                key=f"unit_delete_mode_{unit_subject}",
+            )
+            if selected_units:
+                mode_map = {"전체": "all", "객관식": "mcq", "빈칸": "cloze"}
+                if st.button("선택 단원 삭제", use_container_width=True, disabled=not confirm, key=f"delete_units_btn_{unit_subject}"):
+                    deleted = delete_questions_by_subject_units(
+                        {unit_subject: selected_units},
+                        mode=mode_map.get(delete_mode_label, "all"),
+                    )
+                    st.session_state.last_action_notice = (
+                        f"{deleted}개 문항 삭제됨 (분과: {unit_subject}, 단원: {', '.join(selected_units)})"
+                    )
+                    st.session_state.exam_started = False
+                    st.session_state.exam_questions = []
+                    st.session_state.user_answers = {}
+                    st.rerun()
 
     with st.expander("🗑️ 객관식 선택 삭제", expanded=False):
         bank_now = load_questions()
@@ -6575,9 +6693,14 @@ if active_page == "generate":
 
                 with st.spinner("업로드 파일을 대기열용으로 준비 중..."):
                     file_payloads = []
+                    seen_payload_signatures = set()
                     for uf in uploaded_files:
                         file_bytes = uf.getvalue()
                         file_sig = build_upload_signature(uf.name, file_bytes)
+                        if file_sig in seen_payload_signatures:
+                            skipped_duplicate += 1
+                            continue
+                        seen_payload_signatures.add(file_sig)
                         file_payloads.append((uf.name, file_sig, file_bytes))
 
                     extracted_texts = {}
