@@ -628,6 +628,10 @@ if "past_exam_anchors" not in st.session_state:
     st.session_state.past_exam_anchors = {}
 if "user_data_cache" not in st.session_state:
     st.session_state["user_data_cache"] = {}
+if "derived_view_cache" not in st.session_state:
+    st.session_state["derived_view_cache"] = {}
+if "data_revisions" not in st.session_state:
+    st.session_state["data_revisions"] = {}
 if "home_visual_loaded" not in st.session_state:
     st.session_state.home_visual_loaded = False
 if "home_history_loaded" not in st.session_state:
@@ -661,6 +665,8 @@ def reset_runtime_state_for_auth_change():
         "fsrs_settings_initialized",
         "remote_bundle_cache",
         "user_data_cache",
+        "derived_view_cache",
+        "data_revisions",
     ]
     for key in volatile_keys:
         if key in st.session_state:
@@ -686,6 +692,41 @@ def _set_user_data_cache(kind, value, user_id=None):
     cache = st.session_state.get("user_data_cache", {})
     cache[_user_data_cache_key(kind, user_id=user_id)] = value
     st.session_state["user_data_cache"] = cache
+    return value
+
+def _data_revision_key(kind, user_id=None):
+    return _user_data_cache_key(f"revision:{kind}", user_id=user_id)
+
+def _get_data_revision(kind, user_id=None):
+    revisions = st.session_state.get("data_revisions", {})
+    return int(revisions.get(_data_revision_key(kind, user_id=user_id), 0) or 0)
+
+def _bump_data_revision(kind, user_id=None):
+    revisions = st.session_state.get("data_revisions", {})
+    key = _data_revision_key(kind, user_id=user_id)
+    revisions[key] = int(revisions.get(key, 0) or 0) + 1
+    st.session_state["data_revisions"] = revisions
+    return revisions[key]
+
+def get_cached_derived_view_value(kind, cache_name, params, builder, user_id=None):
+    if not callable(builder):
+        raise ValueError("builder must be callable")
+    revision = _get_data_revision(kind, user_id=user_id)
+    try:
+        params_key = json.dumps(params or {}, ensure_ascii=False, sort_keys=True, default=str)
+    except Exception:
+        params_key = str(params or "")
+    cache_key = f"{_user_data_cache_key(f'derived:{kind}:{cache_name}', user_id=user_id)}:{revision}:{params_key}"
+    cache = st.session_state.get("derived_view_cache", {})
+    if cache_key in cache:
+        return cache[cache_key]
+    value = builder()
+    cache[cache_key] = value
+    if len(cache) > 64:
+        overflow = len(cache) - 64
+        for old_key in list(cache.keys())[:overflow]:
+            del cache[old_key]
+    st.session_state["derived_view_cache"] = cache
     return value
 
 def _get_or_load_user_data(kind, loader, user_id=None, force=False):
@@ -1206,6 +1247,7 @@ def save_questions(data: dict, user_id=None):
         bundle["questions"] = data
         if save_remote_bundle(bundle):
             _set_user_data_cache("questions", data, user_id=user_id)
+            _bump_data_revision("questions", user_id=user_id)
             return True
         notify_remote_store_failure("⚠️ Supabase 저장 실패로 문항 저장이 취소되었습니다.")
         return False
@@ -1214,11 +1256,13 @@ def save_questions(data: dict, user_id=None):
         bundle["questions"] = data
         if save_remote_bundle(bundle):
             _set_user_data_cache("questions", data, user_id=user_id)
+            _bump_data_revision("questions", user_id=user_id)
             return True
     question_bank_file = get_question_bank_file(user_id)
     if not save_json_file(question_bank_file, data):
         return False
     _set_user_data_cache("questions", data, user_id=user_id)
+    _bump_data_revision("questions", user_id=user_id)
     return True
 
 def load_exam_history(user_id=None):
@@ -1257,6 +1301,7 @@ def save_exam_history(items, user_id=None):
         bundle["exam_history"] = items if isinstance(items, list) else []
         if save_remote_bundle(bundle):
             _set_user_data_cache("exam_history", bundle["exam_history"], user_id=user_id)
+            _bump_data_revision("exam_history", user_id=user_id)
             return True
         notify_remote_store_failure("⚠️ Supabase 저장 실패로 시험 기록 저장이 취소되었습니다.")
         return False
@@ -1265,12 +1310,14 @@ def save_exam_history(items, user_id=None):
         bundle["exam_history"] = items if isinstance(items, list) else []
         if save_remote_bundle(bundle):
             _set_user_data_cache("exam_history", bundle["exam_history"], user_id=user_id)
+            _bump_data_revision("exam_history", user_id=user_id)
             return True
     exam_history_file = get_exam_history_file(user_id)
     normalized = items if isinstance(items, list) else []
     if not save_json_file(exam_history_file, normalized):
         return False
     _set_user_data_cache("exam_history", normalized, user_id=user_id)
+    _bump_data_revision("exam_history", user_id=user_id)
     return True
 
 def add_exam_history(session, user_id=None):
@@ -2415,6 +2462,17 @@ def collect_subject_unit_map(questions):
         unit = get_unit_name(q)
         mapping.setdefault(subj, set()).add(unit)
     return {k: sorted(v) for k, v in mapping.items()}
+
+def build_home_summary_view_model(bank):
+    text_questions = list(bank.get("text", []))
+    cloze_questions = list(bank.get("cloze", []))
+    all_questions = text_questions + cloze_questions
+    return {
+        "subject_unit_map": collect_subject_unit_map(all_questions),
+        "subject_overview": summarize_subject_review_status(all_questions),
+        "wrong_note_stats": get_wrong_note_stats(all_questions),
+        "overall_accuracy": compute_overall_accuracy(all_questions),
+    }
 
 def collect_export_questions(questions, selected_subjects, unit_filter_by_subject, include_all_units=True, randomize=False, random_seed=None):
     if include_all_units:
@@ -5801,10 +5859,21 @@ if active_page == "home":
     st.title("🏠 홈")
     show_action_notice()
 
-    stats = get_question_stats()
     bank = load_questions()
-    all_questions = bank.get("text", []) + bank.get("cloze", [])
-    acc = compute_overall_accuracy(all_questions)
+    home_summary = get_cached_derived_view_value(
+        "questions",
+        "home_summary",
+        {},
+        lambda: build_home_summary_view_model(bank),
+    )
+    text_questions = bank.get("text", [])
+    cloze_questions = bank.get("cloze", [])
+    all_questions = text_questions + cloze_questions
+    stats = {
+        "total_text": len(text_questions),
+        "total_cloze": len(cloze_questions),
+    }
+    acc = home_summary.get("overall_accuracy")
     acc_text = f"{acc['accuracy']:.1f}%" if acc else "—"
 
     if not st.session_state.get("theme_enabled"):
@@ -5843,7 +5912,7 @@ if active_page == "home":
     st.markdown("---")
     st.subheader("빠른 시작 (분과/단원)")
     if all_questions:
-        quick_subject_unit_map = collect_subject_unit_map(all_questions)
+        quick_subject_unit_map = home_summary.get("subject_unit_map") or {}
         quick_subjects_all = sorted(quick_subject_unit_map.keys())
         quick_subjects = st.multiselect(
             "학습할 분과",
@@ -5906,8 +5975,8 @@ if active_page == "home":
     st.markdown("---")
     st.subheader("분과/단원 한눈에 보기")
     if all_questions:
-        subject_overview = summarize_subject_review_status(all_questions)
-        subject_unit_map = collect_subject_unit_map(all_questions)
+        subject_overview = home_summary.get("subject_overview") or []
+        subject_unit_map = home_summary.get("subject_unit_map") or {}
         subject_rows = []
         for row in subject_overview:
             subj = row.get("분과", "General")
@@ -5926,7 +5995,7 @@ if active_page == "home":
 
     st.markdown("---")
     st.subheader("학습 대시보드")
-    wrong_items, total_wrong = get_wrong_note_stats(all_questions)
+    wrong_items, total_wrong = home_summary.get("wrong_note_stats") or ([], 0)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("오답 누적 문항", len(wrong_items))
@@ -6397,8 +6466,12 @@ if active_page == "home":
                 st.session_state.last_action_notice = "프로필 설정을 저장했습니다."
 
         st.caption("프리셋은 히트맵 구간/색상 등 개인 설정을 저장해두는 기능입니다.")
-        acc = compute_overall_accuracy(all_questions)
-        heat = compute_activity_heatmap(all_questions, days=365)
+        heat = get_cached_derived_view_value(
+            "questions",
+            "home_heatmap_365",
+            {"days": 365},
+            lambda: compute_activity_heatmap(all_questions, days=365),
+        )
         with st.expander("히트맵 구간/색상 설정", expanded=False):
             st.caption("문항 수 구간을 조정하면 색 농도가 바뀝니다.")
             b1 = st.number_input("구간 1 (1회)", min_value=1, value=1)
@@ -7691,7 +7764,12 @@ if active_page == "exam":
                     )
 
             questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
-            subject_unit_map = collect_subject_unit_map(questions_all)
+            subject_unit_map = get_cached_derived_view_value(
+                "questions",
+                "exam_subject_unit_map",
+                {"exam_type": exam_type},
+                lambda: collect_subject_unit_map(questions_all),
+            )
             all_subjects = sorted(subject_unit_map.keys())
             if all_subjects:
                 subject_keyword = st.text_input("분과 검색", value="", placeholder="분과명 입력", key="exam_subject_search")
@@ -7733,7 +7811,17 @@ if active_page == "exam":
                 else:
                     unit_filter_by_subject = {}
                     selected_units = []
-                filtered_questions = filter_questions_by_subject_unit_hierarchy(questions_all, selected_subjects, unit_filter_by_subject)
+                filter_params = {
+                    "exam_type": exam_type,
+                    "subjects": sorted(selected_subjects),
+                    "units": {subj: sorted(unit_filter_by_subject.get(subj, [])) for subj in sorted(unit_filter_by_subject.keys())},
+                }
+                filtered_questions = get_cached_derived_view_value(
+                    "questions",
+                    "exam_filtered_questions",
+                    filter_params,
+                    lambda: filter_questions_by_subject_unit_hierarchy(questions_all, selected_subjects, unit_filter_by_subject),
+                )
             else:
                 selected_subjects = []
                 selected_units = []
