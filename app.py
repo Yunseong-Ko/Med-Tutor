@@ -28,7 +28,12 @@ import importlib.util
 import hashlib
 import requests
 from src.prompts import PROMPT_MCQ, PROMPT_CLOZE, PROMPT_SHORT, PROMPT_ESSAY
-from src.repositories import load_json_file, save_json_file
+from src.repositories import (
+    load_json_file,
+    load_prewarm_cache_file,
+    save_json_file,
+    save_prewarm_cache_file,
+)
 from src.services import reconcile_generation_queue_items
 
 # ============================================================================
@@ -52,6 +57,20 @@ def append_audit_log(event: str, payload: dict, user_id=None):
     except Exception:
         # 감사 로그 실패는 앱 실행을 막지 않음
         pass
+
+def append_perf_log(metric: str, duration_ms: int, payload: dict | None = None, user_id=None):
+    body = {
+        "metric": metric,
+        "duration_ms": int(max(0, duration_ms or 0)),
+    }
+    if isinstance(payload, dict):
+        body.update(payload)
+    append_audit_log("perf.metric", body, user_id=user_id)
+
+def append_perf_log_from_start(metric: str, started_at: float, payload: dict | None = None, user_id=None):
+    duration_ms = int((time.perf_counter() - float(started_at or 0.0)) * 1000)
+    append_perf_log(metric, duration_ms, payload=payload, user_id=user_id)
+    return duration_ms
 
 def _gemini_usage_tokens(response):
     usage = getattr(response, "usage_metadata", None)
@@ -161,6 +180,9 @@ def get_exam_history_file(user_id=None):
 
 def get_user_settings_file(user_id=None):
     return str(get_user_data_dir(user_id) / "user_settings.json")
+
+def get_prewarm_cache_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "prewarm_cache.json")
 
 def get_audit_log_file(user_id=None):
     return str(get_user_data_dir(user_id) / "audit_log.jsonl")
@@ -680,20 +702,66 @@ def make_uploaded_file_from_bytes(file_name, file_bytes):
 def _prewarm_cache_key(kind, signature):
     return f"{kind}:{signature}"
 
+def load_persistent_prewarm_cache(user_id=None):
+    return load_prewarm_cache_file(get_prewarm_cache_file(user_id))
+
+def save_persistent_prewarm_cache(cache, user_id=None):
+    return save_prewarm_cache_file(get_prewarm_cache_file(user_id), cache)
+
 def get_generation_prewarm_text(kind, signature):
     key = _prewarm_cache_key(kind, signature)
-    return st.session_state.get("generation_prewarm_cache", {}).get(key)
+    session_cache = st.session_state.get("generation_prewarm_cache", {})
+    if key in session_cache:
+        return session_cache.get(key)
+    persistent_cache_loader = globals().get("load_persistent_prewarm_cache")
+    if callable(persistent_cache_loader):
+        try:
+            persistent_cache = persistent_cache_loader()
+            value = persistent_cache.get(key)
+            if value is not None:
+                session_cache[key] = value
+                st.session_state["generation_prewarm_cache"] = session_cache
+                return value
+        except Exception:
+            pass
+    return None
 
 def set_generation_prewarm_text(kind, signature, text):
     key = _prewarm_cache_key(kind, signature)
     cache = st.session_state.get("generation_prewarm_cache", {})
     cache[key] = text
     st.session_state["generation_prewarm_cache"] = cache
+    persistent_cache_loader = globals().get("load_persistent_prewarm_cache")
+    persistent_cache_saver = globals().get("save_persistent_prewarm_cache")
+    if callable(persistent_cache_loader) and callable(persistent_cache_saver):
+        try:
+            persistent_cache = persistent_cache_loader()
+            persistent_cache[key] = text
+            persistent_cache_saver(persistent_cache)
+        except Exception:
+            pass
     errors = st.session_state.get("generation_prewarm_errors", {})
     if key in errors:
         del errors[key]
     st.session_state["generation_prewarm_errors"] = errors
     return text
+
+def clear_generation_prewarm_text(kind, signature):
+    key = _prewarm_cache_key(kind, signature)
+    cache = st.session_state.get("generation_prewarm_cache", {})
+    if key in cache:
+        del cache[key]
+    st.session_state["generation_prewarm_cache"] = cache
+    persistent_cache_loader = globals().get("load_persistent_prewarm_cache")
+    persistent_cache_saver = globals().get("save_persistent_prewarm_cache")
+    if callable(persistent_cache_loader) and callable(persistent_cache_saver):
+        try:
+            persistent_cache = persistent_cache_loader()
+            if key in persistent_cache:
+                del persistent_cache[key]
+                persistent_cache_saver(persistent_cache)
+        except Exception:
+            pass
 
 def get_generation_prewarm_error(kind, signature):
     key = _prewarm_cache_key(kind, signature)
@@ -5002,6 +5070,34 @@ def extract_text_from_file(uploaded_file, **kwargs):
     else:
         raise ValueError(f"지원하지 않는 파일 형식: {file_ext}")
 
+def extract_text_from_file_with_metrics(file_name, file_bytes, metric_name, user_id=None, **kwargs):
+    started_at = time.perf_counter()
+    try:
+        text = extract_text_from_file(make_uploaded_file_from_bytes(file_name, file_bytes), **kwargs)
+        append_perf_log_from_start(
+            metric_name,
+            started_at,
+            payload={
+                "source_name": file_name,
+                "success": True,
+                "text_length": len(text or ""),
+            },
+            user_id=user_id,
+        )
+        return text
+    except Exception as e:
+        append_perf_log_from_start(
+            metric_name,
+            started_at,
+            payload={
+                "source_name": file_name,
+                "success": False,
+                "error": str(e)[:300],
+            },
+            user_id=user_id,
+        )
+        raise
+
 def parse_uploaded_question_file(uploaded_file, mode_hint="auto"):
     """사용자 업로드 문항 파일 파싱 (json/txt/tsv)"""
     ext = Path(uploaded_file.name).suffix.lower()
@@ -6480,6 +6576,7 @@ if active_page == "generate":
 
     raw_text_cached = None
     style_text = None
+    perf_user_id = get_current_user_id()
     uploaded_bytes = uploaded_file.getvalue() if uploaded_file else b""
     uploaded_signature = build_upload_signature(uploaded_file.name, uploaded_bytes) if uploaded_file else ""
     style_bytes = style_file.getvalue() if style_file else b""
@@ -6490,15 +6587,30 @@ if active_page == "generate":
         raw_error = get_generation_prewarm_error("raw", uploaded_signature)
         if raw_text_cached is None and not raw_error:
             try:
+                raw_started_at = time.perf_counter()
                 with st.spinner("사전 준비 중: 강의자료 텍스트 추출"):
-                    raw_text_cached = extract_text_from_file(
-                        make_uploaded_file_from_bytes(uploaded_file.name, uploaded_bytes),
+                    raw_text_cached = extract_text_from_file_with_metrics(
+                        uploaded_file.name,
+                        uploaded_bytes,
+                        "prewarm.raw_extract",
+                        user_id=perf_user_id,
                         ai_model=ai_model,
                         ai_fallback=True,
                         api_key=api_key,
                         openai_api_key=openai_api_key,
                     )
                 set_generation_prewarm_text("raw", uploaded_signature, raw_text_cached)
+                append_perf_log_from_start(
+                    "prewarm.raw_total",
+                    raw_started_at,
+                    payload={
+                        "source_name": uploaded_file.name,
+                        "source_signature": uploaded_signature,
+                        "cache_hit": False,
+                        "text_length": len(raw_text_cached or ""),
+                    },
+                    user_id=perf_user_id,
+                )
             except Exception as e:
                 set_generation_prewarm_error("raw", uploaded_signature, str(e))
                 raw_error = str(e)
@@ -6513,14 +6625,29 @@ if active_page == "generate":
         style_error = get_generation_prewarm_error("style", style_signature)
         if style_text is None and not style_error:
             try:
+                style_started_at = time.perf_counter()
                 ext = Path(style_file.name).suffix.lower()
                 if ext in [".txt", ".tsv", ".json"]:
                     style_text = style_bytes.decode("utf-8", errors="ignore")
                 else:
-                    style_text = extract_text_from_file(
-                        make_uploaded_file_from_bytes(style_file.name, style_bytes)
+                    style_text = extract_text_from_file_with_metrics(
+                        style_file.name,
+                        style_bytes,
+                        "prewarm.style_extract",
+                        user_id=perf_user_id,
                     )
                 set_generation_prewarm_text("style", style_signature, style_text)
+                append_perf_log_from_start(
+                    "prewarm.style_total",
+                    style_started_at,
+                    payload={
+                        "source_name": style_file.name,
+                        "source_signature": style_signature,
+                        "cache_hit": False,
+                        "text_length": len(style_text or ""),
+                    },
+                    user_id=perf_user_id,
+                )
             except Exception as e:
                 set_generation_prewarm_error("style", style_signature, str(e))
                 style_error = str(e)
@@ -6594,20 +6721,12 @@ if active_page == "generate":
             with col_p1:
                 if uploaded_file and st.button("사전 준비 다시 실행(첫 파일)", use_container_width=True, key="regen_prewarm_main"):
                     clear_generation_prewarm_error("raw", uploaded_signature)
-                    cache_map = st.session_state.get("generation_prewarm_cache", {})
-                    cache_key = _prewarm_cache_key("raw", uploaded_signature)
-                    if cache_key in cache_map:
-                        del cache_map[cache_key]
-                    st.session_state["generation_prewarm_cache"] = cache_map
+                    clear_generation_prewarm_text("raw", uploaded_signature)
                     st.rerun()
             with col_p2:
                 if style_file and st.button("스타일 사전 준비 다시 실행", use_container_width=True, key="regen_prewarm_style"):
                     clear_generation_prewarm_error("style", style_signature)
-                    cache_map = st.session_state.get("generation_prewarm_cache", {})
-                    cache_key = _prewarm_cache_key("style", style_signature)
-                    if cache_key in cache_map:
-                        del cache_map[cache_key]
-                    st.session_state["generation_prewarm_cache"] = cache_map
+                    clear_generation_prewarm_text("style", style_signature)
                     st.rerun()
 
         if not ai_model_key_ready:
@@ -6618,6 +6737,7 @@ if active_page == "generate":
             st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True, disabled=True, help="문항 성격을 선택해 주세요.")
         elif st.button("🚀 업로드 파일들을 대기열에 추가", use_container_width=True):
             try:
+                queue_prepare_started = time.perf_counter()
                 queue_items = load_generation_queue_items()
                 added = 0
                 skipped = 0
@@ -6630,8 +6750,11 @@ if active_page == "generate":
                     if ext in [".txt", ".tsv", ".json"]:
                         style_text_for_queue = style_bytes.decode("utf-8", errors="ignore")
                     else:
-                        style_text_for_queue = extract_text_from_file(
-                            make_uploaded_file_from_bytes(style_file.name, style_bytes)
+                        style_text_for_queue = extract_text_from_file_with_metrics(
+                            style_file.name,
+                            style_bytes,
+                            "queue.style_extract",
+                            user_id=perf_user_id,
                         )
                     set_generation_prewarm_text("style", style_signature, style_text_for_queue)
 
@@ -6649,10 +6772,12 @@ if active_page == "generate":
 
                     extracted_texts = {}
                     pending = []
+                    prewarm_hits = 0
                     for file_name, file_sig, file_bytes in file_payloads:
                         raw_text = get_generation_prewarm_text("raw", file_sig)
                         if raw_text:
                             extracted_texts[file_sig] = raw_text
+                            prewarm_hits += 1
                         else:
                             pending.append((file_name, file_sig, file_bytes))
 
@@ -6661,8 +6786,11 @@ if active_page == "generate":
                             futures = {}
                             for file_name, file_sig, file_bytes in pending:
                                 fut = ex.submit(
-                                    extract_text_from_file,
-                                    make_uploaded_file_from_bytes(file_name, file_bytes),
+                                    extract_text_from_file_with_metrics,
+                                    file_name,
+                                    file_bytes,
+                                    "queue.raw_extract",
+                                    perf_user_id,
                                     ai_model=ai_model,
                                     ai_fallback=True,
                                     api_key=api_key,
@@ -6746,6 +6874,20 @@ if active_page == "generate":
                         runtime_context=runtime_context,
                     )
                     save_generation_queue_items(queue_items)
+                    append_perf_log_from_start(
+                        "queue.prepare_total",
+                        queue_prepare_started,
+                        payload={
+                            "file_count": len(uploaded_files),
+                            "added_count": added,
+                            "skipped_count": skipped,
+                            "skipped_duplicate": skipped_duplicate,
+                            "prewarm_hits": prewarm_hits,
+                            "pending_extract_count": len(pending),
+                            "requested_num_items": num_items,
+                        },
+                        user_id=perf_user_id,
+                    )
                     st.session_state.generation_failure = ""
                     msg = f"대기열 추가 완료: {added}개"
                     if skipped:
