@@ -600,6 +600,8 @@ if "generation_prewarm_errors" not in st.session_state:
     st.session_state["generation_prewarm_errors"] = {}
 if "generation_async_job" not in st.session_state:
     st.session_state["generation_async_job"] = None
+if "generation_wait_review_refresh" not in st.session_state:
+    st.session_state["generation_wait_review_refresh"] = 0
 if "export_docx_bytes" not in st.session_state:
     st.session_state.export_docx_bytes = b""
 if "exam_mode_entry_anchor" not in st.session_state:
@@ -851,6 +853,59 @@ def estimate_generation_runtime_minutes(total_bytes, num_files, num_items, has_s
     if has_style_file:
         base += 0.4
     return max(1.0, round(base, 1))
+
+def estimate_generation_queue_remaining_minutes(queue_items):
+    items = queue_items if isinstance(queue_items, list) else []
+    total = 0.0
+    for item in items:
+        if item.get("status") not in {"queued", "running"}:
+            continue
+        raw_text = str(item.get("raw_text") or "")
+        total += estimate_generation_runtime_minutes(
+            total_bytes=len(raw_text.encode("utf-8")),
+            num_files=1,
+            num_items=int(item.get("num_items", 0) or 0),
+            has_style_file=bool(item.get("style_text")),
+        )
+    return round(total, 1)
+
+def select_generation_waiting_review_candidates(questions, limit=5, random_seed=None):
+    items = list(questions or [])
+    if not items or limit <= 0:
+        return []
+
+    def is_supported(q):
+        q_type = q.get("type")
+        if q_type == "cloze" and str(q.get("response_type") or "cloze") == "essay":
+            return False
+        if q_type in {"cloze", "mcq"}:
+            return True
+        return bool(q.get("options"))
+
+    def rank_key(q):
+        stats = q.get("stats") or {}
+        right = int(stats.get("right", 0))
+        wrong = int(stats.get("wrong", 0))
+        attempts = right + wrong
+        bookmarked = 1 if q.get("bookmarked") else 0
+        return (
+            bookmarked,
+            1 if wrong > 0 else 0,
+            wrong,
+            1 if attempts == 0 else 0,
+            attempts,
+            str(q.get("subject") or "General"),
+            str(q.get("id") or ""),
+        )
+
+    ranked = [q for q in items if is_supported(q)]
+    ranked.sort(key=rank_key, reverse=True)
+    pool_size = min(len(ranked), max(limit * 3, limit))
+    pool = ranked[:pool_size]
+    if random_seed is not None and len(pool) > 1:
+        rng = random.Random(int(random_seed))
+        rng.shuffle(pool)
+    return pool[:limit]
 
 def start_generation_async_job(
     raw_text,
@@ -7031,6 +7086,21 @@ if active_page == "generate":
     if auto_started:
         st.rerun()
 
+    active_queue_items = [x for x in queue_items if x.get("status") in {"queued", "running"}]
+    if active_queue_items:
+        queue_eta = estimate_generation_queue_remaining_minutes(active_queue_items)
+        running_count = sum(1 for x in active_queue_items if x.get("status") == "running")
+        queued_count = sum(1 for x in active_queue_items if x.get("status") == "queued")
+        eta_low = max(1, int(round(queue_eta * 0.7)))
+        eta_high = max(eta_low + 1, int(round(queue_eta * 1.5)))
+        cq1, cq2, cq3 = st.columns(3)
+        with cq1:
+            st.metric("생성 중", running_count)
+        with cq2:
+            st.metric("대기 중", queued_count)
+        with cq3:
+            st.metric("예상 남은 시간", f"{eta_low}~{eta_high}분")
+
     st.markdown("### 🧾 생성 대기열")
     if not queue_items:
         st.info("현재 대기열이 비어 있습니다.")
@@ -7088,6 +7158,94 @@ if active_page == "generate":
             queue_items = [x for x in queue_items if x.get("status") in {"queued", "running"}]
             if len(queue_items) != before and save_generation_queue_items(queue_items):
                 st.rerun()
+
+    if active_queue_items:
+        st.markdown("### ☕ 기다리는 동안 1분 복습")
+        st.caption(
+            "AMBOSS/UWorld의 tutor-style 풀이처럼 바로 확인하는 대기 중 미니 복습입니다. "
+            "이 패널의 답안은 시험 기록/정답 통계에 저장되지 않습니다."
+        )
+        wait_bank = load_questions()
+        wait_candidates = get_cached_derived_view_value(
+            "questions",
+            "generation_wait_candidates",
+            {
+                "limit": 6,
+                "refresh": int(st.session_state.get("generation_wait_review_refresh", 0) or 0),
+            },
+            lambda: select_generation_waiting_review_candidates(
+                wait_bank.get("text", []) + wait_bank.get("cloze", []),
+                limit=6,
+                random_seed=st.session_state.get("generation_wait_review_refresh", 0),
+            ),
+        )
+        if not wait_candidates:
+            st.info("미니 복습에 사용할 기존 문항이 없습니다. 먼저 저장된 문항을 하나 이상 만들어 주세요.")
+        else:
+            top_actions = st.columns([3, 1])
+            with top_actions[0]:
+                preview_rows = []
+                for i, q in enumerate(wait_candidates, 1):
+                    stem = q.get("problem") or q.get("front") or ""
+                    preview_rows.append(
+                        f"{i}. {(q.get('subject') or 'General')} / {(q.get('unit') or '미분류')} · {stem[:48]}"
+                    )
+                st.caption("추천 문항: " + " | ".join(preview_rows[:3]))
+            with top_actions[1]:
+                if st.button("다른 추천", key="refresh_generation_wait_review", use_container_width=True):
+                    st.session_state.generation_wait_review_refresh = int(st.session_state.get("generation_wait_review_refresh", 0) or 0) + 1
+                    st.rerun()
+
+            selected_wait_idx = st.selectbox(
+                "미니 복습 문항",
+                options=list(range(len(wait_candidates))),
+                format_func=lambda i: f"{i + 1}. {(wait_candidates[i].get('subject') or 'General')} / {(wait_candidates[i].get('unit') or '미분류')}",
+                key=f"generation_wait_review_pick_{st.session_state.get('generation_wait_review_refresh', 0)}",
+            )
+            wait_raw = wait_candidates[selected_wait_idx]
+            wait_question = parse_cloze_content(wait_raw) if wait_raw.get("type") == "cloze" else parse_mcq_content(wait_raw)
+            wait_qid = str(wait_raw.get("id") or f"wait_{selected_wait_idx}")
+            wait_reveal_key = f"gen_wait_reveal_{wait_qid}"
+
+            st.markdown(wait_question.get("front", ""))
+            if wait_question.get("images"):
+                st.image(wait_question.get("images"), width=420)
+
+            if wait_question.get("type") == "mcq":
+                letters = ["A", "B", "C", "D", "E"]
+                options = wait_question.get("options") or []
+                labels = [f"{letters[i]}. {options[i]}" for i in range(min(len(options), len(letters)))]
+                wait_choice = st.selectbox(
+                    "답 선택",
+                    options=["선택하세요"] + labels,
+                    key=f"gen_wait_choice_{wait_qid}",
+                )
+                valid_choice = wait_choice != "선택하세요"
+                if st.button("정답 확인", key=f"gen_wait_check_{wait_qid}", use_container_width=True, disabled=not valid_choice):
+                    st.session_state[wait_reveal_key] = True
+                if st.session_state.get(wait_reveal_key):
+                    selected_letter = (wait_choice or "A").split(".")[0]
+                    selected_num = letters.index(selected_letter) + 1 if selected_letter in letters else None
+                    correct_num = wait_question.get("correct")
+                    is_correct = selected_num == correct_num
+                    correct_display = letters[correct_num - 1] if isinstance(correct_num, int) and 1 <= correct_num <= 5 else "?"
+                    st.write(f"{'🟢' if is_correct else '🔴'} **정답:** {correct_display}")
+                    if wait_question.get("explanation"):
+                        st.markdown(format_explanation_text(wait_question.get("explanation")))
+            else:
+                response_type = wait_question.get("response_type", "cloze")
+                if response_type == "short":
+                    wait_answer = st.text_input("정답 입력", key=f"gen_wait_input_{wait_qid}")
+                else:
+                    wait_answer = st.text_input("빈칸 답 입력", key=f"gen_wait_input_{wait_qid}")
+                if st.button("정답 확인", key=f"gen_wait_check_{wait_qid}", use_container_width=True, disabled=not wait_answer):
+                    st.session_state[wait_reveal_key] = True
+                if st.session_state.get(wait_reveal_key):
+                    correct_text = wait_question.get("answer") or ""
+                    is_correct = fuzzy_match(wait_answer, correct_text) if correct_text else False
+                    st.write(f"{'🟢' if is_correct else '🔴'} **정답:** {correct_text}")
+                    if wait_question.get("explanation"):
+                        st.markdown(format_explanation_text(wait_question.get("explanation")))
 
     st.markdown("---")
     st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")

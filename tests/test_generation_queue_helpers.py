@@ -37,6 +37,21 @@ def _load_namespace(names, extra=None):
 
 
 class GenerationQueueHelperTests(unittest.TestCase):
+    def test_estimate_generation_queue_remaining_minutes_counts_only_active_items(self):
+        ns = _load_namespace(
+            ["estimate_generation_runtime_minutes", "estimate_generation_queue_remaining_minutes"],
+            extra={"__builtins__": __builtins__},
+        )
+        queue = [
+            {"status": "queued", "raw_text": "a" * 2000, "num_items": 10, "style_text": ""},
+            {"status": "running", "raw_text": "b" * 1000, "num_items": 5, "style_text": "style"},
+            {"status": "done", "raw_text": "c" * 5000, "num_items": 30, "style_text": ""},
+        ]
+        total = ns["estimate_generation_queue_remaining_minutes"](queue)
+        self.assertGreater(total, 0)
+        done_only = ns["estimate_generation_queue_remaining_minutes"]([queue[-1]])
+        self.assertEqual(done_only, 0.0)
+
     def test_build_generation_queue_item_sets_required_fields(self):
         ns = _load_namespace(["build_generation_queue_item"])
         item = ns["build_generation_queue_item"](
