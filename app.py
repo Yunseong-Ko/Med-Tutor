@@ -1414,21 +1414,80 @@ def get_bundled_seed_questions_path():
 def maybe_seed_lab_exam_questions_for_allowed_viewer():
     if not is_allowed_viewer():
         return 0
-    bank = load_questions()
-    existing_total = len(bank.get("text", [])) + len(bank.get("cloze", []))
-    if existing_total > 0:
-        return 0
     seed_path = get_bundled_seed_questions_path()
-    data = load_json_file(seed_path, {"text": [], "cloze": []})
+    data = load_json_file(seed_path, {"version": "v1", "text": [], "cloze": []})
     if not isinstance(data, dict):
         return 0
+    seed_version = str(data.get("version") or "v1")
     seed_text = data.get("text", []) if isinstance(data.get("text"), list) else []
     seed_cloze = data.get("cloze", []) if isinstance(data.get("cloze"), list) else []
     if not (seed_text or seed_cloze):
         return 0
-    payload = {"text": seed_text, "cloze": seed_cloze}
-    save_questions(ensure_question_ids(payload))
-    return len(seed_text) + len(seed_cloze)
+    settings = load_user_settings()
+    if str(settings.get("lab_exam_seed_version") or "") == seed_version:
+        return 0
+
+    bank = load_questions()
+    existing_items = list(bank.get("text", [])) + list(bank.get("cloze", []))
+    only_seeded_items = bool(existing_items) and all(str(item.get("unit") or "") == "실습시험 시드" for item in existing_items)
+
+    if not existing_items or only_seeded_items:
+        payload = ensure_question_ids({"text": seed_text, "cloze": seed_cloze})
+        save_questions(payload)
+        settings["lab_exam_seed_version"] = seed_version
+        save_user_settings(settings)
+        return len(payload.get("text", [])) + len(payload.get("cloze", []))
+
+    added = 0
+    existing_text_keys = {
+        build_question_dedupe_key(item, MODE_MCQ)
+        for item in bank.get("text", [])
+        if isinstance(item, dict)
+    }
+    existing_cloze_keys = {
+        build_question_dedupe_key(item, MODE_CLOZE)
+        for item in bank.get("cloze", [])
+        if isinstance(item, dict)
+    }
+    for item in seed_text:
+        if not isinstance(item, dict):
+            continue
+        normalized = normalize_mcq_item(item)
+        if not normalized:
+            continue
+        key = build_question_dedupe_key(normalized, MODE_MCQ)
+        if key and key in existing_text_keys:
+            continue
+        normalized["subject"] = normalized.get("subject") or "진단검사의학"
+        normalized["unit"] = normalized.get("unit") or "실습시험 시드"
+        normalized["date_added"] = datetime.now().isoformat()
+        normalized["id"] = normalized.get("id") or str(uuid.uuid4())
+        bank["text"].append(normalized)
+        if key:
+            existing_text_keys.add(key)
+        added += 1
+    for item in seed_cloze:
+        if not isinstance(item, dict):
+            continue
+        normalized = normalize_cloze_item(item)
+        if not normalized:
+            continue
+        key = build_question_dedupe_key(normalized, MODE_CLOZE)
+        if key and key in existing_cloze_keys:
+            continue
+        normalized["subject"] = normalized.get("subject") or "진단검사의학"
+        normalized["unit"] = normalized.get("unit") or "실습시험 시드"
+        normalized["date_added"] = datetime.now().isoformat()
+        normalized["id"] = normalized.get("id") or str(uuid.uuid4())
+        bank["cloze"].append(normalized)
+        if key:
+            existing_cloze_keys.add(key)
+        added += 1
+    if added:
+        save_questions(bank)
+    settings["lab_exam_seed_version"] = seed_version
+    save_user_settings(settings)
+    return added
 
 def load_fsrs_settings():
     data = load_user_settings()
