@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v6",
+  "version": "lab-exam-seed-v7",
   "text": [
     {
       "type": "mcq",
@@ -477,6 +477,276 @@
       "explanation": "혈소판 수혈 후에는 혈소판 증가량, 필요 시 CCI 등을 통해 효과를 평가한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "민감도(sensitivity)의 정의로 가장 적절한 것은?",
+      "options": ["질병이 없는 사람 중 음성 비율", "검사 양성자 중 실제 환자 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 음성자 중 실제 비환자 비율", "전체 대상자 중 검사 양성 비율"],
+      "answer": 3,
+      "explanation": "민감도는 질병이 있는 사람 중 검사에서 양성으로 나오는 비율이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "특이도(specificity)의 정의로 가장 적절한 것은?",
+      "options": ["질병이 없는 사람 중 검사 음성 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 양성자 중 실제 환자 비율", "질병이 있는 사람 중 검사 음성 비율", "전체 중 음성 결과 비율"],
+      "answer": 1,
+      "explanation": "특이도는 질병이 없는 사람 중 검사에서 음성으로 나오는 비율이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "유병률이 증가할 때 일반적으로 증가하는 지표는?",
+      "options": ["민감도", "특이도", "양성예측도", "음성예측도", "분석 정확도"],
+      "answer": 3,
+      "explanation": "유병률이 증가하면 양성예측도는 증가하고 음성예측도는 감소하는 경향을 보인다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "선별검사(screening test)에 더 적합한 특성은?",
+      "options": ["높은 특이도", "높은 민감도", "높은 양성예측도만 확보", "높은 검사 비용", "낮은 재현성"],
+      "answer": 2,
+      "explanation": "선별검사는 질환을 놓치지 않는 것이 중요하므로 높은 민감도가 유리하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "확진검사(confirmatory test)에 더 적합한 특성은?",
+      "options": ["높은 특이도", "높은 민감도", "낮은 비용", "짧은 검사시간만 중요", "높은 유병률 필요"],
+      "answer": 1,
+      "explanation": "확진검사는 위양성을 줄이는 것이 중요하므로 높은 특이도가 유리하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "위양성(false positive)에 해당하는 경우는?",
+      "options": ["환자인데 검사 음성", "비환자인데 검사 양성", "환자인데 검사 양성", "비환자인데 검사 음성", "검사 실패로 무효"],
+      "answer": 2,
+      "explanation": "false positive는 실제 질병이 없는데 검사 결과가 양성인 경우를 뜻한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "위음성(false negative)에 해당하는 경우는?",
+      "options": ["비환자인데 검사 음성", "비환자인데 검사 양성", "환자인데 검사 양성", "환자인데 검사 음성", "재검이 필요한 경우"],
+      "answer": 4,
+      "explanation": "false negative는 실제 질병이 있는데 검사 결과가 음성인 경우를 말한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청(serum)에 대한 설명으로 옳은 것은?",
+      "options": ["항응고제가 들어간 혈액에서 얻는다", "응고 후 상층액으로 fibrinogen이 감소한다", "항응고제가 반드시 필요하다", "전혈과 동일하다", "ABGA에 가장 적합하다"],
+      "answer": 2,
+      "explanation": "혈청은 혈액을 응고시킨 뒤 분리한 상층액으로 fibrinogen 등이 소모된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "EDTA 튜브(보라색)의 주된 용도로 가장 적절한 것은?",
+      "options": ["응고검사", "CBC", "지질검사", "혈청화학", "혈액가스"],
+      "answer": 2,
+      "explanation": "EDTA는 혈구 형태 보존에 유리하여 CBC에 널리 사용된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Citrate 튜브(청색)의 주된 용도로 가장 적절한 것은?",
+      "options": ["CBC", "혈청 지질검사", "응고검사", "ABGA", "혈액배양"],
+      "answer": 3,
+      "explanation": "citrate는 칼슘을 가역적으로 결합하여 응고검사에 사용한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Heparin 튜브(녹색)의 사용으로 가장 적절한 것은?",
+      "options": ["응고인자 활성 측정", "혈장 기반 화학검사", "CBC", "혈액배양", "ESR"],
+      "answer": 2,
+      "explanation": "heparin은 혈장 기반 임상화학검사와 일부 혈액가스검사에 사용된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "EDTA 오염이 의심될 때 가장 가능성이 높은 검사 결과 조합은?",
+      "options": ["Ca 증가, K 감소", "Ca 감소, K 증가", "Na 증가, Cl 증가", "AST 감소, LD 감소", "TG 감소, HDL 증가"],
+      "answer": 2,
+      "explanation": "EDTA는 칼슘을 킬레이트하고 K-EDTA 제제는 칼륨을 증가시킬 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청 칼륨이 높게 나왔지만 검체가 심하게 용혈된 경우 가장 먼저 고려할 것은?",
+      "options": ["진성 고칼륨혈증", "가성 고칼륨혈증", "고나트륨혈증", "저칼슘혈증", "지질이상증"],
+      "answer": 2,
+      "explanation": "용혈로 적혈구 내 칼륨이 유리되어 pseudohyperkalemia가 발생할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "지질검사에서 LDL cholesterol이 96 mg/dL일 때 분류는?",
+      "options": ["Optimal", "Near optimal/above optimal", "Borderline high", "High", "Very high"],
+      "answer": 1,
+      "explanation": "LDL <100 mg/dL는 optimal에 해당한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "LDL cholesterol이 145 mg/dL일 때 가장 적절한 분류는?",
+      "options": ["Optimal", "Near optimal", "Borderline high", "High", "Very high"],
+      "answer": 3,
+      "explanation": "LDL 130-159 mg/dL는 borderline high로 분류한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Total cholesterol 245 mg/dL의 분류는?",
+      "options": ["Desirable", "Near optimal", "Borderline high", "High", "Very high"],
+      "answer": 4,
+      "explanation": "총콜레스테롤 ≥240 mg/dL는 high로 분류한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "HDL cholesterol 35 mg/dL의 해석으로 옳은 것은?",
+      "options": ["높음", "정상", "낮음", "경계역", "매우 높음"],
+      "answer": 3,
+      "explanation": "HDL <40 mg/dL는 low HDL로 해석한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "HDL cholesterol 68 mg/dL의 해석으로 옳은 것은?",
+      "options": ["낮음", "경계역", "보통", "높음", "매우 높음"],
+      "answer": 4,
+      "explanation": "HDL ≥60 mg/dL는 높은 HDL로 해석한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Triglyceride 180 mg/dL의 분류는?",
+      "options": ["Normal", "Borderline high", "High", "Very high", "Low"],
+      "answer": 2,
+      "explanation": "중성지방 150-199 mg/dL는 borderline high이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Triglyceride 540 mg/dL의 분류는?",
+      "options": ["Normal", "Borderline high", "High", "Very high", "Optimal"],
+      "answer": 4,
+      "explanation": "중성지방 ≥500 mg/dL는 very high이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "양성예측도(PPV)에 대한 설명으로 옳은 것은?",
+      "options": ["검사 음성자 중 실제 비환자 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 양성자 중 실제 환자 비율", "질병이 없는 사람 중 검사 음성 비율", "유병률과 무관하다"],
+      "answer": 3,
+      "explanation": "PPV는 검사 양성자 중 실제로 질병이 있는 비율이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "음성예측도(NPV)에 대한 설명으로 옳은 것은?",
+      "options": ["검사 음성자 중 실제 비환자 비율", "질병이 있는 사람 중 검사 음성 비율", "질병이 없는 사람 중 검사 음성 비율", "검사 양성자 중 실제 환자 비율", "유병률이 높을수록 증가한다"],
+      "answer": 1,
+      "explanation": "NPV는 검사 음성자 중 실제로 질병이 없는 비율이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "같은 민감도와 특이도를 가진 검사라도 유병률이 낮은 집단에서 상대적으로 높아지기 쉬운 것은?",
+      "options": ["민감도", "특이도", "양성예측도", "음성예측도", "정밀도"],
+      "answer": 4,
+      "explanation": "유병률이 낮으면 일반적으로 NPV는 높아지고 PPV는 낮아진다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "검사 cut-off를 낮추면 일반적으로 나타나는 변화는?",
+      "options": ["민감도 감소, 특이도 증가", "민감도 증가, 특이도 감소", "민감도와 특이도 모두 증가", "민감도와 특이도 모두 감소", "유병률 증가"],
+      "answer": 2,
+      "explanation": "cut-off를 낮추면 양성 판정이 늘어나 민감도는 증가하고 특이도는 감소하는 경향이 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈장(plasma)에 대한 설명으로 가장 적절한 것은?",
+      "options": ["응고 후 얻는다", "fibrinogen이 없다", "항응고제가 첨가된 혈액에서 얻는다", "혈청보다 항상 칼륨이 낮다", "응고검사에 부적합하다"],
+      "answer": 3,
+      "explanation": "혈장은 항응고제가 있는 상태에서 원심분리해 얻으며 fibrinogen을 포함한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Heparinized whole blood가 특히 흔히 사용되는 검사는?",
+      "options": ["PT", "aPTT", "ABGA", "CBC", "혈액배양"],
+      "answer": 3,
+      "explanation": "혈액가스분석에는 heparinized whole blood를 흔히 사용한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "정확도(accuracy)에 대한 설명으로 가장 적절한 것은?",
+      "options": ["반복 측정 시 값끼리의 일치도", "참값에 얼마나 가까운가", "결과의 표준편차", "검사 양성률", "검사자의 숙련도만 반영"],
+      "answer": 2,
+      "explanation": "정확도는 측정값이 참값에 얼마나 가까운지를 의미한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "정밀도(precision)에 대한 설명으로 가장 적절한 것은?",
+      "options": ["참값과의 근접성", "반복 측정 결과들 간의 일치도", "검사 민감도", "검사 특이도", "유병률의 함수"],
+      "answer": 2,
+      "explanation": "정밀도는 반복 측정 시 결과들이 서로 얼마나 가까운지를 의미한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "외부정도관리(EQA)가 더 직접적으로 평가하는 항목은?",
+      "options": ["정밀도", "정확도", "유병률", "민감도", "특이도"],
+      "answer": 2,
+      "explanation": "외부정도관리는 참값 또는 타기관과의 비교를 통해 정확도를 평가하는 데 유용하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "내부정도관리(IQC)가 특히 중요하게 보는 항목은?",
+      "options": ["정밀도", "유병률", "양성예측도", "음성예측도", "질병 중증도"],
+      "answer": 1,
+      "explanation": "내부정도관리는 반복 측정의 일관성, 즉 정밀도 평가에 중요하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
     }
   ],
   "cloze": [
@@ -1127,6 +1397,348 @@
       "explanation": "post-transfusion increment나 corrected count increment를 참고한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "민감도는 질병이 있는 사람 중 검사 ____ 비율이다.",
+      "answer": "양성",
+      "explanation": "sensitivity = TP / (TP + FN) 이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "특이도는 질병이 없는 사람 중 검사 ____ 비율이다.",
+      "answer": "음성",
+      "explanation": "specificity = TN / (TN + FP) 이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PPV는 검사 ____ 인 사람 중 실제 환자 비율이다.",
+      "answer": "양성",
+      "explanation": "PPV = TP / (TP + FP) 이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "NPV는 검사 ____ 인 사람 중 실제 비환자 비율이다.",
+      "answer": "음성",
+      "explanation": "NPV = TN / (TN + FN) 이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "유병률이 높아지면 일반적으로 PPV는 ____ .",
+      "answer": "증가한다",
+      "explanation": "유병률 상승은 양성 결과의 실제 질병 가능성을 높인다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "유병률이 낮아지면 일반적으로 NPV는 ____ .",
+      "answer": "증가한다",
+      "explanation": "유병률이 낮을수록 음성 결과의 신뢰도가 올라간다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "선별검사에서는 특이도보다 ____ 를 우선하는 경우가 많다.",
+      "answer": "민감도",
+      "explanation": "질환을 놓치지 않는 것이 중요하기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "확진검사에서는 민감도보다 ____ 가 더 중요할 때가 많다.",
+      "answer": "특이도",
+      "explanation": "위양성을 줄이는 것이 중요하기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "비환자인데 검사 결과가 양성으로 나오는 것은 위 ____ 이다.",
+      "answer": "양성",
+      "explanation": "false positive의 정의다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "환자인데 검사 결과가 음성으로 나오는 것은 위 ____ 이다.",
+      "answer": "음성",
+      "explanation": "false negative의 정의다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "cut-off를 낮추면 일반적으로 민감도는 ____ 하고 특이도는 감소한다.",
+      "answer": "증가",
+      "explanation": "양성 판정 기준을 낮추면 양성이 늘어난다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈청은 혈액을 ____ 시킨 뒤 얻는다.",
+      "answer": "응고",
+      "explanation": "serum은 응고 후 상층액이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈장은 항응고제가 든 혈액에서 얻으며 ____ 을 포함한다.",
+      "answer": "fibrinogen",
+      "explanation": "plasma는 응고인자가 남아 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "EDTA 튜브의 대표 색상은 ____ 색이다.",
+      "answer": "보라",
+      "explanation": "lavender/purple top으로 흔히 표현한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Citrate 튜브의 대표 색상은 ____ 색이다.",
+      "answer": "청",
+      "explanation": "light blue top으로 알려져 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Heparin 튜브의 대표 색상은 ____ 색이다.",
+      "answer": "녹",
+      "explanation": "green top tube로 많이 외운다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "EDTA는 CBC에, citrate는 ____ 검사에 주로 사용한다.",
+      "answer": "응고",
+      "explanation": "PT, aPTT 등 응고검사는 citrate plasma를 사용한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Heparinized whole blood는 ____ 검사에 흔히 사용된다.",
+      "answer": "혈액가스",
+      "explanation": "ABGA 검체로 자주 사용된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "EDTA 오염 시 칼슘은 감소하고 칼륨은 ____ 할 수 있다.",
+      "answer": "증가",
+      "explanation": "K-EDTA contamination의 대표 패턴이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "용혈 검체에서는 칼륨, LD, AST 등이 가짜로 ____ 할 수 있다.",
+      "answer": "증가",
+      "explanation": "세포 내 성분 유출 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "LDL cholesterol ____ 100 mg/dL 는 optimal 범주다.",
+      "answer": "미만",
+      "explanation": "LDL <100 mg/dL가 optimal이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "LDL 130-159 mg/dL는 borderline ____ 이다.",
+      "answer": "high",
+      "explanation": "LDL 분류에서 130-159는 borderline high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "LDL ____ 190 mg/dL 는 very high 이다.",
+      "answer": "이상",
+      "explanation": "LDL ≥190 mg/dL는 very high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Total cholesterol ____ 200 mg/dL 는 desirable 범주다.",
+      "answer": "미만",
+      "explanation": "총콜레스테롤 <200 mg/dL가 desirable이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Total cholesterol 200-239 mg/dL는 borderline ____ 이다.",
+      "answer": "high",
+      "explanation": "총콜레스테롤 200-239는 borderline high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HDL cholesterol ____ 40 mg/dL 는 low 범주다.",
+      "answer": "미만",
+      "explanation": "HDL <40 mg/dL는 낮은 HDL이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HDL cholesterol ____ 60 mg/dL 는 high 범주다.",
+      "answer": "이상",
+      "explanation": "HDL ≥60 mg/dL는 높은 HDL이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Triglyceride ____ 150 mg/dL 는 normal 범주다.",
+      "answer": "미만",
+      "explanation": "중성지방 <150 mg/dL가 normal이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Triglyceride 150-199 mg/dL는 borderline ____ 이다.",
+      "answer": "high",
+      "explanation": "중성지방 150-199는 borderline high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Triglyceride 200-499 mg/dL는 ____ 범주다.",
+      "answer": "high",
+      "explanation": "중성지방 200-499는 high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Triglyceride ____ 500 mg/dL 는 very high 범주다.",
+      "answer": "이상",
+      "explanation": "중성지방 ≥500는 very high다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "정확도는 측정값이 ____ 에 얼마나 가까운가를 뜻한다.",
+      "answer": "참값",
+      "explanation": "accuracy의 정의다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "정밀도는 반복 측정 결과들 사이의 ____ 도를 뜻한다.",
+      "answer": "일치",
+      "explanation": "precision은 reproducibility와 관련된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "외부정도관리는 주로 검사의 ____ 평가에 유리하다.",
+      "answer": "정확도",
+      "explanation": "타기관 또는 참값과 비교하기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "내부정도관리는 주로 검사의 ____ 평가에 유리하다.",
+      "answer": "정밀도",
+      "explanation": "반복 측정의 재현성을 보기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "유병률이 낮은 집단에서는 양성예측도보다 음성예측도가 더 ____ 지기 쉽다.",
+      "answer": "높아",
+      "explanation": "드문 질환일수록 음성 결과의 신뢰도가 높아진다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "선별검사에서 민감도가 낮으면 위 ____ 이 늘 수 있다.",
+      "answer": "음성",
+      "explanation": "질병이 있는 사람을 놓치기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "확진검사에서 특이도가 낮으면 위 ____ 이 늘 수 있다.",
+      "answer": "양성",
+      "explanation": "비환자를 양성으로 잘못 분류할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
     }
   ]
 }
