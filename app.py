@@ -6202,7 +6202,7 @@ def generate_content_openai(
         if selected_mode == mode_mcq:
             result = convert_json_mcq_to_text(result, num_items)
         
-        append_audit_log("gen.question", {
+        payload = {
             "model": "gpt-4o-mini",
             "temperature": LLM_TEMPERATURE,
             "seed": LLM_SEED,
@@ -6212,7 +6212,11 @@ def generate_content_openai(
             "output_text": result,
             "usage_tokens": _openai_usage_tokens(response),
             "prompt_version": PROMPT_VERSION,
-        }, user_id=audit_user_id)
+        }
+        try:
+            append_audit_log("gen.question", payload, user_id=audit_user_id)
+        except TypeError:
+            append_audit_log("gen.question", payload)
         return result
     except Exception as e:
         import traceback
