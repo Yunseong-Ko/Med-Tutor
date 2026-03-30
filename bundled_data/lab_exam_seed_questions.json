@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v5",
+  "version": "lab-exam-seed-v6",
   "text": [
     {
       "type": "mcq",
@@ -367,6 +367,114 @@
       "options": ["AB형 농축적혈구", "A형 농축적혈구", "B형 농축적혈구", "O형 RhD 음성 농축적혈구", "O형 RhD 양성 농축적혈구"],
       "answer": 4,
       "explanation": "가임기 여성은 Rh 감작을 줄이기 위해 가능하면 O형 RhD 음성 적혈구를 우선 사용한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "헤파린 치료 환자에서 헤파린 효과를 모니터링할 때 주로 참고하는 검사는?",
+      "options": ["PT", "aPTT", "bleeding time", "D-dimer", "fibrinogen"],
+      "answer": 2,
+      "explanation": "비분획 헤파린의 항응고 효과 평가는 일반적으로 aPTT를 사용한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "DIC에서 비교적 흔히 관찰되는 검사 소견은?",
+      "options": ["platelet 증가", "PT/aPTT 단축", "D-dimer 증가", "fibrinogen 증가", "schistocyte 소실"],
+      "answer": 3,
+      "explanation": "DIC에서는 섬유소 용해가 활성화되어 D-dimer가 증가하고 혈소판 및 fibrinogen은 감소할 수 있다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "고칼륨혈증 여부를 가장 빨리 확인해야 하는 상황에서 용혈 가능성이 큰 검체가 제출되었다. 가장 적절한 다음 조치는?",
+      "options": ["그 결과를 그대로 보고한다", "혈청 대신 새 검체로 재채혈을 요청한다", "칼륨 값을 10% 감산해 보고한다", "나트륨으로 대신 판단한다", "검체를 냉동 후 재검한다"],
+      "answer": 2,
+      "explanation": "용혈은 가성 고칼륨혈증의 대표 원인이므로 임상적으로 중요하면 재채혈 후 재검이 적절하다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청 삼투질차(osmolal gap)가 증가하는 상황과 가장 관련이 깊은 것은?",
+      "options": ["에탄올/메탄올 등 독성 알코올", "철결핍빈혈", "갑상선기능저하증", "비타민 B12 결핍", "DIC"],
+      "answer": 1,
+      "explanation": "독성 알코올 섭취 시 측정 삼투질이 증가하여 osmolal gap이 커질 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "ANCA 관련 혈관염에서 microscopic polyangiitis와 더 관련이 깊은 항체는?",
+      "options": ["PR3-ANCA", "c-ANCA", "MPO-ANCA", "anti-GBM", "AMA"],
+      "answer": 3,
+      "explanation": "microscopic polyangiitis는 주로 MPO-ANCA(p-ANCA)와 관련이 깊다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "HIV 선별검사 양성 후 확진 단계에서 가장 중요한 원칙은?",
+      "options": ["즉시 AIDS로 진단한다", "다른 방법의 보충검사로 확인한다", "CD4 수치만 확인한다", "ELISA를 같은 검체로 세 번 반복한다", "항바이러스제 반응을 본다"],
+      "answer": 2,
+      "explanation": "HIV는 선별검사 양성 후 다른 원리의 보충검사나 핵산검사로 확인하는 절차가 중요하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "Sanger sequencing과 비교한 NGS의 장점으로 가장 적절한 것은?",
+      "options": ["항상 비용이 더 낮다", "긴 단일 read를 반드시 제공한다", "대량 병렬 분석이 가능하다", "전처리가 필요 없다", "오염 위험이 전혀 없다"],
+      "answer": 3,
+      "explanation": "NGS의 핵심 장점은 많은 표적을 병렬로 동시에 분석할 수 있다는 점이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "실시간 PCR에서 no template control이 양성으로 나왔다면 가장 먼저 의심해야 할 것은?",
+      "options": ["검체량 부족", "시약 오염", "표적 농도 과소", "내부대조군 실패", "RNA 분해"],
+      "answer": 2,
+      "explanation": "NTC 양성은 대개 시약이나 환경 오염을 시사한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈액배양 채혈에서 검출률을 높이는 데 가장 중요한 요소 중 하나는?",
+      "options": ["주사기 색상", "채혈량", "검사실 위치", "항생제 이름", "환자 키"],
+      "answer": 2,
+      "explanation": "혈액배양은 채혈량이 충분할수록 균 검출률이 증가한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "요배양에서 mixed flora가 다수 자라면서 colony count도 일정하지 않다면 우선적으로 생각할 것은?",
+      "options": ["진성 요로감염", "검체 오염", "결핵", "진균혈증", "패혈증"],
+      "answer": 2,
+      "explanation": "mixed flora는 채뇨 과정 오염 가능성을 우선 시사한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "FFP 수혈의 적절한 적응증으로 가장 알맞은 것은?",
+      "options": ["철결핍빈혈", "응고인자 결핍에 의한 출혈", "혈소판 감소증 단독", "저알부민혈증 보충", "단순 체액 보충"],
+      "answer": 2,
+      "explanation": "FFP는 다수 응고인자 보충이 필요한 출혈성 상황에서 적응증이 된다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈소판 수혈의 효과를 가장 흔히 평가하는 지표는?",
+      "options": ["reticulocyte count", "platelet count increment", "hematocrit 감소폭", "LD 증가 여부", "bilirubin 변화"],
+      "answer": 2,
+      "explanation": "혈소판 수혈 후에는 혈소판 증가량, 필요 시 CCI 등을 통해 효과를 평가한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
     }
@@ -909,6 +1017,114 @@
       "front": "TRALI는 수혈 관련 급성 ____ 손상을 뜻한다.",
       "answer": "폐",
       "explanation": "TRALI는 transfusion-related acute lung injury의 약자다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "헤파린의 항응고 효과 모니터링에는 주로 ____ 를 참고한다.",
+      "answer": "aPTT",
+      "explanation": "비분획 헤파린 치료 시 aPTT가 대표적 모니터링 검사다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "DIC에서 섬유소 분해 산물 증가를 반영하는 대표 검사는 ____ 이다.",
+      "answer": "D-dimer",
+      "explanation": "DIC에서는 coagulation과 fibrinolysis가 함께 활성화되어 D-dimer가 증가한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "용혈 검체에서 칼륨이 높게 나오면 먼저 가성 ____ 을 생각해야 한다.",
+      "answer": "고칼륨혈증",
+      "explanation": "용혈은 pseudohyperkalemia의 대표 원인이다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "독성 알코올 섭취에서는 anion gap과 함께 ____ gap 증가를 볼 수 있다.",
+      "answer": "osmolal",
+      "explanation": "methanol, ethylene glycol 등은 osmolal gap 증가와 관련될 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "microscopic polyangiitis와 비교적 연관이 큰 ANCA는 ____-ANCA 이다.",
+      "answer": "MPO",
+      "explanation": "MPA는 MPO-ANCA와 관련이 깊다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HIV 선별검사 양성 후에는 다른 원리의 ____ 검사로 확인이 필요하다.",
+      "answer": "보충",
+      "explanation": "선별 양성은 보충검사 또는 핵산검사로 확인하는 절차가 중요하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "NGS의 핵심 장점은 많은 표적을 ____ 으로 동시에 분석할 수 있다는 점이다.",
+      "answer": "병렬",
+      "explanation": "next-generation sequencing은 massively parallel sequencing이 핵심이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PCR에서 no template control 양성은 주로 ____ 을 시사한다.",
+      "answer": "오염",
+      "explanation": "NTC 양성은 시약 또는 환경 오염 가능성을 우선 의심한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈액배양의 양성률을 높이는 가장 중요한 요소 중 하나는 충분한 ____ 이다.",
+      "answer": "채혈량",
+      "explanation": "blood culture는 충분한 blood volume 확보가 매우 중요하다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "요배양에서 mixed flora가 나오면 먼저 검체 ____ 가능성을 본다.",
+      "answer": "오염",
+      "explanation": "mixed flora는 채뇨 과정 contamination을 우선 시사한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "FFP는 주로 ____ 인자 보충이 필요한 출혈 상황에서 사용한다.",
+      "answer": "응고",
+      "explanation": "fresh frozen plasma는 여러 응고인자를 함께 보충한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈소판 수혈 효과는 수혈 후 혈소판 수 ____ 으로 흔히 평가한다.",
+      "answer": "증가량",
+      "explanation": "post-transfusion increment나 corrected count increment를 참고한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
     }
