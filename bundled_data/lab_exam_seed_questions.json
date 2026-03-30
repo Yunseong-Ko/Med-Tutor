@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v8",
+  "version": "lab-exam-seed-v9",
   "text": [
     {
       "type": "mcq",
@@ -997,6 +997,195 @@
       "options": ["Na, K, Cl, HCO3-", "Ca, Mg, P", "AST, ALT, ALP", "BUN, Cr, uric acid", "troponin, CK-MB"],
       "answer": 1,
       "explanation": "anion gap은 보통 Na - (Cl + HCO3-)로 계산하며 상황에 따라 K를 포함하기도 한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "내부정도관리 허용기준을 2SD에서 3SD로 바꾸면 일반적으로 나타나는 변화는?",
+      "options": ["위거부율 증가, 오차발견율 증가", "위거부율 감소, 오차발견율 감소", "위거부율 증가, 오차발견율 감소", "위거부율 감소, 오차발견율 증가", "아무 변화 없음"],
+      "answer": 2,
+      "explanation": "기준을 느슨하게 하면 run rejection은 줄지만 오류 탐지력도 낮아진다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "참값을 아는 물질을 매일 환자 검체처럼 돌려 검사실 내 재현성을 확인하는 활동은?",
+      "options": ["외부정도관리", "내부정도관리", "delta check", "동등성 검사", "교차반응 시험"],
+      "answer": 2,
+      "explanation": "내부정도관리는 일상적으로 정도관리물질을 검사해 정밀도와 run 상태를 확인한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "측정기관마다 값이 다르게 나오는 상황에서 가장 먼저 점검할 핵심 지표와 조합으로 적절한 것은?",
+      "options": ["정밀도 / 내부정도관리", "정확도 / 외부정도관리", "민감도 / ROC curve", "특이도 / cut-off", "유병률 / 환자수"],
+      "answer": 2,
+      "explanation": "기관 간 차이는 정확도 문제를 시사하며 외부정도관리 또는 비교평가가 중요하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "중성지방 측정 결과에 간섭할 수 있는 실제 존재 분자로 자주 언급되는 것은?",
+      "options": ["glycerol", "bilirubin", "albumin", "creatine", "ammonia"],
+      "answer": 1,
+      "explanation": "free glycerol은 triglyceride assay에 양의 간섭을 줄 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "바이러스성 간염에서 AST, ALT 증가와 관련해 가장 타당한 설명은?",
+      "options": ["ALP만 증가한다", "예후와 관련될 수 있다", "절대 증가하지 않는다", "항상 AST가 ALT보다 3배 높다", "GGT만 의미 있다"],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 반복 출제된 진술이며, 간세포 손상 정도와 임상 경과 판단에 참고될 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "알코올성 간질환의 효소 패턴으로 상대적으로 더 잘 맞는 설명은?",
+      "options": ["AST, ALT 상승과 ALP는 대체로 정상 범위 가능", "ALT만 상승하고 AST는 정상", "ALP만 상승", "bilirubin은 항상 정상", "GGT는 절대 상승하지 않는다"],
+      "answer": 1,
+      "explanation": "복원 자료에서 반복된 표현으로, 알코올성 간질환에서는 AST/ALT 상승과 함께 ALP가 꼭 높지 않을 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "담도 폐쇄 환자 수술 후 bilirubin이 늦게 떨어지는 이유로 가장 적절한 것은?",
+      "options": ["delta bilirubin이 albumin에 결합해서", "AST가 bilirubin과 결합해서", "ALP가 bilirubin 배설을 막아서", "용혈이 항상 동반되어서", "creatinine이 상승해서"],
+      "answer": 1,
+      "explanation": "delta bilirubin은 albumin-bound conjugated bilirubin으로 서서히 감소한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "PSA에 대한 설명으로 가장 타당한 것은?",
+      "options": ["종양특이성이 매우 높다", "조직특이성이 있다", "전립선암과 양성질환을 완벽히 구분한다", "나이가 들수록 감소한다", "total PSA만으로 조기암 진단이 충분하다"],
+      "answer": 2,
+      "explanation": "PSA는 organ-specific marker로 이해하는 것이 적절하며 tumor-specific marker는 아니다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "total PSA가 4-10 ng/mL 범위일 때 전립선암 가능성을 더 시사하는 소견은?",
+      "options": ["free PSA 비율 증가", "free PSA 비율 감소", "PSA 완전 음성", "ALP 감소", "bilirubin 증가"],
+      "answer": 2,
+      "explanation": "tPSA 4-10 구간에서 낮은 free PSA ratio는 전립선암 가능성을 높인다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "국가암검진사업에서 제시된 보기 중 사용되는 종양표지자로 가장 적절한 것은?",
+      "options": ["CEA", "PSA", "AFP", "CA 19-9", "CA-125"],
+      "answer": 3,
+      "explanation": "복원 자료에서 반복적으로 AFP가 정답으로 제시되었다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "CEA와 가장 대표적으로 연결되는 암종은?",
+      "options": ["갑상선암", "대장암", "전립선암", "간세포암", "난소암"],
+      "answer": 2,
+      "explanation": "CEA는 colorectal cancer와 대표적으로 연관된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "AFP CLIA의 희석 전 측정범위가 1.3-1000, 희석 후가 1.3-8000일 때 결과 1200이 나왔다면 가장 적절한 조치는?",
+      "options": ["1200으로 바로 보고", "1000 이상으로 보고", "1000-8000으로 보고", "그대로 재검", "희석하여 재검"],
+      "answer": 5,
+      "explanation": "AMR 상한을 넘은 값은 희석 후 재측정하여 reportable range 내에서 보고해야 한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "AMR과 CRR 관계에 대한 설명으로 가장 적절한 것은?",
+      "options": ["AMR은 희석 후 보고범위다", "CRR은 임상 보고 가능한 최종 범위다", "두 용어는 항상 완전히 같다", "AMR은 민감도를 뜻한다", "CRR은 특이도를 뜻한다"],
+      "answer": 2,
+      "explanation": "CRR은 필요 시 희석 등을 포함한 최종 보고 가능 범위이며 AMR보다 넓을 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Hook effect에 대한 설명으로 가장 적절한 것은?",
+      "options": ["낮은 농도에서 위양성이 나는 현상", "매우 높은 농도에서 위음성 또는 저평가가 생길 수 있는 현상", "EDTA 오염 현상", "용혈 지수 상승", "혈당 저하 현상"],
+      "answer": 2,
+      "explanation": "고농도 analyte가 sandwich immunoassay를 방해해 비정상적으로 낮게 나오는 현상이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "M peak가 혈청단백전기영동에서 보일 때 가장 먼저 떠올릴 질환은?",
+      "options": ["iron deficiency anemia", "multiple myeloma", "viral hepatitis", "nephrotic syndrome", "hypoparathyroidism"],
+      "answer": 2,
+      "explanation": "단클론성 면역글로불린 증가는 다발골수종에서 대표적이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈중 cortisol의 일중변화에 대한 설명으로 맞는 것은?",
+      "options": ["밤에 가장 높다", "새벽 또는 이른 아침에 높다", "하루 종일 일정하다", "식후에만 높다", "운동과 무관하다"],
+      "answer": 2,
+      "explanation": "cortisol은 circadian rhythm을 보여 이른 아침에 높고 밤에 낮다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "Na가 140 mEq/L로 측정되었고 검체의 10%가 단백질/지질에 해당한다면 실제 수분상 Na 농도는 더 높게 계산될 수 있다. 가장 가까운 값은?",
+      "options": ["140", "144", "150", "154", "156"],
+      "answer": 5,
+      "explanation": "고형 성분이 증가한 간접 ISE 상황에서는 pseudohyponatremia가 생기며 실제 수분상 농도는 더 높다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "cTn의 국제 진단기준에서 upper reference limit로 주로 쓰는 것은?",
+      "options": ["95th percentile", "97th percentile", "99th percentile", "mean + 1SD", "mean + 2SD"],
+      "answer": 3,
+      "explanation": "심근경색 진단에서 cardiac troponin의 99th percentile upper reference limit가 중요하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "high-sensitivity troponin assay가 권장되기 위한 변이계수(CV)의 일반 기준은 99th percentile에서 얼마 이하인가?",
+      "options": ["5%", "10%", "15%", "20%", "25%"],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 99th percentile에서 CV 10%가 반복 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "CRP와 hsTnI의 단위 조합으로 가장 적절한 것은?",
+      "options": ["CRP g/L, hsTnI mg/L", "CRP mg/L, hsTnI ng/L", "CRP ng/L, hsTnI mg/L", "둘 다 mmol/L", "둘 다 IU/L"],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 CRP는 mg/L, hsTnI는 ng/L가 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "H-index, I-index, L-index의 의미 조합으로 가장 적절한 것은?",
+      "options": ["hemolysis, icterus, lipemia", "hematocrit, iron, lactate", "hemoglobin, insulin, leukocyte", "heparin, iodine, lipid", "hook, interference, linearity"],
+      "answer": 1,
+      "explanation": "자동분석기 간섭지수에서 HIL index는 hemolysis, icterus, lipemia를 뜻한다.",
       "subject": "임상화학",
       "unit": "임상화학+알파 집중"
     }
@@ -2233,6 +2422,159 @@
       "front": "anion gap 계산의 기본식은 Na - (Cl + ____ ) 이다.",
       "answer": "HCO3-",
       "explanation": "대사성 산증 평가에 중요하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "내부정도관리 기준을 2SD에서 3SD로 바꾸면 위거부율은 감소하지만 오차발견율도 ____ 한다.",
+      "answer": "감소",
+      "explanation": "기준이 느슨해지기 때문이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "기관 간 값 차이가 크면 정확도 문제를 의심하고 ____ 정도관리를 점검한다.",
+      "answer": "외부",
+      "explanation": "EQA는 정확도 확인에 유리하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "중성지방 측정에 간섭 가능한 실제 존재 분자로 자주 묻는 것은 ____ 이다.",
+      "answer": "glycerol",
+      "explanation": "복원에서 반복된 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PSA는 종양특이성보다 ____ 특이성이 있는 marker로 보는 것이 맞다.",
+      "answer": "조직",
+      "explanation": "organ-specific marker 개념이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "total PSA 4-10 ng/mL 범위에서 free PSA 비율이 ____ 할수록 전립선암 가능성이 높다.",
+      "answer": "감소",
+      "explanation": "free PSA ratio 감소는 암 가능성을 높인다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "국가암검진 보기에서 반복 정답으로 언급되는 종양표지자는 ____ 이다.",
+      "answer": "AFP",
+      "explanation": "복원 자료 기준 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "CEA는 대표적으로 ____ 암과 연관된다.",
+      "answer": "대장",
+      "explanation": "colorectal cancer의 대표 marker다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "AFP CLIA 결과가 AMR 상한을 넘으면 검체를 ____ 하여 재검해야 한다.",
+      "answer": "희석",
+      "explanation": "보고 가능 범위로 들여와야 한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "CRR은 clinical ____ range의 약자다.",
+      "answer": "reportable",
+      "explanation": "최종 보고 가능한 임상 범위다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Hook effect는 매우 높은 농도에서 결과가 거짓으로 ____ 게 나오는 현상이다.",
+      "answer": "낮",
+      "explanation": "sandwich assay의 high-dose hook effect다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈청단백전기영동의 M peak는 ____ myeloma를 가장 먼저 떠올리게 한다.",
+      "answer": "multiple",
+      "explanation": "단클론성 gammopathy와 연관된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "cortisol은 일중변화를 보이며 이른 ____ 시간대에 높다.",
+      "answer": "아침",
+      "explanation": "circadian rhythm 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "단백질과 지질이 많은 검체에서 간접 ISE로 측정한 Na는 실제보다 ____ 게 보일 수 있다.",
+      "answer": "낮",
+      "explanation": "pseudohyponatremia의 원리다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "cTn 국제 진단기준의 상한치는 보통 ____ percentile을 사용한다.",
+      "answer": "99th",
+      "explanation": "AMI 진단 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "high-sensitivity troponin assay는 99th percentile에서 CV ____ % 이하가 중요 포인트다.",
+      "answer": "10",
+      "explanation": "복원에서 반복된 수치다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "CRP 단위는 mg/L, hsTnI 단위는 ____ /L 로 자주 묻는다.",
+      "answer": "ng",
+      "explanation": "복원 자료의 최신 포인트다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HIL index에서 H, I, L은 각각 hemolysis, icterus, ____ 를 뜻한다.",
+      "answer": "lipemia",
+      "explanation": "자동분석 간섭지수의 기본 약자다.",
       "subject": "임상화학",
       "unit": "임상화학+알파 집중"
     }
