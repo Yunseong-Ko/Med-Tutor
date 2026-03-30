@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v4",
+  "version": "lab-exam-seed-v5",
   "text": [
     {
       "type": "mcq",
@@ -268,6 +268,105 @@
       "options": ["ATP 증가", "2,3-DPG 증가", "막 유연성 증가", "막 성분 소실 증가", "조직 산소 전달능 증가"],
       "answer": 4,
       "explanation": "저장 기간이 길어지면 ATP와 2,3-DPG가 감소하고 막 성분 소실이 증가한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "말초혈액도말에서 hypersegmented neutrophil이 보일 때 가장 먼저 떠올릴 질환은?",
+      "options": ["철결핍빈혈", "거대적아구성빈혈", "재생불량빈혈", "용혈빈혈", "유전구형적혈구증"],
+      "answer": 2,
+      "explanation": "hypersegmented neutrophil은 비타민 B12 또는 엽산 결핍에 의한 거대적아구성빈혈에서 대표적이다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "철결핍빈혈에서 전형적으로 기대되는 소견은?",
+      "options": ["ferritin 증가, TIBC 감소", "ferritin 감소, TIBC 증가", "MCV 증가, RDW 감소", "serum iron 증가", "transferrin saturation 증가"],
+      "answer": 2,
+      "explanation": "철결핍빈혈에서는 ferritin과 serum iron이 감소하고 TIBC는 증가하는 경향을 보인다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "AML을 시사하는 세포화학염색 소견으로 가장 적절한 것은?",
+      "options": ["MPO 양성", "PAS block positivity", "TdT 양성", "TRAP 양성", "acid phosphatase 양성"],
+      "answer": 1,
+      "explanation": "myeloperoxidase 양성은 골수계 계통 분화를 시사하여 AML에서 중요하다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청과 혈장의 차이로 옳은 것은?",
+      "options": ["혈청에는 fibrinogen이 풍부하다", "혈장은 응고 후 상층액이다", "혈청은 응고인자가 일부 소모된 뒤 얻는다", "혈장은 항응고제가 필요 없다", "두 검체는 항상 동일한 단백 농도를 보인다"],
+      "answer": 3,
+      "explanation": "혈청은 채혈 후 응고시켜 얻으므로 fibrinogen 등 일부 응고인자가 소모된다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "용혈된 검체에서 거짓 상승하기 쉬운 검사 항목은?",
+      "options": ["칼륨", "나트륨", "염소", "혈당", "중성지방"],
+      "answer": 1,
+      "explanation": "적혈구 내 칼륨 농도가 높기 때문에 용혈 검체에서는 혈청 칼륨이 가짜로 증가할 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "Westgard rule 중 1_3s 위반의 의미로 가장 적절한 것은?",
+      "options": ["허용 가능한 경고 규칙일 뿐이다", "무작위 오차 가능성을 시사하는 reject rule이다", "체계적 오차만을 의미한다", "외부정도관리에서만 적용한다", "두 QC가 모두 2SD를 넘을 때만 의미가 있다"],
+      "answer": 2,
+      "explanation": "1_3s는 한 QC가 평균에서 3SD를 벗어난 경우로 run 거부를 고려하는 규칙이다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "HBV 백신 접종 후 면역 형성을 가장 잘 시사하는 혈청표지자 조합은?",
+      "options": ["HBsAg 양성, anti-HBc 양성", "HBsAg 음성, anti-HBs 양성, anti-HBc 음성", "HBsAg 음성, anti-HBs 음성, anti-HBc 양성", "HBeAg 양성, anti-HBe 음성", "HBV DNA 양성, anti-HBs 양성"],
+      "answer": 2,
+      "explanation": "예방접종에 의한 면역은 anti-HBs만 양성이고 anti-HBc는 음성인 양상이 전형적이다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "ANA 간접면역형광검사에서 homogeneous pattern과 가장 관련이 깊은 질환은?",
+      "options": ["SLE", "쇼그렌증후군", "전신경화증", "다발혈관염육아종증", "원발담즙성담관염"],
+      "answer": 1,
+      "explanation": "homogeneous pattern은 anti-dsDNA, anti-histone 등과 연관되어 SLE에서 흔하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "실시간 RT-PCR에서 Ct 값이 더 낮다는 의미로 옳은 것은?",
+      "options": ["초기 표적 핵산량이 더 적다", "증폭 억제물질이 더 많다", "초기 표적 핵산량이 더 많다", "반드시 오염이다", "내부대조군만 양성이다"],
+      "answer": 3,
+      "explanation": "threshold에 더 빨리 도달하므로 낮은 Ct는 더 많은 초기 표적 핵산량을 시사한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "객담의 질 평가에서 저배율 시야당 편평상피세포가 많은 경우 의미하는 것은?",
+      "options": ["하부호흡기 검체로 우수하다", "침 오염이 많아 질이 낮다", "항균제 감수성검사를 우선 시행한다", "결핵 가능성이 높다", "진균감염을 시사한다"],
+      "answer": 2,
+      "explanation": "편평상피세포가 많으면 침 오염 가능성이 높아 질이 낮은 객담으로 판단한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABO 혈액형이 확인되지 않은 가임기 여성의 응급수혈에서 우선 고려할 적혈구 제제는?",
+      "options": ["AB형 농축적혈구", "A형 농축적혈구", "B형 농축적혈구", "O형 RhD 음성 농축적혈구", "O형 RhD 양성 농축적혈구"],
+      "answer": 4,
+      "explanation": "가임기 여성은 Rh 감작을 줄이기 위해 가능하면 O형 RhD 음성 적혈구를 우선 사용한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
     }
@@ -666,6 +765,150 @@
       "front": "수혈 전 2-2-2 rule에서 별도 채혈하는 두 검체는 ABO 혈액형 검사와 ____ 용 검체이다.",
       "answer": "교차시험",
       "explanation": "ABO typing과 crossmatch용 검체를 별도로 확보한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "망상적혈구 증가는 골수의 ____ 반응을 시사한다.",
+      "answer": "재생",
+      "explanation": "reticulocyte 증가는 골수의 적혈구 생성 증가를 반영한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "microcytic hypochromic anemia의 대표 감별은 철결핍빈혈과 ____ 이다.",
+      "answer": "지중해빈혈",
+      "explanation": "미세소체저색소성 빈혈에서는 철결핍빈혈과 thalassemia 감별이 중요하다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "동전 쌓은 것처럼 보이는 적혈구 배열은 ____ formation이다.",
+      "answer": "rouleaux",
+      "explanation": "rouleaux formation은 다발골수종 등 고단백혈증에서 관찰될 수 있다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PT는 주로 ____ pathway를 반영한다.",
+      "answer": "extrinsic",
+      "explanation": "PT는 extrinsic 및 common pathway를 평가한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "aPTT는 주로 ____ pathway를 반영한다.",
+      "answer": "intrinsic",
+      "explanation": "aPTT는 intrinsic 및 common pathway를 평가한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "심한 용혈 검체에서는 AST와 LD가 가짜로 ____ 할 수 있다.",
+      "answer": "증가",
+      "explanation": "세포 내 효소가 유리되어 용혈 검체에서 AST, LD 등이 거짓 상승할 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ABGA에서 pH와 HCO3-가 모두 낮다면 일차 장애는 ____ 산증이다.",
+      "answer": "대사성",
+      "explanation": "낮은 pH와 낮은 bicarbonate는 metabolic acidosis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HbA1c는 최근 약 ____ 개월간의 평균 혈당을 반영한다.",
+      "answer": "2~3",
+      "explanation": "당화혈색소는 적혈구 수명에 기반해 약 2~3개월 평균 혈당을 반영한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "DAT는 ____ Coombs test와 같은 뜻이다.",
+      "answer": "direct",
+      "explanation": "direct antiglobulin test는 direct Coombs test라고도 부른다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "류마티스관절염에서 anti-CCP는 RF보다 특이도가 더 ____ .",
+      "answer": "높다",
+      "explanation": "anti-CCP는 류마티스관절염에서 RF보다 특이도가 높다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PCR 오염을 줄이려면 시약 준비 구역과 ____ 구역을 분리해야 한다.",
+      "answer": "증폭 후 분석",
+      "explanation": "pre-PCR과 post-PCR 공간 분리는 분자진단 오염 예방의 핵심이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "실시간 PCR의 내부대조군은 위음성과 함께 ____ 존재를 확인하는 역할이 있다.",
+      "answer": "억제물질",
+      "explanation": "internal control은 amplification inhibition 여부를 감시한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "객담 그람염색에서 상피세포가 많으면 검체 질이 ____ 고 본다.",
+      "answer": "낮다",
+      "explanation": "상피세포가 많으면 침 오염 가능성이 높아 질이 낮은 객담으로 판단한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "감수성 결과에서 R은 ____ 를 의미한다.",
+      "answer": "resistant",
+      "explanation": "S/I/R은 각각 susceptible, intermediate, resistant를 뜻한다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "비예기항체 선별검사는 임상적으로 중요한 적혈구 ____ 존재를 찾는 검사다.",
+      "answer": "항체",
+      "explanation": "antibody screen은 수혈 전 적혈구 비예기항체 존재를 평가한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "TRALI는 수혈 관련 급성 ____ 손상을 뜻한다.",
+      "answer": "폐",
+      "explanation": "TRALI는 transfusion-related acute lung injury의 약자다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
     }
