@@ -2754,7 +2754,8 @@ def build_exam_payload(raw_items, exam_type):
     """문항 목록을 시험 진행용 payload로 변환"""
     parsed = []
     for raw in raw_items:
-        if exam_type == "객관식":
+        item_type = str((raw or {}).get("type") or "").strip().lower() if isinstance(raw, dict) else ""
+        if exam_type == "객관식" or (exam_type == "전체" and item_type == "mcq"):
             parsed_item = parse_mcq_content(raw)
         else:
             parsed_item = parse_cloze_content(raw)
@@ -6706,7 +6707,7 @@ if active_page == "home":
             st.caption("분과를 먼저 선택하면 단원 체크박스가 나타납니다.")
 
         quick_mode = st.radio("모드", ["시험모드", "학습모드"], horizontal=True, key="home_quick_mode")
-        quick_type = st.selectbox("문항 유형", ["객관식", "빈칸"], key="home_quick_type")
+        quick_type = st.selectbox("문항 유형", ["전체", "객관식", "빈칸"], key="home_quick_type")
 
         filtered = filter_questions_by_subject_unit_hierarchy(all_questions, quick_subjects, quick_unit_filter)
         if filtered:
@@ -6720,7 +6721,7 @@ if active_page == "home":
                     st.session_state.last_action_notice = f"홈에서 {started}개 문항으로 {quick_mode}를 준비했습니다. 실전 시험 탭으로 이동해 시작하세요."
                     st.rerun()
                 else:
-                    st.warning("선택한 타입에 맞는 문항이 없습니다. 문항 유형(객관식/빈칸)을 다시 확인해 주세요.")
+                    st.warning("선택한 타입에 맞는 문항이 없습니다. 문항 유형(전체/객관식/빈칸)을 다시 확인해 주세요.")
         else:
             st.info("선택한 분과/단원에 해당하는 문항이 없습니다.")
     else:
@@ -8587,7 +8588,7 @@ if active_page == "exam":
         if MOBILE_CLIENT:
             st.markdown("<div class='mobile-exam-caption'>모바일 풀이 모드: 터치 중심 UI</div>", unsafe_allow_html=True)
             mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=False)
-            exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+            exam_type = st.selectbox("문항 유형", ["전체", "객관식", "빈칸"])
             mobile_image_width = max(220, min(640, int(st.session_state.image_display_width)))
             st.session_state.image_display_width = st.slider(
                 "문항 이미지 크기(px)",
@@ -8602,7 +8603,7 @@ if active_page == "exam":
             with c_mode:
                 mode_choice = st.radio("모드", ["시험모드", "학습모드"], horizontal=True)
             with c_type:
-                exam_type = st.selectbox("문항 유형", ["객관식", "빈칸"])
+                exam_type = st.selectbox("문항 유형", ["전체", "객관식", "빈칸"])
             with c_img:
                 st.session_state.image_display_width = st.slider(
                     "문항 이미지 크기(px)",
@@ -8613,7 +8614,12 @@ if active_page == "exam":
                     key="image_display_width_slider"
                 )
 
-        questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
+        if exam_type == "객관식":
+            questions_all = bank["text"]
+        elif exam_type == "빈칸":
+            questions_all = bank["cloze"]
+        else:
+            questions_all = list(bank["text"]) + list(bank["cloze"])
         subject_unit_map = collect_subject_unit_map(questions_all)
         all_subjects = sorted(subject_unit_map.keys())
         if all_subjects:

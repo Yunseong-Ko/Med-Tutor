@@ -34,6 +34,19 @@ def _load_functions(names):
 
 
 class StudyCoachHelperTests(unittest.TestCase):
+    def test_build_exam_payload_supports_mixed_all_type(self):
+        ns = _load_functions(["build_exam_payload", "parse_mcq_content", "parse_cloze_content", "sanitize_mcq_problem_text"])
+        parsed = ns["build_exam_payload"](
+            [
+                {"type": "mcq", "problem": "ABO typing의 목적은?", "options": ["A", "B", "C", "D", "E"], "answer": 1},
+                {"type": "cloze", "front": "serum은 ____ 후 얻는다.", "answer": "응고", "response_type": "cloze"},
+            ],
+            "전체",
+        )
+        self.assertEqual(len(parsed), 2)
+        self.assertEqual(parsed[0]["type"], "mcq")
+        self.assertEqual(parsed[1]["type"], "cloze")
+
     def test_normalize_cloze_item_allows_oral_and_ox(self):
         ns = _load_functions(["normalize_cloze_item"])
         oral = ns["normalize_cloze_item"]({"front": "ABO typing이란?", "answer": "적혈구 ABO 항원 확인", "response_type": "oral"})
