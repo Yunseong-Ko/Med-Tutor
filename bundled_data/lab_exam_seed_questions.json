@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v3",
+  "version": "lab-exam-seed-v4",
   "text": [
     {
       "type": "mcq",
@@ -486,6 +486,186 @@
       "front": "냉장 보관 적혈구에서는 2,3-DPG가 ____ 한다.",
       "answer": "감소",
       "explanation": "저장손상으로 2,3-DPG가 감소하고 산소 해리 곡선이 좌측 이동한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Anisocytosis는 적혈구의 ____ 가 다양한 소견을 뜻한다.",
+      "answer": "크기",
+      "explanation": "anisocytosis는 적혈구 크기 불균등을 의미한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Poikilocytosis는 적혈구의 ____ 이 다양한 소견을 뜻한다.",
+      "answer": "모양",
+      "explanation": "poikilocytosis는 적혈구 모양의 다양성을 의미한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PNH에서 감소가 특징적인 적혈구 표면 단백은 ____ / ____ 이다.",
+      "answer": "CD55 / CD59",
+      "explanation": "PNH는 GPI-anchored protein인 CD55, CD59 결핍이 특징이다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "화상이나 MAHA에서 schistocyte가 증가하면 우선 ____ 을 의심해야 한다.",
+      "answer": "용혈",
+      "explanation": "파편적혈구 증가는 혈관 내 용혈과 연관된다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Citrate 튜브는 주로 ____ 검사에 사용한다.",
+      "answer": "응고",
+      "explanation": "citrate는 coagulation study에 흔히 사용된다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈청 단백질/지질이 많아 Na가 낮게 측정되는 현상은 가성 ____ 이다.",
+      "answer": "저나트륨혈증",
+      "explanation": "간접 ISE에서 pseudohyponatremia가 생길 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "정확도는 주로 ____ 정도관리로 평가한다.",
+      "answer": "외부",
+      "explanation": "정확도는 참값과의 근접도로 외부정도관리가 중요하다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "정밀도는 주로 ____ 정도관리로 평가한다.",
+      "answer": "내부",
+      "explanation": "정밀도는 재현성으로 내부정도관리와 관련이 깊다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "집먼지진드기 알레르기에서 감작 여부 판단에 더 직접적인 검사는 total IgE보다 ____ IgE 이다.",
+      "answer": "specific",
+      "explanation": "specific IgE는 특정 알레르겐 감작을 더 직접적으로 반영한다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "IGRA에서 사용하는 대표 결핵 특이 항원은 ESAT-6와 ____ 이다.",
+      "answer": "CFP-10",
+      "explanation": "IGRA는 ESAT-6, CFP-10 등을 이용한다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "Treponemal test는 치료 후에도 오래 양성으로 남아 ____ 검사에는 부적합하다.",
+      "answer": "추적",
+      "explanation": "treponemal test는 치료 반응 추적에 적합하지 않다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "GPA와 연관이 큰 ANCA 아형은 ____-ANCA 이다.",
+      "answer": "c",
+      "explanation": "GPA는 보통 c-ANCA(PR3-ANCA)와 관련된다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "차세대염기서열분석의 영문 약자는 ____ 이다.",
+      "answer": "NGS",
+      "explanation": "NGS는 next-generation sequencing의 약자다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "검체 오염으로 인한 양성 결과는 true positive가 아니라 ____ positive 이다.",
+      "answer": "false",
+      "explanation": "contamination은 false positive의 대표 원인이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈액배양은 같은 부위 반복보다 서로 다른 ____ 부위에서 채혈하는 것이 중요하다.",
+      "answer": "정맥",
+      "explanation": "여러 정맥 부위에서 채혈하면 contamination 해석과 검출률에 도움이 된다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "포비돈-아이오딘은 효과를 위해 최소 ____ 이상 건조가 필요하다.",
+      "answer": "2분",
+      "explanation": "포비돈-아이오딘은 충분한 건조 시간이 중요하다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "감염성 심내막염에서 민감도가 더 높은 심초음파는 ____ 이다.",
+      "answer": "TEE",
+      "explanation": "TEE는 vegetation, 농양 확인에 더 민감하다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "응급 수혈에서 O형 농축적혈구는 적혈구 표면 A/B 항원이 없어 범용 ____ 로 불린다.",
+      "answer": "공여자",
+      "explanation": "O형 적혈구는 universal donor로 표현된다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "적혈구 1단위 수혈은 가급적 ____ 시간 이내, 최대 4시간 이내 완료한다.",
+      "answer": "2",
+      "explanation": "세균 증식 위험 때문에 2시간 이내 완료가 권장된다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "수혈 전 2-2-2 rule에서 별도 채혈하는 두 검체는 ABO 혈액형 검사와 ____ 용 검체이다.",
+      "answer": "교차시험",
+      "explanation": "ABO typing과 crossmatch용 검체를 별도로 확보한다.",
       "subject": "수혈의학",
       "unit": "실습시험 시드"
     }
