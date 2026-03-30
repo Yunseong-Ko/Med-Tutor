@@ -27,6 +27,13 @@ import xml.etree.ElementTree as ET
 import importlib.util
 import hashlib
 import requests
+from src.repositories import (
+    load_json_file,
+    load_prewarm_cache_file,
+    save_json_file,
+    save_prewarm_cache_file,
+)
+from src.services import reconcile_generation_queue_items
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -162,6 +169,9 @@ def get_user_settings_file(user_id=None):
 def get_audit_log_file(user_id=None):
     return str(get_user_data_dir(user_id) / "audit_log.jsonl")
 
+def get_study_notes_file(user_id=None):
+    return str(get_user_data_dir(user_id) / "study_notes.json")
+
 MODEL_PRICING_USD_PER_1M = {
     "gpt-4o-mini": {"input": 0.15, "output": 0.60, "blended": 0.30},
     "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40, "blended": 0.20},
@@ -186,6 +196,24 @@ def is_admin_user():
     uid = str(st.session_state.get("auth_user_id", "")).strip().lower()
     email = str(st.session_state.get("auth_email", "")).strip().lower()
     return uid in admins or email in admins
+
+def get_allowed_viewer_emails():
+    raw = os.getenv("AXIOMA_ALLOWED_VIEWER_EMAILS", "").strip()
+    if not raw:
+        raw = "dbstjdrh@pusan.ac.kr"
+    allowed = set()
+    for token in raw.split(","):
+        value = token.strip().lower()
+        if value:
+            allowed.add(value)
+    return allowed
+
+def is_allowed_viewer(identifier=None):
+    allowed = get_allowed_viewer_emails()
+    if not allowed:
+        return True
+    value = str(identifier or st.session_state.get("auth_email") or st.session_state.get("auth_user_id") or "").strip().lower()
+    return value in allowed
 
 def list_local_user_ids():
     users_dir = DATA_DIR / "users"
@@ -601,6 +629,12 @@ if "image_display_width" not in st.session_state:
     st.session_state.image_display_width = 520
 if "past_exam_anchors" not in st.session_state:
     st.session_state.past_exam_anchors = {}
+if "study_coach_result" not in st.session_state:
+    st.session_state.study_coach_result = None
+if "study_coach_rendered" not in st.session_state:
+    st.session_state.study_coach_rendered = ""
+if "study_coach_last_note_id" not in st.session_state:
+    st.session_state.study_coach_last_note_id = ""
 if "user_data_cache" not in st.session_state:
     st.session_state["user_data_cache"] = {}
 if "home_visual_loaded" not in st.session_state:
@@ -625,6 +659,9 @@ def reset_runtime_state_for_auth_change():
         "past_exam_items",
         "past_exam_images",
         "past_exam_text",
+        "study_coach_result",
+        "study_coach_rendered",
+        "study_coach_last_note_id",
         "fsrs_settings_initialized",
         "remote_bundle_cache",
         "user_data_cache",
@@ -1034,7 +1071,9 @@ def _hash_password(password, salt_hex):
     return raw.hex()
 
 def register_user_account(user_id, password):
-    if is_supabase_required() and not is_supabase_enabled():
+    require_supabase = globals().get("is_supabase_required", lambda: False)
+    supabase_enabled = globals().get("is_supabase_enabled", lambda: False)
+    if require_supabase() and not supabase_enabled():
         return False, "Supabase 설정이 필요합니다. 운영자에게 문의하세요."
     if is_supabase_enabled():
         return supabase_sign_up(user_id, password)
@@ -1057,9 +1096,11 @@ def register_user_account(user_id, password):
     return True, "회원가입이 완료되었습니다."
 
 def authenticate_user_account(user_id, password):
-    if is_supabase_required() and not is_supabase_enabled():
+    require_supabase = globals().get("is_supabase_required", lambda: False)
+    supabase_enabled = globals().get("is_supabase_enabled", lambda: False)
+    if require_supabase() and not supabase_enabled():
         return False, "Supabase 설정이 필요합니다. 운영자에게 문의하세요."
-    if is_supabase_enabled():
+    if supabase_enabled():
         ok, payload = supabase_sign_in(user_id, password)
         if not ok:
             return False, payload
@@ -1318,6 +1359,54 @@ def save_user_settings(data, user_id=None):
         json.dump(data, f, ensure_ascii=False, indent=2)
     _set_user_data_cache("user_settings", data if isinstance(data, dict) else {}, user_id=user_id)
     return True
+
+def load_study_notes(user_id=None):
+    cached = _get_user_data_cache("study_notes", user_id=user_id)
+    if cached is not None:
+        return cached
+    if user_id is None and use_remote_user_store():
+        settings = load_user_settings(user_id=user_id)
+        data = settings.get("study_notes_v1", {"notes": []})
+        if not isinstance(data, dict):
+            data = {"notes": []}
+        if not isinstance(data.get("notes"), list):
+            data["notes"] = []
+        return _set_user_data_cache("study_notes", data, user_id=user_id)
+    study_notes_file = get_study_notes_file(user_id)
+    data = load_json_file(study_notes_file, {"notes": []})
+    if not isinstance(data, dict):
+        data = {"notes": []}
+    if not isinstance(data.get("notes"), list):
+        data["notes"] = []
+    return _set_user_data_cache("study_notes", data, user_id=user_id)
+
+def save_study_notes(data, user_id=None):
+    normalized = data if isinstance(data, dict) else {"notes": []}
+    if not isinstance(normalized.get("notes"), list):
+        normalized["notes"] = []
+    if user_id is None and use_remote_user_store():
+        settings = load_user_settings(user_id=user_id)
+        settings["study_notes_v1"] = normalized
+        if not save_user_settings(settings, user_id=user_id):
+            return False
+        _set_user_data_cache("study_notes", normalized, user_id=user_id)
+        _bump_data_revision("study_notes", user_id=user_id)
+        return True
+    study_notes_file = get_study_notes_file(user_id)
+    if not save_json_file(study_notes_file, normalized):
+        return False
+    _set_user_data_cache("study_notes", normalized, user_id=user_id)
+    _bump_data_revision("study_notes", user_id=user_id)
+    return True
+
+def add_study_note(note, user_id=None, limit=50):
+    bundle = load_study_notes(user_id=user_id)
+    notes = list(bundle.get("notes", []))
+    notes = [n for n in notes if str(n.get("id") or "") != str((note or {}).get("id") or "")]
+    notes.insert(0, note if isinstance(note, dict) else {})
+    bundle["notes"] = notes[: max(1, int(limit or 50))]
+    save_study_notes(bundle, user_id=user_id)
+    return bundle
 
 def load_fsrs_settings():
     data = load_user_settings()
@@ -2691,7 +2780,7 @@ def normalize_cloze_item(item):
     answer = (item.get("answer") or "").strip()
     explanation = item.get("explanation", "")
     response_type = item.get("response_type", "cloze")
-    if response_type not in {"cloze", "short", "essay"}:
+    if response_type not in {"cloze", "short", "essay", "oral", "ox"}:
         response_type = "cloze"
     if not front or not answer:
         return None
@@ -3535,6 +3624,8 @@ def render_auth_landing_page():
             if login_submit:
                 if not is_valid_email(login_email):
                     st.error("이메일 형식을 확인해주세요.")
+                elif not is_allowed_viewer(login_email):
+                    st.error("이 앱은 허가된 계정만 열람할 수 있습니다.")
                 else:
                     ok, result = authenticate_user_account(login_email, login_password)
                     if ok:
@@ -3552,6 +3643,8 @@ def render_auth_landing_page():
             if signup_submit:
                 if not is_valid_email(signup_email):
                     st.error("이메일 형식을 확인해주세요.")
+                elif not is_allowed_viewer(signup_email):
+                    st.error("이 앱은 허가된 계정만 가입/열람할 수 있습니다.")
                 elif signup_password != signup_password_confirm:
                     st.error("비밀번호 확인이 일치하지 않습니다.")
                 else:
@@ -3569,24 +3662,30 @@ def render_auth_landing_page():
                 login_password = st.text_input("비밀번호", type="password", key="auth_login_password_main_local")
                 login_submit = st.form_submit_button("로그인", use_container_width=True)
             if login_submit:
-                ok, result = authenticate_user_account(login_user_id, login_password)
-                if ok:
-                    reset_runtime_state_for_auth_change()
-                    st.session_state.auth_user_id = result
-                    st.rerun()
+                if not is_allowed_viewer(login_user_id):
+                    st.error("이 앱은 허가된 계정만 열람할 수 있습니다.")
                 else:
-                    st.error(result)
+                    ok, result = authenticate_user_account(login_user_id, login_password)
+                    if ok:
+                        reset_runtime_state_for_auth_change()
+                        st.session_state.auth_user_id = result
+                        st.rerun()
+                    else:
+                        st.error(result)
         with tab_signup:
             with st.form("auth_signup_form_main_local", clear_on_submit=True):
                 signup_user_id = st.text_input("새 아이디", key="auth_signup_user_id_main")
                 signup_password = st.text_input("새 비밀번호 (6자 이상)", type="password", key="auth_signup_password_main_local")
                 signup_submit = st.form_submit_button("회원가입", use_container_width=True)
             if signup_submit:
-                ok, message = register_user_account(signup_user_id, signup_password)
-                if ok:
-                    st.success(message)
+                if not is_allowed_viewer(signup_user_id):
+                    st.error("이 앱은 허가된 계정만 가입/열람할 수 있습니다.")
                 else:
-                    st.error(message)
+                    ok, message = register_user_account(signup_user_id, signup_password)
+                    if ok:
+                        st.success(message)
+                    else:
+                        st.error(message)
         st.markdown("<div class='auth-help'>로컬 계정 모드</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -5052,6 +5151,558 @@ def extract_text_from_file(uploaded_file, **kwargs):
     else:
         raise ValueError(f"지원하지 않는 파일 형식: {file_ext}")
 
+def extract_text_from_file_with_metrics(file_name, file_bytes, metric_name, user_id=None, **kwargs):
+    started_at = time.perf_counter()
+    try:
+        text = extract_text_from_file(make_uploaded_file_from_bytes(file_name, file_bytes), **kwargs)
+        append_perf_log_from_start(
+            metric_name,
+            started_at,
+            payload={
+                "source_name": file_name,
+                "success": True,
+                "text_length": len(text or ""),
+            },
+            user_id=user_id,
+        )
+        return text
+    except Exception as e:
+        append_perf_log_from_start(
+            metric_name,
+            started_at,
+            payload={
+                "source_name": file_name,
+                "success": False,
+                "error": str(e)[:300],
+            },
+            user_id=user_id,
+        )
+        raise
+
+LAB_SUBJECTS = ["진단혈액", "임상화학", "진단면역", "분자진단", "미생물", "수혈의학"]
+
+def extract_text_from_file_cached(file_name, file_bytes, cache_kind="coach_raw", user_id=None, **kwargs):
+    signature = build_upload_signature(file_name, file_bytes)
+    cached = get_generation_prewarm_text(cache_kind, signature)
+    if isinstance(cached, str) and cached.strip():
+        return cached
+    text = extract_text_from_file_with_metrics(
+        file_name,
+        file_bytes,
+        metric_name=f"{cache_kind}.extract_ms",
+        user_id=user_id,
+        **kwargs,
+    )
+    set_generation_prewarm_text(cache_kind, signature, text)
+    return text
+
+def split_text_by_page_markers(text):
+    raw = str(text or "").strip()
+    if not raw:
+        return []
+    parts = re.split(r"(?=^=== 페이지 \d+ ===$)", raw, flags=re.MULTILINE)
+    out = []
+    for idx, part in enumerate(parts, start=1):
+        chunk = part.strip()
+        if not chunk:
+            continue
+        m = re.match(r"^=== 페이지 (\d+) ===\s*", chunk)
+        page = int(m.group(1)) if m else idx
+        out.append({"page": page, "text": chunk})
+    if out:
+        return out
+    chunks = split_text_into_chunks(raw, chunk_size=2500, overlap=200)
+    return [{"page": i + 1, "text": chunk} for i, chunk in enumerate(chunks) if str(chunk).strip()]
+
+def extract_focus_keywords(texts, top_n=18):
+    stopwords = {
+        "그리고", "그러나", "대한", "있는", "한다", "에서", "으로", "이다", "하는", "검사", "진단", "문제",
+        "정답", "해설", "환자", "경우", "관련", "소견", "치료", "질환", "정리", "실습", "시험", "통합",
+        "the", "and", "with", "from", "that", "this", "for", "are", "was", "were", "into", "have",
+    }
+    scores = {}
+    for text in texts or []:
+        for token in re.findall(r"[A-Za-z가-힣0-9+/.-]{2,}", str(text or "")):
+            tok = token.strip().lower()
+            if len(tok) < 2 or tok in stopwords:
+                continue
+            if tok.isdigit():
+                continue
+            scores[tok] = scores.get(tok, 0) + 1
+    ranked = sorted(scores.items(), key=lambda x: (-x[1], -len(x[0]), x[0]))
+    return [token for token, _ in ranked[: max(1, int(top_n or 18))]]
+
+def select_relevant_reference_excerpt(text, keywords, max_sections=6, max_chars=12000):
+    segments = split_text_by_page_markers(text)
+    if not segments:
+        return ""
+    kw_list = [k.lower() for k in (keywords or []) if str(k).strip()]
+    scored = []
+    for idx, seg in enumerate(segments):
+        seg_text = str(seg.get("text") or "")
+        lower = seg_text.lower()
+        score = 0
+        for kw in kw_list:
+            if kw and kw in lower:
+                score += lower.count(kw) * max(1, min(len(kw), 8))
+        if "=== 페이지" in seg_text:
+            score += 1
+        scored.append((score, idx, seg))
+    scored.sort(key=lambda x: (x[0], -x[1]), reverse=True)
+    selected = [seg for score, _, seg in scored if score > 0][: max(1, int(max_sections or 6))]
+    if not selected:
+        selected = segments[:2]
+    selected.sort(key=lambda seg: int(seg.get("page") or 0))
+    out = []
+    current = 0
+    for seg in selected:
+        seg_text = str(seg.get("text") or "").strip()
+        if not seg_text:
+            continue
+        allowed = max_chars - current
+        if allowed <= 0:
+            break
+        trimmed = seg_text[:allowed]
+        out.append(trimmed)
+        current += len(trimmed)
+    return "\n\n".join(out).strip()
+
+def infer_lab_subject(text):
+    s = str(text or "").lower()
+    keyword_map = {
+        "진단혈액": ["cbc", "mcv", "mch", "mchc", "reticulocyte", "schistocyte", "spherocyte", "pbs", "혈액", "적혈구", "백혈구", "혈소판", "빈혈", "골수"],
+        "임상화학": ["ast", "alt", "alp", "ggt", "bilirubin", "troponin", "hba1c", "electrolyte", "cortisol", "chemistry", "임상화학", "크레아티닌", "cystatin", "채혈튜브"],
+        "진단면역": ["ana", "anca", "igra", "rpr", "tpha", "ige", "hbsag", "hiv", "ebv", "면역", "알레르기", "결핵", "매독"],
+        "분자진단": ["pcr", "brca", "ngs", "sequencing", "염기서열", "유전자", "분자", "mutation"],
+        "미생물": ["blood culture", "균혈증", "패혈증", "항산균", "배양", "세균", "진균", "microbiology", "infection"],
+        "수혈의학": ["abo", "rhd", "crossmatch", "교차시험", "수혈", "혈액형", "적혈구제제", "혈소판", "혈액은행", "rhig"],
+    }
+    best_subject = "진단혈액"
+    best_score = -1
+    for subject, keywords in keyword_map.items():
+        score = sum(s.count(keyword.lower()) for keyword in keywords)
+        if score > best_score:
+            best_subject = subject
+            best_score = score
+    return best_subject
+
+def normalize_study_coach_result(data):
+    payload = data if isinstance(data, dict) else {}
+    result = {
+        "high_yield_points": [],
+        "topic_groups": [],
+        "memorization_points": [],
+        "oral_questions": [],
+        "comparison_rows": [],
+        "top3_likely_topics": [],
+        "tonight_priority": [],
+        "trap_points": [],
+        "predicted_questions": [],
+    }
+
+    high_yield = payload.get("high_yield_points") or []
+    for item in high_yield:
+        if not isinstance(item, dict):
+            continue
+        point = str(item.get("point") or "").strip()
+        if not point:
+            continue
+        result["high_yield_points"].append({
+            "point": point,
+            "subject": str(item.get("subject") or infer_lab_subject(point)).strip(),
+            "reason": str(item.get("reason") or "").strip(),
+        })
+
+    topic_groups = payload.get("topic_groups") or []
+    for group in topic_groups:
+        if not isinstance(group, dict):
+            continue
+        subject = str(group.get("subject") or "").strip() or "진단혈액"
+        if subject not in LAB_SUBJECTS:
+            subject = infer_lab_subject(subject)
+        items = []
+        for item in group.get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            quote = str(item.get("question_quote") or item.get("question_ref") or "").strip()
+            if not quote:
+                continue
+            confidence = str(item.get("answer_confidence") or "").strip().lower()
+            if confidence not in {"confirmed", "inferred", "uncertain"}:
+                confidence = "inferred" if item.get("is_inferred") else "confirmed"
+            evidence_refs = []
+            for ref in item.get("evidence_refs") or []:
+                if not isinstance(ref, dict):
+                    continue
+                source_file = str(ref.get("source_file") or "").strip()
+                basis = str(ref.get("basis") or ref.get("quote_or_basis") or "").strip()
+                if not (source_file or basis):
+                    continue
+                evidence_refs.append({
+                    "source_file": source_file,
+                    "source_type": str(ref.get("source_type") or "").strip(),
+                    "basis": basis,
+                })
+            items.append({
+                "question_ref": str(item.get("question_ref") or quote[:60]).strip(),
+                "question_quote": quote,
+                "concepts": [str(x).strip() for x in (item.get("concepts") or []) if str(x).strip()],
+                "best_answer": str(item.get("best_answer") or "").strip(),
+                "answer_confidence": confidence,
+                "is_inferred": bool(item.get("is_inferred")) or confidence == "inferred",
+                "why_correct": str(item.get("why_correct") or "").strip(),
+                "why_others_wrong": str(item.get("why_others_wrong") or "").strip(),
+                "practice_link": str(item.get("practice_link") or "").strip(),
+                "evidence_refs": evidence_refs,
+            })
+        if items:
+            result["topic_groups"].append({"subject": subject, "items": items})
+
+    for item in payload.get("memorization_points") or []:
+        if isinstance(item, dict):
+            text = str(item.get("text") or "").strip()
+            point_type = str(item.get("type") or "외워라").strip() or "외워라"
+        else:
+            text = str(item or "").strip()
+            point_type = "외워라"
+        if text:
+            result["memorization_points"].append({"type": point_type, "text": text})
+
+    for item in payload.get("oral_questions") or []:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        answer = str(item.get("answer") or "").strip()
+        if question and answer:
+            result["oral_questions"].append({
+                "question": question,
+                "answer": answer,
+                "subject": str(item.get("subject") or infer_lab_subject(question)).strip(),
+            })
+
+    for item in payload.get("comparison_rows") or []:
+        if not isinstance(item, dict):
+            continue
+        a = str(item.get("item_a") or "").strip()
+        b = str(item.get("item_b") or "").strip()
+        if not (a and b):
+            continue
+        result["comparison_rows"].append({
+            "topic": str(item.get("topic") or f"{a} vs {b}").strip(),
+            "item_a": a,
+            "item_b": b,
+            "key_difference": str(item.get("key_difference") or "").strip(),
+            "exam_trap": str(item.get("exam_trap") or "").strip(),
+        })
+
+    for key in ("top3_likely_topics", "tonight_priority", "trap_points"):
+        result[key] = [str(x).strip() for x in (payload.get(key) or []) if str(x).strip()]
+
+    for item in payload.get("predicted_questions") or []:
+        if not isinstance(item, dict):
+            continue
+        qtype = str(item.get("question_type") or "short").strip().lower()
+        if qtype not in {"mcq", "short", "oral", "ox"}:
+            qtype = "short"
+        prompt = str(item.get("prompt") or item.get("question") or "").strip()
+        answer = str(item.get("answer") or "").strip()
+        explanation = str(item.get("explanation") or "").strip()
+        if not prompt or not answer:
+            continue
+        options = item.get("options") or []
+        if qtype == "mcq":
+            clean_options = [str(opt).strip() for opt in options if str(opt).strip()]
+            while len(clean_options) < 5:
+                clean_options.append(f"보기 {len(clean_options) + 1}")
+            try:
+                answer_num = int(answer)
+            except Exception:
+                answer_num = 1
+            if answer_num < 1 or answer_num > 5:
+                answer_num = 1
+            result["predicted_questions"].append({
+                "question_type": "mcq",
+                "subject": str(item.get("subject") or infer_lab_subject(prompt)).strip(),
+                "prompt": prompt,
+                "options": clean_options[:5],
+                "answer": answer_num,
+                "explanation": explanation,
+            })
+        else:
+            result["predicted_questions"].append({
+                "question_type": qtype,
+                "subject": str(item.get("subject") or infer_lab_subject(prompt)).strip(),
+                "prompt": prompt,
+                "answer": answer,
+                "explanation": explanation,
+            })
+    return result
+
+def build_study_coach_prompt(source_payloads, focus_keywords):
+    manifest_lines = []
+    source_blocks = []
+    for source in source_payloads or []:
+        manifest_lines.append(
+            f"- [{source.get('source_type')}] {source.get('file_name')} "
+            f"(full_len={source.get('full_text_length', 0)}, used_len={len(source.get('text') or '')})"
+        )
+        source_blocks.append(
+            f"[SOURCE_TYPE] {source.get('source_type')}\n"
+            f"[FILE] {source.get('file_name')}\n"
+            f"[TEXT]\n{source.get('text') or ''}"
+        )
+    keywords_text = ", ".join(focus_keywords or [])
+    return (
+        PROMPT_STUDY_COACH
+        + "\n\n[분류 축]\n- 반드시 다음 6개 분과 중 하나만 사용: "
+        + ", ".join(LAB_SUBJECTS)
+        + "\n\n[우선순위]\n- 반복 출제 포인트와 함정 포인트는 반드시 past_exam/practice_note를 textbook보다 우선한다."
+        + "\n- textbook은 근거 보강과 오답 배제 근거가 필요할 때만 사용한다."
+        + "\n\n[분석 목표]\n- 내일 진단검사의학 실습시험 대비"
+        + f"\n- 우선 키워드: {keywords_text}"
+        + "\n\n[소스 요약]\n"
+        + "\n".join(manifest_lines)
+        + "\n\n[원문]\n"
+        + "\n\n".join(source_blocks)
+    )
+
+def generate_study_coach_analysis(source_payloads, ai_model, api_key=None, openai_api_key=None, user_id=None):
+    primary_texts = [src.get("text") or "" for src in source_payloads if src.get("source_type") in {"past_exam", "practice_note"}]
+    keywords = extract_focus_keywords(primary_texts, top_n=18)
+    prompt = build_study_coach_prompt(source_payloads, keywords)
+    try:
+        if ai_model == "🔵 Google Gemini":
+            if not api_key:
+                return None, "Gemini API 키가 필요합니다."
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(get_gemini_model_id())
+            generation_config = {"temperature": 0.2, "top_p": 1.0}
+            response = model.generate_content(prompt[:45000], generation_config=generation_config)
+            raw = (response.text or "").strip()
+            usage_tokens = _gemini_usage_tokens(response)
+            model_name = get_gemini_model_id()
+            seed = None
+        else:
+            if not openai_api_key:
+                return None, "OpenAI API 키가 필요합니다."
+            client = OpenAI(api_key=openai_api_key)
+            params = {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt[:45000]}],
+                "temperature": 0.2,
+                "max_tokens": 4000,
+            }
+            if LLM_SEED is not None:
+                params["seed"] = LLM_SEED
+            response = client.chat.completions.create(**params)
+            raw = (response.choices[0].message.content or "").strip()
+            usage_tokens = _openai_usage_tokens(response)
+            model_name = "gpt-4o-mini"
+            seed = LLM_SEED
+        append_audit_log("study_coach.generate", {
+            "model": model_name,
+            "temperature": 0.2,
+            "seed": seed,
+            "prompt_hash": _hash_text(prompt[:45000]),
+            "prompt_text": prompt[:45000],
+            "output_text": raw,
+            "usage_tokens": usage_tokens,
+            "prompt_version": PROMPT_VERSION,
+        }, user_id=user_id)
+        parsed = _parse_json_from_text(raw)
+        if not isinstance(parsed, dict):
+            return None, "AI 응답을 구조화하지 못했습니다."
+        return normalize_study_coach_result(parsed), ""
+    except Exception as e:
+        return None, str(e)
+
+def build_study_coach_source_payloads(source_groups, user_id=None):
+    primary_texts = []
+    sources = []
+    manifest = []
+    for source_type in ("past_exam", "practice_note", "textbook"):
+        for uploaded in source_groups.get(source_type, []) or []:
+            file_bytes = uploaded.getvalue()
+            raw_text = extract_text_from_file_cached(
+                uploaded.name,
+                file_bytes,
+                cache_kind=f"coach_raw_{source_type}",
+                user_id=user_id,
+                enable_ocr=True,
+                ocr_engine="auto",
+                ocr_langs=("ko", "en"),
+                ocr_max_pages=30 if source_type == "textbook" else 0,
+                ai_fallback=False,
+            )
+            signature = build_upload_signature(uploaded.name, file_bytes)
+            payload = {
+                "source_type": source_type,
+                "file_name": uploaded.name,
+                "signature": signature,
+                "full_text_length": len(raw_text or ""),
+                "text": str(raw_text or "").strip(),
+            }
+            sources.append(payload)
+            manifest.append({
+                "source_type": source_type,
+                "file_name": uploaded.name,
+                "signature": signature,
+                "text_length": len(raw_text or ""),
+            })
+            if source_type in {"past_exam", "practice_note"} and raw_text:
+                primary_texts.append(raw_text[:12000])
+    keywords = extract_focus_keywords(primary_texts, top_n=18)
+    focused_sources = []
+    for source in sources:
+        text = source.get("text") or ""
+        if source.get("source_type") == "textbook":
+            focused_text = select_relevant_reference_excerpt(text, keywords, max_sections=6, max_chars=12000)
+        else:
+            focused_text = text[:18000]
+        focused_sources.append({**source, "text": focused_text})
+    return focused_sources, manifest, keywords
+
+def convert_predicted_questions_to_bank_items(predicted_questions, unit="실습시험 코치", origin_id=""):
+    items = []
+    for item in predicted_questions or []:
+        if not isinstance(item, dict):
+            continue
+        qtype = str(item.get("question_type") or "").strip().lower()
+        subject = str(item.get("subject") or "진단혈액").strip()
+        explanation = str(item.get("explanation") or "").strip()
+        if qtype == "mcq":
+            items.append({
+                "type": "mcq",
+                "problem": str(item.get("prompt") or "").strip(),
+                "options": list(item.get("options") or []),
+                "answer": int(item.get("answer") or 1),
+                "explanation": explanation,
+                "subject": subject,
+                "unit": unit,
+                "exam_prep_origin": origin_id,
+            })
+        else:
+            items.append({
+                "type": "cloze",
+                "response_type": qtype if qtype in {"short", "oral", "ox"} else "short",
+                "front": str(item.get("prompt") or "").strip(),
+                "answer": str(item.get("answer") or "").strip(),
+                "explanation": explanation,
+                "subject": subject,
+                "unit": unit,
+                "exam_prep_origin": origin_id,
+            })
+    return items
+
+def render_study_coach_markdown(result):
+    data = normalize_study_coach_result(result)
+    lines = []
+    lines.append("## 1. 핵심 출제 포인트")
+    for item in data.get("high_yield_points", []):
+        suffix = f" ({item.get('subject')})" if item.get("subject") else ""
+        reason = f" - {item.get('reason')}" if item.get("reason") else ""
+        lines.append(f"- {item.get('point')}{suffix}{reason}")
+
+    lines.append("")
+    lines.append("## 2. 주제별 정리")
+    grouped = {subject: [] for subject in LAB_SUBJECTS}
+    for group in data.get("topic_groups", []):
+        grouped.setdefault(group.get("subject") or "진단혈액", []).extend(group.get("items") or [])
+    for subject in LAB_SUBJECTS:
+        items = grouped.get(subject) or []
+        if not items:
+            continue
+        lines.append(f"### {subject}")
+        for item in items:
+            confidence_label = {
+                "confirmed": "확정",
+                "inferred": "추론",
+                "uncertain": "불확실",
+            }.get(item.get("answer_confidence"), "추론")
+            lines.append(f"- {item.get('question_ref')}: {item.get('question_quote')}")
+            lines.append(f"  정답: {item.get('best_answer') or confidence_label} [{confidence_label}]")
+            if item.get("concepts"):
+                lines.append(f"  관련 개념: {', '.join(item.get('concepts') or [])}")
+            if item.get("why_correct"):
+                lines.append(f"  왜 맞는지: {item.get('why_correct')}")
+            if item.get("why_others_wrong"):
+                lines.append(f"  왜 다른 선택지는 틀릴 수 있는지: {item.get('why_others_wrong')}")
+            if item.get("practice_link"):
+                lines.append(f"  실습 연결 포인트: {item.get('practice_link')}")
+            if item.get("evidence_refs"):
+                ref_text = "; ".join(
+                    f"{ref.get('source_file')}({ref.get('source_type')}): {ref.get('basis')}"
+                    for ref in item.get("evidence_refs")[:3]
+                )
+                lines.append(f"  근거: {ref_text}")
+
+    lines.append("")
+    lines.append("## 3. 시험 직전 암기 포인트")
+    for item in data.get("memorization_points", []):
+        lines.append(f"- [{item.get('type')}] {item.get('text')}")
+
+    lines.append("")
+    lines.append("## 4. 예상 구술/단답형 질문")
+    for item in data.get("oral_questions", []):
+        lines.append(f"- Q. {item.get('question')}")
+        lines.append(f"  A. {item.get('answer')}")
+
+    lines.append("")
+    lines.append("## 5. 헷갈리는 개념 비교표")
+    lines.append("| 주제 | A | B | 핵심 차이 | 함정 |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    for row in data.get("comparison_rows", []):
+        lines.append(
+            f"| {row.get('topic')} | {row.get('item_a')} | {row.get('item_b')} | "
+            f"{row.get('key_difference')} | {row.get('exam_trap')} |"
+        )
+
+    lines.append("")
+    lines.append("## 마무리")
+    lines.append("- 내일 시험에 가장 나올 가능성이 높은 주제 3개: " + ", ".join(data.get("top3_likely_topics") or ["없음"]))
+    for idx, item in enumerate(data.get("tonight_priority") or [], start=1):
+        lines.append(f"- 오늘 밤 우선순위 {idx}: {item}")
+    for item in data.get("trap_points") or []:
+        lines.append(f"- 내가 틀리기 쉬운 함정 포인트: {item}")
+    return "\n".join(lines).strip()
+
+def build_study_note_variants(result):
+    data = normalize_study_coach_result(result)
+    ultra = []
+    ultra.append("초압축 요약 버전")
+    for item in data.get("high_yield_points", [])[:8]:
+        ultra.append(f"- {item.get('point')}")
+    for item in data.get("trap_points", [])[:3]:
+        ultra.append(f"- 함정: {item}")
+
+    flashcards = []
+    flashcards.append("암기카드 버전")
+    for item in data.get("oral_questions", [])[:10]:
+        flashcards.append(f"Q: {item.get('question')}")
+        flashcards.append(f"A: {item.get('answer')}")
+
+    ox_lines = []
+    ox_lines.append("OX 퀴즈 버전")
+    for item in data.get("high_yield_points", [])[:5]:
+        ox_lines.append(f"- O/X: {item.get('point')} -> 정답: O")
+    for row in data.get("comparison_rows", [])[:5]:
+        ox_lines.append(f"- O/X: {row.get('item_a')}와 {row.get('item_b')}는 동일하다 -> 정답: X / {row.get('key_difference')}")
+
+    mcq_lines = []
+    mcq_lines.append("객관식 예상문제 버전")
+    for item in data.get("predicted_questions", []):
+        if item.get("question_type") != "mcq":
+            continue
+        mcq_lines.append(f"- {item.get('prompt')}")
+        for idx, opt in enumerate(item.get("options") or [], start=1):
+            mcq_lines.append(f"  {idx}. {opt}")
+        mcq_lines.append(f"  정답: {item.get('answer')} / {item.get('explanation')}")
+    return {
+        "초압축 요약 버전": "\n".join(ultra).strip(),
+        "암기카드 버전": "\n".join(flashcards).strip(),
+        "OX 퀴즈 버전": "\n".join(ox_lines).strip(),
+        "객관식 예상문제 버전": "\n".join(mcq_lines).strip(),
+    }
 def parse_uploaded_question_file(uploaded_file, mode_hint="auto"):
     """사용자 업로드 문항 파일 파싱 (json/txt/tsv)"""
     ext = Path(uploaded_file.name).suffix.lower()
@@ -5184,6 +5835,83 @@ PROMPT_ESSAY = """
 [
   {"front": "문항", "answer": "모범답안", "explanation": "채점 포인트"}
 ]
+"""
+
+PROMPT_STUDY_COACH = """
+너는 의대 PK 실습 중 진단검사의학 시험 대비를 도와주는 학습 코치다.
+
+[핵심 원칙]
+1. 기출/복기 자료를 가장 우선 근거로 사용한다.
+2. 실습 정리 자료는 실습 연결 포인트와 구술형 포인트 보강에 사용한다.
+3. 교과서는 정답 이유, 오답 배제 이유, 불확실 보강 근거로 사용한다.
+4. 시험 점수에 직접 도움 되는 방식으로 간결하게 정리한다.
+5. 확실하지 않으면 "불확실", 자료에 정답이 없고 추론이면 "추론"이라고 명시한다.
+
+[반드시 지킬 출력 규칙]
+- 반드시 JSON 객체 하나만 출력한다.
+- 최상위 키:
+  - high_yield_points
+  - topic_groups
+  - memorization_points
+  - oral_questions
+  - comparison_rows
+  - top3_likely_topics
+  - tonight_priority
+  - trap_points
+  - predicted_questions
+- high_yield_points: 5~10개
+- oral_questions: 5~10개
+- predicted_questions: 객관식/단답형/OX/구술형을 섞어도 된다.
+
+[JSON 스키마]
+{
+  "high_yield_points": [
+    {"point": "핵심 포인트", "subject": "진단혈액", "reason": "왜 중요한지"}
+  ],
+  "topic_groups": [
+    {
+      "subject": "진단혈액",
+      "items": [
+        {
+          "question_ref": "문항 번호 또는 짧은 인용",
+          "question_quote": "짧은 문제 요약",
+          "concepts": ["개념1", "개념2"],
+          "best_answer": "정답 또는 최선 추론",
+          "answer_confidence": "confirmed|inferred|uncertain",
+          "is_inferred": true,
+          "why_correct": "왜 맞는지",
+          "why_others_wrong": "왜 다른 선택지는 틀릴 수 있는지",
+          "practice_link": "실습 연결 포인트",
+          "evidence_refs": [
+            {"source_file": "파일명", "source_type": "past_exam|practice_note|textbook", "basis": "근거 요약"}
+          ]
+        }
+      ]
+    }
+  ],
+  "memorization_points": [
+    {"type": "외워라|이해해라", "text": "짧은 암기 문장"}
+  ],
+  "oral_questions": [
+    {"question": "교수님 질문", "answer": "짧은 답", "subject": "임상화학"}
+  ],
+  "comparison_rows": [
+    {"topic": "비교 주제", "item_a": "A", "item_b": "B", "key_difference": "핵심 차이", "exam_trap": "함정"}
+  ],
+  "top3_likely_topics": ["주제1", "주제2", "주제3"],
+  "tonight_priority": ["우선순위1", "우선순위2", "우선순위3"],
+  "trap_points": ["함정1", "함정2", "함정3"],
+  "predicted_questions": [
+    {
+      "question_type": "mcq|short|oral|ox",
+      "subject": "수혈의학",
+      "prompt": "문항",
+      "options": ["선지1", "선지2", "선지3", "선지4", "선지5"],
+      "answer": "정답",
+      "explanation": "짧은 해설"
+    }
+  ]
+}
 """
 
 def detect_term_language_mode(style_text: str):
@@ -5773,10 +6501,19 @@ if not st.session_state.get("auth_user_id"):
     render_auth_landing_page()
     st.stop()
 
+if not is_allowed_viewer():
+    st.session_state.auth_user_id = ""
+    st.session_state.auth_email = ""
+    st.session_state.auth_access_token = ""
+    render_auth_landing_page()
+    st.error("이 앱은 허가된 계정만 열람할 수 있습니다.")
+    st.stop()
+
 def get_main_page_config(admin_mode):
     pages = [
         ("home", "🏠 홈"),
         ("generate", "📚 문제 생성"),
+        ("study_coach", "🧪 진단검사 실습 코치"),
         ("convert", "🧾 기출문제 변환"),
         ("exam", "🎯 실전 시험"),
     ]
@@ -6516,6 +7253,173 @@ if active_page == "admin" and admin_mode:
                     for r in latest
                 ]
                 safe_dataframe(latest_view, use_container_width=True, hide_index=True)
+
+# ============================================================================
+# PAGE: 진단검사 실습 코치
+# ============================================================================
+if active_page == "study_coach":
+    st.title("🧪 진단검사 실습 코치")
+    show_action_notice()
+    st.write("기출/복기, 실습 정리, 교과서를 함께 분석해 시험 직전용 학습 노트와 예상문제를 만듭니다.")
+    st.caption("분석 우선순위: 기출/복기 → 실습 정리 → 교과서(근거 보강)")
+
+    key_ready = bool(api_key) if ai_model == "🔵 Google Gemini" else bool(openai_api_key)
+    if not key_ready:
+        st.warning("AI 분석을 실행하려면 사이드바에서 현재 선택한 모델의 API 키를 입력해 주세요.")
+
+    notes_bundle = load_study_notes()
+    saved_notes = notes_bundle.get("notes", [])
+
+    with st.expander("자료 업로드", expanded=True):
+        past_exam_files = st.file_uploader(
+            "기출/복기 자료",
+            type=["pdf", "docx", "pptx", "hwp"],
+            accept_multiple_files=True,
+            key="study_coach_past_exam",
+        )
+        practice_note_files = st.file_uploader(
+            "실습 정리/통합본",
+            type=["pdf", "docx", "pptx", "hwp"],
+            accept_multiple_files=True,
+            key="study_coach_practice_note",
+        )
+        textbook_files = st.file_uploader(
+            "교과서/레퍼런스",
+            type=["pdf", "docx", "pptx", "hwp"],
+            accept_multiple_files=True,
+            key="study_coach_textbook",
+        )
+        st.caption("분석 목표는 고정으로 `내일 시험 대비`이며, 교과서는 필요한 근거 페이지만 부분 참조합니다.")
+
+        analyze_clicked = st.button(
+            "🧠 코치 모드 분석 실행",
+            use_container_width=True,
+            disabled=not key_ready or not (past_exam_files or practice_note_files or textbook_files),
+        )
+        if analyze_clicked:
+            source_groups = {
+                "past_exam": past_exam_files or [],
+                "practice_note": practice_note_files or [],
+                "textbook": textbook_files or [],
+            }
+            try:
+                with st.spinner("자료를 정리하고 시험 직전형 학습 노트를 만들고 있습니다..."):
+                    payloads, source_manifest, focus_keywords = build_study_coach_source_payloads(
+                        source_groups,
+                        user_id=get_current_user_id(),
+                    )
+                    result, err = generate_study_coach_analysis(
+                        payloads,
+                        ai_model=ai_model,
+                        api_key=api_key,
+                        openai_api_key=openai_api_key,
+                        user_id=get_current_user_id(),
+                    )
+                if err:
+                    st.error(f"코치 분석 실패: {err}")
+                else:
+                    rendered = render_study_coach_markdown(result)
+                    note_id = str(uuid.uuid4())
+                    note = {
+                        "id": note_id,
+                        "mode": "lab_exam_study_coach",
+                        "title": "진단검사 실습시험 코치 노트",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "analysis_goal": "내일 시험 대비",
+                        "source_manifest": source_manifest,
+                        "focus_keywords": focus_keywords,
+                        "result": result,
+                        "rendered_markdown": rendered,
+                        "variants": build_study_note_variants(result),
+                    }
+                    add_study_note(note)
+                    st.session_state.study_coach_result = result
+                    st.session_state.study_coach_rendered = rendered
+                    st.session_state.study_coach_last_note_id = note_id
+                    st.success("코치 노트를 생성하고 저장했습니다.")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"코치 분석 중 오류가 발생했습니다: {e}")
+
+    selected_note = None
+    if saved_notes:
+        labels = []
+        for note in saved_notes:
+            created = str(note.get("created_at") or "")[:16].replace("T", " ")
+            labels.append(f"{created} · {note.get('title', '코치 노트')} · {len((note.get('result') or {}).get('high_yield_points', []))}포인트")
+        default_idx = 0
+        last_id = st.session_state.get("study_coach_last_note_id")
+        for i, note in enumerate(saved_notes):
+            if str(note.get("id") or "") == str(last_id or ""):
+                default_idx = i
+                break
+        selected_label = st.selectbox("저장된 코치 노트", labels, index=default_idx, key="study_coach_saved_note")
+        selected_idx = labels.index(selected_label)
+        selected_note = saved_notes[selected_idx]
+    elif st.session_state.get("study_coach_result"):
+        selected_note = {
+            "id": st.session_state.get("study_coach_last_note_id") or "session",
+            "title": "현재 세션 코치 노트",
+            "result": st.session_state.get("study_coach_result") or {},
+            "rendered_markdown": st.session_state.get("study_coach_rendered") or "",
+            "variants": build_study_note_variants(st.session_state.get("study_coach_result") or {}),
+            "source_manifest": [],
+        }
+
+    if selected_note:
+        result = selected_note.get("result") or {}
+        rendered_markdown = selected_note.get("rendered_markdown") or render_study_coach_markdown(result)
+        variants = selected_note.get("variants") or build_study_note_variants(result)
+
+        col_a, col_b = st.columns([2, 1])
+        with col_a:
+            st.markdown(rendered_markdown)
+        with col_b:
+            st.subheader("변환 옵션")
+            variant_name = st.radio(
+                "출력 변환",
+                ["초압축 요약 버전", "암기카드 버전", "OX 퀴즈 버전", "객관식 예상문제 버전"],
+                key="study_coach_variant_name",
+            )
+            st.text_area(
+                "변환 결과",
+                value=variants.get(variant_name, ""),
+                height=360,
+                key="study_coach_variant_text",
+            )
+            manifest_rows = selected_note.get("source_manifest") or []
+            if manifest_rows:
+                st.caption("참고한 자료")
+                safe_dataframe(manifest_rows, use_container_width=True, hide_index=True)
+
+        predicted_items = convert_predicted_questions_to_bank_items(
+            (result or {}).get("predicted_questions", []),
+            unit="실습시험 코치",
+            origin_id=str(selected_note.get("id") or ""),
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("💾 예상문제 문제은행 저장", use_container_width=True, key="study_coach_save_predicted"):
+                added = add_questions_to_bank_auto(
+                    predicted_items,
+                    subject="진단검사의학",
+                    unit="실습시험 코치",
+                    quality_filter=False,
+                    min_length=2,
+                    batch_id=f"study-coach-{selected_note.get('id')}",
+                )
+                st.session_state.last_action_notice = f"실습 코치 예상문제 {added}개를 문제은행에 저장했습니다."
+                st.rerun()
+        with c2:
+            if st.button("🎯 객관식 예상문제로 학습 세션 준비", use_container_width=True, key="study_coach_prepare_exam"):
+                mcq_items = [item for item in predicted_items if item.get("type") == "mcq"]
+                started = start_exam_session_from_items(mcq_items[: min(10, len(mcq_items))], "객관식", "학습모드")
+                if started:
+                    st.session_state.exam_mode_entry_anchor = "study_coach"
+                    st.session_state.last_action_notice = f"실습 코치 예상 객관식 {started}개로 학습 세션을 준비했습니다."
+                    st.rerun()
+                else:
+                    st.warning("준비할 객관식 예상문제가 없습니다.")
 
 # ============================================================================
 # PAGE: 문제 생성
@@ -8167,7 +9071,12 @@ if active_page == "exam":
                     st.markdown(f"### Question {idx + 1}")
                     if q.get("type") != "mcq":
                         rt = q.get("response_type", "cloze")
-                        rt_label = "빈칸형" if rt == "cloze" else ("단답형" if rt == "short" else "서술형")
+                        rt_label = (
+                            "빈칸형" if rt == "cloze"
+                            else ("단답형" if rt == "short"
+                            else ("구술형" if rt == "oral"
+                            else ("OX형" if rt == "ox" else "서술형")))
+                        )
                         st.caption(f"유형: {rt_label}")
 
                     # 입력
