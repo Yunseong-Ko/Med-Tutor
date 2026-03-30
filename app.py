@@ -6097,8 +6097,10 @@ def generate_content_gemini(
     mode_short = globals().get("MODE_SHORT", "🧠 단답형 문제")
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
-    style_block = build_style_instructions(style_text)
-    flavor_block = build_flavor_instructions(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
+    style_builder = globals().get("build_style_instructions", lambda _style_text: "")
+    flavor_builder = globals().get("build_flavor_instructions", lambda *_args, **_kwargs: "")
+    style_block = style_builder(style_text)
+    flavor_block = flavor_builder(selected_mode, resolved_flavor, mix_basic_ratio=mix_basic_ratio)
     if selected_mode == mode_mcq:
         system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + flavor_block
     elif selected_mode == mode_cloze:
