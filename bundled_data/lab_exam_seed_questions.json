@@ -1,5 +1,5 @@
 {
-  "version": "lab-exam-seed-v7",
+  "version": "lab-exam-seed-v8",
   "text": [
     {
       "type": "mcq",
@@ -745,6 +745,258 @@
       "options": ["정밀도", "유병률", "양성예측도", "음성예측도", "질병 중증도"],
       "answer": 1,
       "explanation": "내부정도관리는 반복 측정의 일관성, 즉 정밀도 평가에 중요하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "CBC에 포함되는 항목으로 가장 적절한 것은?",
+      "options": ["pH", "WBC", "Creatinine", "Protein", "Ketone"],
+      "answer": 2,
+      "explanation": "CBC는 혈구수와 혈색소, 적혈구 지표 등을 포함하며 WBC가 대표 항목이다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "MCV 증가와 가장 잘 연관되는 빈혈은?",
+      "options": ["철결핍빈혈", "만성질환빈혈", "거대적아구성빈혈", "지중해빈혈", "출혈 직후 빈혈"],
+      "answer": 3,
+      "explanation": "거대적아구성빈혈은 macrocytic anemia로 MCV 증가가 특징적이다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "철결핍빈혈에서 흔한 적혈구 지표 조합은?",
+      "options": ["MCV 증가, RDW 감소", "MCV 감소, RDW 증가", "MCV 정상, RDW 감소", "MCV 증가, MCHC 증가", "MCV 감소, reticulocyte 증가만"],
+      "answer": 2,
+      "explanation": "철결핍빈혈에서는 microcytosis와 anisocytosis가 흔해 MCV 감소, RDW 증가가 흔하다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "백혈구 감별계산에서 세균 감염과 가장 잘 연관되는 변화는?",
+      "options": ["호산구 증가", "호중구 증가", "림프구 감소만", "호염구 증가", "단핵구 감소"],
+      "answer": 2,
+      "explanation": "급성 세균 감염에서는 neutrophilia가 흔하다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈소판 감소가 있을 때 가장 직접적으로 평가되는 CBC 항목은?",
+      "options": ["Hb", "Hct", "Platelet count", "MCV", "MCHC"],
+      "answer": 3,
+      "explanation": "혈소판감소증 평가는 platelet count로 직접 확인한다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "RFT(renal function test)의 대표 항목 조합은?",
+      "options": ["AST/ALT", "BUN/Cr", "PT/aPTT", "Na/K만", "HbA1c/glucose"],
+      "answer": 2,
+      "explanation": "신기능 평가는 BUN과 creatinine이 대표적이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "사구체여과율(GFR) 감소를 가장 직접적으로 시사하는 혈액검사는?",
+      "options": ["Creatinine 상승", "ALT 상승", "Albumin 상승", "Calcium 상승", "HDL 상승"],
+      "answer": 1,
+      "explanation": "GFR가 떨어지면 creatinine 배설이 감소해 혈중 creatinine이 상승한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "탈수에서 흔히 관찰될 수 있는 BUN/Cr 변화는?",
+      "options": ["둘 다 감소", "BUN/Cr 비 증가", "Creatinine만 감소", "BUN만 감소", "변화 없음"],
+      "answer": 2,
+      "explanation": "prerenal azotemia에서는 BUN/Cr ratio 증가가 흔하다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 pH 7.28, PaCO2 30 mmHg, HCO3- 14 mEq/L일 때 가장 적절한 해석은?",
+      "options": ["대사성 산증", "대사성 알칼리증", "호흡성 산증", "호흡성 알칼리증", "정상"],
+      "answer": 1,
+      "explanation": "낮은 pH와 낮은 bicarbonate가 일차적으로 metabolic acidosis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 pH 7.52, PaCO2 28 mmHg, HCO3- 23 mEq/L일 때 가장 적절한 해석은?",
+      "options": ["대사성 산증", "대사성 알칼리증", "호흡성 산증", "호흡성 알칼리증", "혼합성 대사장애"],
+      "answer": 4,
+      "explanation": "높은 pH와 낮은 PaCO2는 respiratory alkalosis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 산소화 상태를 직접 반영하는 주요 항목은?",
+      "options": ["HCO3-", "Base excess", "PaO2", "Anion gap", "BUN"],
+      "answer": 3,
+      "explanation": "PaO2는 동맥혈 내 산소분압으로 산소화를 평가하는 핵심 항목이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA 검체 채취 후 가장 중요한 처리로 적절한 것은?",
+      "options": ["상온에 오래 둔다", "heparinized syringe 사용 후 신속 분석", "EDTA 튜브에 옮긴다", "응고 후 측정한다", "항응고제 없이 방치한다"],
+      "answer": 2,
+      "explanation": "ABGA는 heparinized syringe를 사용하고 공기 노출을 줄이며 빠르게 분석해야 한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사 dipstick에서 단백뇨를 가장 직접적으로 반영하는 항목은?",
+      "options": ["bilirubin", "protein", "glucose", "ketone", "nitrite"],
+      "answer": 2,
+      "explanation": "dipstick protein 항목은 주로 albumin을 반영한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요 nitrite 양성의 해석으로 가장 적절한 것은?",
+      "options": ["사구체신염 확진", "세균뇨 시사", "당뇨병 확진", "케톤산증 확진", "결석 확진"],
+      "answer": 2,
+      "explanation": "nitrite 양성은 nitrate를 nitrite로 환원하는 세균 존재를 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요 sediment에서 RBC cast가 보이면 가장 먼저 생각할 것은?",
+      "options": ["방광염", "사구체질환", "요붕증", "신증후군만", "고지혈증"],
+      "answer": 2,
+      "explanation": "RBC cast는 사구체 출혈과 연관되어 glomerulonephritis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 glucose 양성이지만 혈당이 정상이라면 가장 먼저 고려할 수 있는 것은?",
+      "options": ["간성혼수", "신세뇨관 재흡수 이상", "혈액 오염", "요비중 감소만", "정상 변이"],
+      "answer": 2,
+      "explanation": "renal glycosuria처럼 세뇨관 재흡수 이상이 있으면 혈당 정상이어도 요당이 나올 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 specific gravity가 높다는 의미로 가장 적절한 것은?",
+      "options": ["희석뇨", "농축뇨", "무뇨", "단백뇨 없음", "혈뇨 없음"],
+      "answer": 2,
+      "explanation": "specific gravity 증가는 소변이 상대적으로 농축되었음을 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 leukocyte esterase 양성의 의미로 가장 적절한 것은?",
+      "options": ["당뇨병", "백혈구 존재 시사", "고지혈증", "근육손상", "간질환"],
+      "answer": 2,
+      "explanation": "leukocyte esterase 양성은 소변 내 백혈구를 시사해 UTI 평가에 도움된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c가 반영하는 평균 혈당 기간으로 가장 적절한 것은?",
+      "options": ["1주", "2~3주", "2~3개월", "6개월", "1년"],
+      "answer": 3,
+      "explanation": "HbA1c는 적혈구 수명에 기반해 대략 최근 2~3개월 평균 혈당을 반영한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c 해석 시 거짓으로 낮게 나올 수 있는 상황은?",
+      "options": ["철결핍빈혈", "적혈구 수명 단축", "만성 고혈당", "요독증", "고중성지방혈증"],
+      "answer": 2,
+      "explanation": "용혈이나 출혈 등으로 적혈구 수명이 짧아지면 HbA1c가 실제보다 낮게 나올 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "급성 심근손상에서 특이성과 민감도가 가장 높아 핵심으로 쓰이는 심장표지자는?",
+      "options": ["CK", "CK-MB", "Troponin", "Myoglobin", "LDH"],
+      "answer": 3,
+      "explanation": "cardiac troponin은 심근손상 평가의 핵심 biomarker다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "AMI 발병 초기에 가장 빨리 상승하지만 특이도가 낮은 심장표지자는?",
+      "options": ["Troponin I", "Troponin T", "Myoglobin", "BNP", "NT-proBNP"],
+      "answer": 3,
+      "explanation": "myoglobin은 매우 빨리 상승하지만 심근 특이도가 낮다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "심부전 평가에 특히 유용한 표지자는?",
+      "options": ["Troponin", "CK-MB", "BNP/NT-proBNP", "AST", "Lactate"],
+      "answer": 3,
+      "explanation": "BNP와 NT-proBNP는 심부전의 진단과 중증도 평가에 도움된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청 나트륨 126 mEq/L의 해석으로 가장 적절한 것은?",
+      "options": ["정상", "경도 고나트륨혈증", "저나트륨혈증", "정상 상한", "위양성"],
+      "answer": 3,
+      "explanation": "혈청 sodium 126 mEq/L는 hyponatremia에 해당한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "용혈 검체에서 거짓 상승 가능성이 특히 큰 전해질은?",
+      "options": ["Na", "K", "Cl", "HCO3-", "Phosphate만"],
+      "answer": 2,
+      "explanation": "세포 내 농도가 높은 potassium은 용혈 시 pseudohyperkalemia를 보일 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "고칼륨혈증에서 임상적으로 가장 주의해야 할 합병증은?",
+      "options": ["빈혈", "부정맥", "황달", "당뇨병", "지질이상"],
+      "answer": 2,
+      "explanation": "hyperkalemia는 치명적인 cardiac arrhythmia를 유발할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "이온화 칼슘 측정에서 pH 변화와 가장 관련된 해석은?",
+      "options": ["pH 증가 시 이온화 칼슘 증가", "pH 증가 시 이온화 칼슘 감소", "pH와 무관", "총칼슘만 변함", "칼륨만 변함"],
+      "answer": 2,
+      "explanation": "alkalosis에서는 단백 결합이 증가해 ionized calcium이 감소할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "anion gap 계산에 직접 포함되는 전해질 조합은?",
+      "options": ["Na, K, Cl, HCO3-", "Ca, Mg, P", "AST, ALT, ALP", "BUN, Cr, uric acid", "troponin, CK-MB"],
+      "answer": 1,
+      "explanation": "anion gap은 보통 Na - (Cl + HCO3-)로 계산하며 상황에 따라 K를 포함하기도 한다.",
       "subject": "임상화학",
       "unit": "임상화학+알파 집중"
     }
@@ -1737,6 +1989,250 @@
       "front": "확진검사에서 특이도가 낮으면 위 ____ 이 늘 수 있다.",
       "answer": "양성",
       "explanation": "비환자를 양성으로 잘못 분류할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "CBC는 complete blood ____ 의 약자다.",
+      "answer": "count",
+      "explanation": "CBC는 complete blood count를 뜻한다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "CBC에서 빈혈 평가에 핵심인 기본 항목은 Hb, Hct, RBC count이다.",
+      "answer": "O",
+      "explanation": "기본 혈구수와 혈색소/헤마토크릿이 빈혈 평가의 출발점이다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중",
+      "response_type": "ox"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "MCV는 적혈구의 평균 ____ 용적을 뜻한다.",
+      "answer": "혈구",
+      "explanation": "mean corpuscular volume의 약자다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "MCV가 낮으면 일반적으로 ____ 적혈구성 빈혈을 생각한다.",
+      "answer": "소구",
+      "explanation": "microcytic anemia를 시사한다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "세균 감염에서는 호중구가 ____ 하는 경우가 흔하다.",
+      "answer": "증가",
+      "explanation": "neutrophilia가 흔하다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈소판감소증 여부는 CBC의 ____ count로 직접 확인한다.",
+      "answer": "platelet",
+      "explanation": "혈소판 수를 직접 본다.",
+      "subject": "진단혈액",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "RFT의 대표 혈액검사 조합은 BUN과 ____ 이다.",
+      "answer": "creatinine",
+      "explanation": "renal function test의 대표 조합이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "prerenal azotemia에서는 BUN/Cr 비가 ____ 하는 경향이 있다.",
+      "answer": "증가",
+      "explanation": "탈수 등에서는 BUN 재흡수가 늘어 ratio가 증가할 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ABGA에서 대사성 산증은 pH 감소와 HCO3- ____ 가 핵심이다.",
+      "answer": "감소",
+      "explanation": "metabolic acidosis의 기본 패턴이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ABGA에서 호흡성 알칼리증은 pH 증가와 PaCO2 ____ 가 핵심이다.",
+      "answer": "감소",
+      "explanation": "hyperventilation에서 흔한 패턴이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ABGA에서 산소화 평가는 주로 ____ 로 본다.",
+      "answer": "PaO2",
+      "explanation": "arterial oxygen tension을 반영한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ABGA 검체는 heparinized syringe로 채취 후 ____ 분석해야 한다.",
+      "answer": "신속히",
+      "explanation": "시간 지연은 가스 수치 변화의 원인이 된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "소변 dipstick에서 nitrite 양성은 세균 ____ 를 시사한다.",
+      "answer": "뇨",
+      "explanation": "bacteriuria를 시사한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "소변 dipstick에서 leukocyte esterase 양성은 요중 ____ 존재를 시사한다.",
+      "answer": "백혈구",
+      "explanation": "pyuria와 관련된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "RBC cast는 주로 ____ 질환을 시사한다.",
+      "answer": "사구체",
+      "explanation": "glomerulonephritis 등과 연관된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "요비중(specific gravity)이 높으면 소변이 상대적으로 ____ 되어 있다는 뜻이다.",
+      "answer": "농축",
+      "explanation": "concentrated urine을 의미한다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈당이 정상인데 요당이 나오면 먼저 ____ glycosuria를 생각할 수 있다.",
+      "answer": "renal",
+      "explanation": "세뇨관 재흡수 이상과 관련된다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "HbA1c는 최근 약 ____ 개월 평균 혈당을 반영한다.",
+      "answer": "2~3",
+      "explanation": "적혈구 수명에 기반한 지표다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "적혈구 수명이 짧아지면 HbA1c는 실제보다 ____ 게 나올 수 있다.",
+      "answer": "낮",
+      "explanation": "적혈구가 오래 당화될 시간이 부족해진다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "급성 심근손상 평가의 핵심 심장표지자는 cardiac ____ 이다.",
+      "answer": "troponin",
+      "explanation": "troponin I/T가 대표적이다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "심근경색 초기에 빨리 오르지만 특이도가 낮은 marker는 ____ 이다.",
+      "answer": "myoglobin",
+      "explanation": "초기 상승은 빠르지만 근육 손상에도 오른다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "심부전 평가에 흔히 쓰는 표지자 조합은 BNP와 NT-pro____ 이다.",
+      "answer": "BNP",
+      "explanation": "심실 wall stress와 관련된 marker다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈청 sodium 감소는 ____ 나트륨혈증을 뜻한다.",
+      "answer": "저",
+      "explanation": "hyponatremia의 정의다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "용혈 검체에서 가짜 상승이 잘 나타나는 대표 전해질은 ____ 이다.",
+      "answer": "칼륨",
+      "explanation": "적혈구 내 농도가 높다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "고칼륨혈증은 치명적 ____ 을 유발할 수 있어 중요하다.",
+      "answer": "부정맥",
+      "explanation": "ECG 변화와 arrhythmia 위험이 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "alkalosis에서는 albumin 결합 증가로 ionized calcium이 ____ 할 수 있다.",
+      "answer": "감소",
+      "explanation": "증상성 저칼슘혈증처럼 보일 수 있다.",
+      "subject": "임상화학",
+      "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "anion gap 계산의 기본식은 Na - (Cl + ____ ) 이다.",
+      "answer": "HCO3-",
+      "explanation": "대사성 산증 평가에 중요하다.",
       "subject": "임상화학",
       "unit": "임상화학+알파 집중"
     }
