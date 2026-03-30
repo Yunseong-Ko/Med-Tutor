@@ -1408,6 +1408,28 @@ def add_study_note(note, user_id=None, limit=50):
     save_study_notes(bundle, user_id=user_id)
     return bundle
 
+def get_bundled_seed_questions_path():
+    return str(Path(__file__).resolve().parent / "bundled_data" / "lab_exam_seed_questions.json")
+
+def maybe_seed_lab_exam_questions_for_allowed_viewer():
+    if not is_allowed_viewer():
+        return 0
+    bank = load_questions()
+    existing_total = len(bank.get("text", [])) + len(bank.get("cloze", []))
+    if existing_total > 0:
+        return 0
+    seed_path = get_bundled_seed_questions_path()
+    data = load_json_file(seed_path, {"text": [], "cloze": []})
+    if not isinstance(data, dict):
+        return 0
+    seed_text = data.get("text", []) if isinstance(data.get("text"), list) else []
+    seed_cloze = data.get("cloze", []) if isinstance(data.get("cloze"), list) else []
+    if not (seed_text or seed_cloze):
+        return 0
+    payload = {"text": seed_text, "cloze": seed_cloze}
+    save_questions(ensure_question_ids(payload))
+    return len(seed_text) + len(seed_cloze)
+
 def load_fsrs_settings():
     data = load_user_settings()
     default = {
@@ -6516,6 +6538,10 @@ if not is_allowed_viewer():
     render_auth_landing_page()
     st.error("이 앱은 허가된 계정만 열람할 수 있습니다.")
     st.stop()
+
+seeded_count = maybe_seed_lab_exam_questions_for_allowed_viewer()
+if seeded_count:
+    st.session_state.last_action_notice = f"기본 실습시험 문제 {seeded_count}개를 자동으로 준비했습니다."
 
 def get_main_page_config(admin_mode):
     pages = [

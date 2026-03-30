@@ -1,0 +1,492 @@
+{
+  "text": [
+    {
+      "type": "mcq",
+      "problem": "소아에서 림프구가 60% 정도로 우세하게 보이는 생리적 시기로 가장 적절한 것은?",
+      "options": ["출생 직후", "생후 6개월~2세", "학령기 전반", "사춘기 초반", "성인기"],
+      "answer": 2,
+      "explanation": "영아기에는 physiologic lymphocytosis가 나타나 생후 6개월~2세 무렵 림프구 우세가 정상일 수 있다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "핵적혈구(NRBC)가 많은 검체에서 자동혈구계산기의 WBC 수치에 생길 수 있는 변화로 옳은 것은?",
+      "options": ["거짓 감소", "영향 없음", "거짓 증가", "항상 정상화됨", "혈소판으로 오인된다"],
+      "answer": 3,
+      "explanation": "일부 장비는 NRBC를 WBC로 오인하여 WBC가 거짓 증가할 수 있다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "미세혈관병용혈빈혈(MAHA)에서 대표적으로 관찰되는 말초도말 소견은?",
+      "options": ["Target cell", "Schistocyte", "Rouleaux formation", "Howell-Jolly body", "Acanthocyte"],
+      "answer": 2,
+      "explanation": "MAHA에서는 혈전이 형성된 미세혈관을 지나며 적혈구가 잘려 schistocyte가 증가한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "라이트 염색으로 잘 보이지 않아 supravital stain이 필요한 적혈구 포함체는?",
+      "options": ["Howell-Jolly body", "Pappenheimer body", "Heinz body", "Basophilic stippling", "Cabot ring"],
+      "answer": 3,
+      "explanation": "Heinz body는 산화된 헤모글로빈 침착물로 supravital stain에서 관찰한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "철결핍빈혈과 만성질환빈혈 감별에 상대적으로 유용한 검사는?",
+      "options": ["총단백", "sTfR", "PT", "ESR", "LDH"],
+      "answer": 2,
+      "explanation": "sTfR은 철결핍 시 증가하며 ferritin이 염증성 급성기 반응으로 해석이 어려울 때 도움이 된다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "민감도가 높은 선별검사(screening test)에 가장 적절한 ROC 성격은?",
+      "options": ["위양성이 거의 없어야 한다", "민감도가 높아야 한다", "특이도만 높으면 된다", "유병률과 무관해야 한다", "양성예측도가 항상 가장 높아야 한다"],
+      "answer": 2,
+      "explanation": "선별검사는 놓치지 않는 것이 중요하므로 민감도를 우선시한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "구토가 지속되는 환자에서 가장 흔히 예상되는 산-염기 이상은?",
+      "options": ["Metabolic acidosis", "Respiratory acidosis", "Metabolic alkalosis", "Respiratory alkalosis", "혼합성 산증"],
+      "answer": 3,
+      "explanation": "위산 소실로 인해 HCO3-가 상대적으로 증가하여 metabolic alkalosis가 나타난다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "용혈된 검체에서 흔히 거짓 상승할 수 있는 항목으로 가장 적절한 것은?",
+      "options": ["Sodium", "Potassium", "Chloride", "Bicarbonate", "CRP"],
+      "answer": 2,
+      "explanation": "적혈구 내 K가 유리되어 용혈 검체에서 potassium이 상승해 보일 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "채혈 튜브 순서(order of draw)로 옳은 것은?",
+      "options": ["EDTA → citrate → SST", "Blood culture → citrate → SST → EDTA", "SST → blood culture → EDTA", "Heparin → citrate → EDTA", "EDTA → SST → blood culture"],
+      "answer": 2,
+      "explanation": "오염을 줄이기 위해 blood culture 이후 citrate, serum, EDTA 순으로 채혈한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c가 철결핍성 빈혈에서 상대적으로 높게 측정될 수 있는 주된 이유는?",
+      "options": ["망상적혈구 증가", "적혈구 수명 단축", "오래된 적혈구 비율 증가", "혈장 포도당 감소", "용혈 증가"],
+      "answer": 3,
+      "explanation": "오래 순환한 적혈구가 많아지면 당화 시간이 길어져 HbA1c가 높아 보일 수 있다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "BCG 접종률이 높은 나라에서 잠복결핵 선별 시 TST보다 IGRA가 선호되는 가장 큰 이유는?",
+      "options": ["민감도가 항상 더 높아서", "비용이 더 낮아서", "BCG 영향이 적어 특이도가 높아서", "주사 없이 가능해서", "모든 NTM과 전혀 교차반응하지 않아서"],
+      "answer": 3,
+      "explanation": "IGRA는 결핵 특이 항원을 사용해 BCG 영향이 적고 특이도가 높다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "매독 치료 추적에 더 적합한 검사는?",
+      "options": ["TPHA", "FTA-ABS", "RPR", "Treponemal IgG", "Dark-field microscopy만 가능"],
+      "answer": 3,
+      "explanation": "RPR 같은 non-treponemal test는 역가 변화를 볼 수 있어 치료 반응 추적에 적합하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "Prozone effect에 대한 설명으로 옳은 것은?",
+      "options": ["항원이 너무 적어 위양성이 된다", "항체가 너무 많아 위음성이 될 수 있다", "희석하면 더 음성이 된다", "Treponemal test에서만 생긴다", "면역반응과 무관하다"],
+      "answer": 2,
+      "explanation": "항체 과다로 격자 형성이 잘 안 되면 위음성이 될 수 있고, 희석 후 양성으로 바뀔 수 있다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "SLE에서 민감도가 높은 선별 자가항체 검사는?",
+      "options": ["ANCA", "ANA(FANA)", "Anti-CCP", "RF", "Direct Coombs"],
+      "answer": 2,
+      "explanation": "ANA는 SLE에서 민감도가 높아 선별검사로 자주 사용된다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "소혈관 혈관염 평가에 대표적으로 사용하는 항체는?",
+      "options": ["AMA", "ANCA", "ASO", "Heterophile antibody", "Cryoglobulin만 사용"],
+      "answer": 2,
+      "explanation": "ANCA는 GPA, MPA 등 소혈관 혈관염의 중요한 표지자다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "유방암/난소암 가족력이 있는 가계도에서 우선 고려할 유전자 검사는?",
+      "options": ["JAK2", "BRCA1/2", "BCR-ABL1", "KRAS", "HFE"],
+      "answer": 2,
+      "explanation": "유방암과 난소암 가족력이 함께 보이면 BRCA1/2 변이를 우선 고려한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "정밀의학과 광범위 유전자 이상 탐지에 핵심적인 기술은?",
+      "options": ["Gram stain", "NGS", "Coombs test", "ESR", "SPEP"],
+      "answer": 2,
+      "explanation": "차세대염기서열분석(NGS)은 분자진단과 정밀의학의 핵심 기술이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "PCR 기반 검사의 가장 큰 장점으로 적절한 것은?",
+      "options": ["항상 비용이 가장 낮다", "형태학적 평가가 가능하다", "소량의 핵산도 증폭해 검출할 수 있다", "배양보다 오염 위험이 없다", "모든 검체에 전처리가 필요 없다"],
+      "answer": 3,
+      "explanation": "PCR은 적은 양의 핵산도 증폭해 검출할 수 있어 민감도가 높다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "분자진단 결과 해석에서 contamination의 대표적 문제는?",
+      "options": ["위음성 증가", "위양성 증가", "정량값 안정화", "검체량 감소", "특이도 증가"],
+      "answer": 2,
+      "explanation": "외부 핵산 오염은 실제 감염/변이가 없는데도 양성으로 보이게 할 수 있다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "분자진단에서 variant 해석이 불확실한 경우 우선 필요한 태도는?",
+      "options": ["무조건 병적 변이로 보고", "임상과 무관하게 무시", "불확실로 표시하고 임상/추가 근거와 함께 해석", "항상 재검 불필요", "배양 결과로 대체"],
+      "answer": 3,
+      "explanation": "근거가 부족한 변이는 불확실로 표기하고 임상 정보와 추가 근거를 함께 봐야 한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈액배양 채혈 시 피부 소독제로 가장 권장되는 것은?",
+      "options": ["증류수", "2% chlorhexidine in alcohol", "생리식염수", "메틸렌블루", "과산화수소 단독"],
+      "answer": 2,
+      "explanation": "chlorhexidine in alcohol은 빠른 효과와 잔류 효과가 있어 혈액배양 채혈 시 권장된다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈액배양 1쌍을 위한 권장 채혈량으로 가장 적절한 것은?",
+      "options": ["1~2 mL", "4~5 mL", "8~10 mL", "16~20 mL", "30~40 mL"],
+      "answer": 4,
+      "explanation": "호기성/혐기성 병 각각 8~10 mL 정도, 총 16~20 mL 채혈이 중요하다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "감염성 심내막염이 의심될 때 혈액배양을 30분~1시간 간격으로 시행하는 주된 목적은?",
+      "options": ["채혈량 감소", "지속적 균혈증 확인", "배지 비용 절감", "무조건 혐기성균 검출", "혈당 측정 동시 수행"],
+      "answer": 2,
+      "explanation": "감염성 심내막염은 지속적 균혈증을 증명하는 것이 진단에 중요하다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈액배양 오염(contamination)을 줄이기 위한 방법으로 가장 중요한 것은?",
+      "options": ["배지를 흔들지 않는다", "피부 소독과 무균 채혈을 철저히 한다", "항생제 투여 후 채혈한다", "항상 동맥에서 채혈한다", "한 병에만 주입한다"],
+      "answer": 2,
+      "explanation": "피부 상재균 오염을 줄이려면 피부 소독과 무균 채혈이 핵심이다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "실제 임상에서 혈액배양 주사기 혈액을 먼저 주입하는 병으로 흔한 것은?",
+      "options": ["항상 혐기성 병", "항상 호기성 병", "무조건 무관", "소아병만 가능", "응급실에서는 주입하지 않는다"],
+      "answer": 2,
+      "explanation": "시험 지침과 달리 실제 임상에서는 공기 혼입 문제 때문에 호기성 병을 먼저 쓰는 경우가 많다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "AB형 환자에게 농축적혈구를 응급 수혈할 때 거의 문제되지 않는 대안은?",
+      "options": ["AB형만 가능", "A형 농축적혈구", "O형 전혈만 가능", "B형 전혈 절대 금지", "RhD 양성 환자는 RhD 음성 혈액 금기"],
+      "answer": 2,
+      "explanation": "AB형 환자는 혈장 항A/항B 항체가 없어 A형 적혈구 수혈이 거의 문제되지 않는다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "발열성 비용혈성 수혈반응(FNHTR) 예방을 위해 가장 적절한 적혈구 제제는?",
+      "options": ["세척 적혈구", "백혈구 제거 적혈구", "전혈", "동결적혈구", "혈장"],
+      "answer": 2,
+      "explanation": "FNHTR은 잔존 백혈구와 관련이 커서 leukocyte-reduced RBC가 적절하다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "급성 용혈성 수혈반응이 의심될 때 가장 먼저 해야 할 처치는?",
+      "options": ["수혈 속도 증가", "즉시 수혈 중단", "항응고제 추가", "혈액팩 폐기 후 종료", "산소 투여만 시행"],
+      "answer": 2,
+      "explanation": "급성 용혈성 수혈반응 의심 시 가장 먼저 수혈을 즉시 중단해야 한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "RhD 음성 가임기 여성에게 RhD 양성 혈소판을 수혈해야 하는 상황에서 추가로 고려할 처치는?",
+      "options": ["철분 투여", "Rh immune globulin", "비타민 K", "혈장교환술", "면역억제제 중단"],
+      "answer": 2,
+      "explanation": "혈소판 제제 내 소량의 적혈구로 인한 Rh 동종면역을 예방하기 위해 RhIg를 고려한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "mcq",
+      "problem": "냉장 보관 적혈구의 저장손상(storage lesion)으로 옳은 것은?",
+      "options": ["ATP 증가", "2,3-DPG 증가", "막 유연성 증가", "막 성분 소실 증가", "조직 산소 전달능 증가"],
+      "answer": 4,
+      "explanation": "저장 기간이 길어지면 ATP와 2,3-DPG가 감소하고 막 성분 소실이 증가한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    }
+  ],
+  "cloze": [
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "성인 정상 lymphocyte 비율은 ____ 이다.",
+      "answer": "20~40%",
+      "explanation": "성인 백혈구 감별계산에서 lymphocyte 정상 비율은 대체로 20~40%다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "MCV 계산식은 (____ x 10) / RBC 이다.",
+      "answer": "Hct",
+      "explanation": "MCV는 hematocrit과 RBC 수를 이용해 계산한다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "구상적혈구가 보일 때 유전구형적혈구증과 감별해야 할 대표 질환은 ____ 이다.",
+      "answer": "자가면역용혈빈혈",
+      "explanation": "HS와 AIHA 모두 spherocyte가 보일 수 있다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "ALL에서 block positivity로 도움이 되는 염색은 ____ 이다.",
+      "answer": "PAS",
+      "explanation": "ALL은 PAS 양성이 진단 보조에 유용하다.",
+      "subject": "진단혈액",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "선별검사에서는 특이도보다 ____ 를 우선한다.",
+      "answer": "민감도",
+      "explanation": "놓치지 않는 것이 중요하므로 screening test는 민감도 우선이다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "구토로 위산을 잃으면 대표적으로 ____ alkalosis가 생긴다.",
+      "answer": "metabolic",
+      "explanation": "위산 소실은 metabolic alkalosis의 대표 원인이다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "당화혈색소 검체로 가장 흔히 쓰는 튜브는 ____ 튜브이다.",
+      "answer": "EDTA",
+      "explanation": "HbA1c는 EDTA 전혈을 사용한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "직접빌리루빈이 알부민과 결합해 수술 후 늦게 떨어질 수 있는 형태는 ____ bilirubin이다.",
+      "answer": "delta",
+      "explanation": "delta bilirubin은 알부민과 결합해 천천히 감소한다.",
+      "subject": "임상화학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "매독 치료 추적에는 treponemal test보다 ____ test가 더 적합하다.",
+      "answer": "non-treponemal",
+      "explanation": "RPR/VDRL은 역가 추적이 가능하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "항체가 너무 많아 위음성이 되는 현상은 ____ effect라 한다.",
+      "answer": "prozone",
+      "explanation": "prozone effect는 희석 재검으로 확인할 수 있다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "SLE 선별에 민감도가 높은 자가항체 검사는 ____ 이다.",
+      "answer": "ANA",
+      "explanation": "ANA(FANA)는 SLE에서 민감도가 높다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "소혈관 혈관염 평가에 중요한 항체는 ____ 이다.",
+      "answer": "ANCA",
+      "explanation": "ANCA는 GPA, MPA 등의 혈관염 진단에 중요하다.",
+      "subject": "진단면역",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "유방암/난소암 가족력이 있는 경우 우선 고려할 유전자 검사는 ____ 이다.",
+      "answer": "BRCA1/2",
+      "explanation": "BRCA1/2는 유방암과 난소암 위험 평가에 중요하다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "정밀의학과 광범위 유전자 이상 분석의 핵심 기술은 ____ 이다.",
+      "answer": "NGS",
+      "explanation": "차세대염기서열분석은 분자진단의 핵심 기술이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "PCR 검사의 가장 큰 장점 중 하나는 소량의 ____ 도 증폭해 검출할 수 있다는 점이다.",
+      "answer": "핵산",
+      "explanation": "PCR은 적은 양의 DNA/RNA를 증폭한다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "분자진단에서 contamination은 대표적으로 ____ positive를 유발한다.",
+      "answer": "false",
+      "explanation": "오염은 위양성의 대표 원인이다.",
+      "subject": "분자진단",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈액배양 채혈 시 가장 권장되는 피부 소독제는 alcohol에 섞인 ____ 이다.",
+      "answer": "chlorhexidine",
+      "explanation": "chlorhexidine in alcohol은 빠른 효과와 잔류 효과가 있다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈액배양 1쌍의 총 권장 채혈량은 대략 ____ mL 이다.",
+      "answer": "16~20",
+      "explanation": "호기성/혐기성 병 각각 8~10 mL 정도가 권장된다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "감염성 심내막염 진단에서 혈액배양의 목적 중 하나는 지속적 ____ 을 확인하는 것이다.",
+      "answer": "균혈증",
+      "explanation": "infective endocarditis는 지속적 균혈증이 특징적이다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "혈액배양 오염을 줄이기 위해 가장 중요한 것은 철저한 피부 소독과 ____ 채혈이다.",
+      "answer": "무균",
+      "explanation": "무균 채혈은 contamination 예방의 핵심이다.",
+      "subject": "미생물",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "FNHTR 예방을 위해 적혈구 제제에서 우선 고려하는 처리는 ____ 제거이다.",
+      "answer": "백혈구",
+      "explanation": "백혈구 제거 적혈구는 FNHTR 예방에 유용하다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "급성 용혈성 수혈반응이 의심되면 가장 먼저 ____ 해야 한다.",
+      "answer": "수혈을 중단",
+      "explanation": "즉시 수혈 중단이 최우선이다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "RhD 음성 가임기 여성에게 RhD 양성 혈소판을 줄 때 고려하는 예방 처치는 ____ 투여이다.",
+      "answer": "Rh immune globulin",
+      "explanation": "Rh 동종면역을 줄이기 위해 RhIg를 고려한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    },
+    {
+      "type": "cloze",
+      "response_type": "cloze",
+      "front": "냉장 보관 적혈구에서는 2,3-DPG가 ____ 한다.",
+      "answer": "감소",
+      "explanation": "저장손상으로 2,3-DPG가 감소하고 산소 해리 곡선이 좌측 이동한다.",
+      "subject": "수혈의학",
+      "unit": "실습시험 시드"
+    }
+  ]
+}
