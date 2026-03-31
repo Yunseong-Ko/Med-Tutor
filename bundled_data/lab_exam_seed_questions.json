@@ -1,10 +1,16 @@
 {
-  "version": "lab-exam-seed-v10",
+  "version": "lab-exam-seed-v11",
   "text": [
     {
       "type": "mcq",
       "problem": "소아에서 림프구가 60% 정도로 우세하게 보이는 생리적 시기로 가장 적절한 것은?",
-      "options": ["출생 직후", "생후 6개월~2세", "학령기 전반", "사춘기 초반", "성인기"],
+      "options": [
+        "출생 직후",
+        "생후 6개월~2세",
+        "학령기 전반",
+        "사춘기 초반",
+        "성인기"
+      ],
       "answer": 2,
       "explanation": "영아기에는 physiologic lymphocytosis가 나타나 생후 6개월~2세 무렵 림프구 우세가 정상일 수 있다.",
       "subject": "진단혈액",
@@ -13,7 +19,13 @@
     {
       "type": "mcq",
       "problem": "핵적혈구(NRBC)가 많은 검체에서 자동혈구계산기의 WBC 수치에 생길 수 있는 변화로 옳은 것은?",
-      "options": ["거짓 감소", "영향 없음", "거짓 증가", "항상 정상화됨", "혈소판으로 오인된다"],
+      "options": [
+        "거짓 감소",
+        "영향 없음",
+        "거짓 증가",
+        "항상 정상화됨",
+        "혈소판으로 오인된다"
+      ],
       "answer": 3,
       "explanation": "일부 장비는 NRBC를 WBC로 오인하여 WBC가 거짓 증가할 수 있다.",
       "subject": "진단혈액",
@@ -22,7 +34,13 @@
     {
       "type": "mcq",
       "problem": "미세혈관병용혈빈혈(MAHA)에서 대표적으로 관찰되는 말초도말 소견은?",
-      "options": ["Target cell", "Schistocyte", "Rouleaux formation", "Howell-Jolly body", "Acanthocyte"],
+      "options": [
+        "Target cell",
+        "Schistocyte",
+        "Rouleaux formation",
+        "Howell-Jolly body",
+        "Acanthocyte"
+      ],
       "answer": 2,
       "explanation": "MAHA에서는 혈전이 형성된 미세혈관을 지나며 적혈구가 잘려 schistocyte가 증가한다.",
       "subject": "진단혈액",
@@ -31,7 +49,13 @@
     {
       "type": "mcq",
       "problem": "라이트 염색으로 잘 보이지 않아 supravital stain이 필요한 적혈구 포함체는?",
-      "options": ["Howell-Jolly body", "Pappenheimer body", "Heinz body", "Basophilic stippling", "Cabot ring"],
+      "options": [
+        "Howell-Jolly body",
+        "Pappenheimer body",
+        "Heinz body",
+        "Basophilic stippling",
+        "Cabot ring"
+      ],
       "answer": 3,
       "explanation": "Heinz body는 산화된 헤모글로빈 침착물로 supravital stain에서 관찰한다.",
       "subject": "진단혈액",
@@ -40,7 +64,13 @@
     {
       "type": "mcq",
       "problem": "철결핍빈혈과 만성질환빈혈 감별에 상대적으로 유용한 검사는?",
-      "options": ["총단백", "sTfR", "PT", "ESR", "LDH"],
+      "options": [
+        "총단백",
+        "sTfR",
+        "PT",
+        "ESR",
+        "LDH"
+      ],
       "answer": 2,
       "explanation": "sTfR은 철결핍 시 증가하며 ferritin이 염증성 급성기 반응으로 해석이 어려울 때 도움이 된다.",
       "subject": "진단혈액",
@@ -49,7 +79,13 @@
     {
       "type": "mcq",
       "problem": "민감도가 높은 선별검사(screening test)에 가장 적절한 ROC 성격은?",
-      "options": ["위양성이 거의 없어야 한다", "민감도가 높아야 한다", "특이도만 높으면 된다", "유병률과 무관해야 한다", "양성예측도가 항상 가장 높아야 한다"],
+      "options": [
+        "위양성이 거의 없어야 한다",
+        "민감도가 높아야 한다",
+        "특이도만 높으면 된다",
+        "유병률과 무관해야 한다",
+        "양성예측도가 항상 가장 높아야 한다"
+      ],
       "answer": 2,
       "explanation": "선별검사는 놓치지 않는 것이 중요하므로 민감도를 우선시한다.",
       "subject": "임상화학",
@@ -58,7 +94,13 @@
     {
       "type": "mcq",
       "problem": "구토가 지속되는 환자에서 가장 흔히 예상되는 산-염기 이상은?",
-      "options": ["Metabolic acidosis", "Respiratory acidosis", "Metabolic alkalosis", "Respiratory alkalosis", "혼합성 산증"],
+      "options": [
+        "Metabolic acidosis",
+        "Respiratory acidosis",
+        "Metabolic alkalosis",
+        "Respiratory alkalosis",
+        "혼합성 산증"
+      ],
       "answer": 3,
       "explanation": "위산 소실로 인해 HCO3-가 상대적으로 증가하여 metabolic alkalosis가 나타난다.",
       "subject": "임상화학",
@@ -67,7 +109,13 @@
     {
       "type": "mcq",
       "problem": "용혈된 검체에서 흔히 거짓 상승할 수 있는 항목으로 가장 적절한 것은?",
-      "options": ["Sodium", "Potassium", "Chloride", "Bicarbonate", "CRP"],
+      "options": [
+        "Sodium",
+        "Potassium",
+        "Chloride",
+        "Bicarbonate",
+        "CRP"
+      ],
       "answer": 2,
       "explanation": "적혈구 내 K가 유리되어 용혈 검체에서 potassium이 상승해 보일 수 있다.",
       "subject": "임상화학",
@@ -76,7 +124,13 @@
     {
       "type": "mcq",
       "problem": "채혈 튜브 순서(order of draw)로 옳은 것은?",
-      "options": ["EDTA → citrate → SST", "Blood culture → citrate → SST → EDTA", "SST → blood culture → EDTA", "Heparin → citrate → EDTA", "EDTA → SST → blood culture"],
+      "options": [
+        "EDTA → citrate → SST",
+        "Blood culture → citrate → SST → EDTA",
+        "SST → blood culture → EDTA",
+        "Heparin → citrate → EDTA",
+        "EDTA → SST → blood culture"
+      ],
       "answer": 2,
       "explanation": "오염을 줄이기 위해 blood culture 이후 citrate, serum, EDTA 순으로 채혈한다.",
       "subject": "임상화학",
@@ -85,7 +139,13 @@
     {
       "type": "mcq",
       "problem": "HbA1c가 철결핍성 빈혈에서 상대적으로 높게 측정될 수 있는 주된 이유는?",
-      "options": ["망상적혈구 증가", "적혈구 수명 단축", "오래된 적혈구 비율 증가", "혈장 포도당 감소", "용혈 증가"],
+      "options": [
+        "망상적혈구 증가",
+        "적혈구 수명 단축",
+        "오래된 적혈구 비율 증가",
+        "혈장 포도당 감소",
+        "용혈 증가"
+      ],
       "answer": 3,
       "explanation": "오래 순환한 적혈구가 많아지면 당화 시간이 길어져 HbA1c가 높아 보일 수 있다.",
       "subject": "임상화학",
@@ -94,7 +154,13 @@
     {
       "type": "mcq",
       "problem": "BCG 접종률이 높은 나라에서 잠복결핵 선별 시 TST보다 IGRA가 선호되는 가장 큰 이유는?",
-      "options": ["민감도가 항상 더 높아서", "비용이 더 낮아서", "BCG 영향이 적어 특이도가 높아서", "주사 없이 가능해서", "모든 NTM과 전혀 교차반응하지 않아서"],
+      "options": [
+        "민감도가 항상 더 높아서",
+        "비용이 더 낮아서",
+        "BCG 영향이 적어 특이도가 높아서",
+        "주사 없이 가능해서",
+        "모든 NTM과 전혀 교차반응하지 않아서"
+      ],
       "answer": 3,
       "explanation": "IGRA는 결핵 특이 항원을 사용해 BCG 영향이 적고 특이도가 높다.",
       "subject": "진단면역",
@@ -103,7 +169,13 @@
     {
       "type": "mcq",
       "problem": "매독 치료 추적에 더 적합한 검사는?",
-      "options": ["TPHA", "FTA-ABS", "RPR", "Treponemal IgG", "Dark-field microscopy만 가능"],
+      "options": [
+        "TPHA",
+        "FTA-ABS",
+        "RPR",
+        "Treponemal IgG",
+        "Dark-field microscopy만 가능"
+      ],
       "answer": 3,
       "explanation": "RPR 같은 non-treponemal test는 역가 변화를 볼 수 있어 치료 반응 추적에 적합하다.",
       "subject": "진단면역",
@@ -112,7 +184,13 @@
     {
       "type": "mcq",
       "problem": "Prozone effect에 대한 설명으로 옳은 것은?",
-      "options": ["항원이 너무 적어 위양성이 된다", "항체가 너무 많아 위음성이 될 수 있다", "희석하면 더 음성이 된다", "Treponemal test에서만 생긴다", "면역반응과 무관하다"],
+      "options": [
+        "항원이 너무 적어 위양성이 된다",
+        "항체가 너무 많아 위음성이 될 수 있다",
+        "희석하면 더 음성이 된다",
+        "Treponemal test에서만 생긴다",
+        "면역반응과 무관하다"
+      ],
       "answer": 2,
       "explanation": "항체 과다로 격자 형성이 잘 안 되면 위음성이 될 수 있고, 희석 후 양성으로 바뀔 수 있다.",
       "subject": "진단면역",
@@ -121,7 +199,13 @@
     {
       "type": "mcq",
       "problem": "SLE에서 민감도가 높은 선별 자가항체 검사는?",
-      "options": ["ANCA", "ANA(FANA)", "Anti-CCP", "RF", "Direct Coombs"],
+      "options": [
+        "ANCA",
+        "ANA(FANA)",
+        "Anti-CCP",
+        "RF",
+        "Direct Coombs"
+      ],
       "answer": 2,
       "explanation": "ANA는 SLE에서 민감도가 높아 선별검사로 자주 사용된다.",
       "subject": "진단면역",
@@ -130,7 +214,13 @@
     {
       "type": "mcq",
       "problem": "소혈관 혈관염 평가에 대표적으로 사용하는 항체는?",
-      "options": ["AMA", "ANCA", "ASO", "Heterophile antibody", "Cryoglobulin만 사용"],
+      "options": [
+        "AMA",
+        "ANCA",
+        "ASO",
+        "Heterophile antibody",
+        "Cryoglobulin만 사용"
+      ],
       "answer": 2,
       "explanation": "ANCA는 GPA, MPA 등 소혈관 혈관염의 중요한 표지자다.",
       "subject": "진단면역",
@@ -139,7 +229,13 @@
     {
       "type": "mcq",
       "problem": "유방암/난소암 가족력이 있는 가계도에서 우선 고려할 유전자 검사는?",
-      "options": ["JAK2", "BRCA1/2", "BCR-ABL1", "KRAS", "HFE"],
+      "options": [
+        "JAK2",
+        "BRCA1/2",
+        "BCR-ABL1",
+        "KRAS",
+        "HFE"
+      ],
       "answer": 2,
       "explanation": "유방암과 난소암 가족력이 함께 보이면 BRCA1/2 변이를 우선 고려한다.",
       "subject": "분자진단",
@@ -148,7 +244,13 @@
     {
       "type": "mcq",
       "problem": "정밀의학과 광범위 유전자 이상 탐지에 핵심적인 기술은?",
-      "options": ["Gram stain", "NGS", "Coombs test", "ESR", "SPEP"],
+      "options": [
+        "Gram stain",
+        "NGS",
+        "Coombs test",
+        "ESR",
+        "SPEP"
+      ],
       "answer": 2,
       "explanation": "차세대염기서열분석(NGS)은 분자진단과 정밀의학의 핵심 기술이다.",
       "subject": "분자진단",
@@ -157,7 +259,13 @@
     {
       "type": "mcq",
       "problem": "PCR 기반 검사의 가장 큰 장점으로 적절한 것은?",
-      "options": ["항상 비용이 가장 낮다", "형태학적 평가가 가능하다", "소량의 핵산도 증폭해 검출할 수 있다", "배양보다 오염 위험이 없다", "모든 검체에 전처리가 필요 없다"],
+      "options": [
+        "항상 비용이 가장 낮다",
+        "형태학적 평가가 가능하다",
+        "소량의 핵산도 증폭해 검출할 수 있다",
+        "배양보다 오염 위험이 없다",
+        "모든 검체에 전처리가 필요 없다"
+      ],
       "answer": 3,
       "explanation": "PCR은 적은 양의 핵산도 증폭해 검출할 수 있어 민감도가 높다.",
       "subject": "분자진단",
@@ -166,7 +274,13 @@
     {
       "type": "mcq",
       "problem": "분자진단 결과 해석에서 contamination의 대표적 문제는?",
-      "options": ["위음성 증가", "위양성 증가", "정량값 안정화", "검체량 감소", "특이도 증가"],
+      "options": [
+        "위음성 증가",
+        "위양성 증가",
+        "정량값 안정화",
+        "검체량 감소",
+        "특이도 증가"
+      ],
       "answer": 2,
       "explanation": "외부 핵산 오염은 실제 감염/변이가 없는데도 양성으로 보이게 할 수 있다.",
       "subject": "분자진단",
@@ -175,7 +289,13 @@
     {
       "type": "mcq",
       "problem": "분자진단에서 variant 해석이 불확실한 경우 우선 필요한 태도는?",
-      "options": ["무조건 병적 변이로 보고", "임상과 무관하게 무시", "불확실로 표시하고 임상/추가 근거와 함께 해석", "항상 재검 불필요", "배양 결과로 대체"],
+      "options": [
+        "무조건 병적 변이로 보고",
+        "임상과 무관하게 무시",
+        "불확실로 표시하고 임상/추가 근거와 함께 해석",
+        "항상 재검 불필요",
+        "배양 결과로 대체"
+      ],
       "answer": 3,
       "explanation": "근거가 부족한 변이는 불확실로 표기하고 임상 정보와 추가 근거를 함께 봐야 한다.",
       "subject": "분자진단",
@@ -184,7 +304,13 @@
     {
       "type": "mcq",
       "problem": "혈액배양 채혈 시 피부 소독제로 가장 권장되는 것은?",
-      "options": ["증류수", "2% chlorhexidine in alcohol", "생리식염수", "메틸렌블루", "과산화수소 단독"],
+      "options": [
+        "증류수",
+        "2% chlorhexidine in alcohol",
+        "생리식염수",
+        "메틸렌블루",
+        "과산화수소 단독"
+      ],
       "answer": 2,
       "explanation": "chlorhexidine in alcohol은 빠른 효과와 잔류 효과가 있어 혈액배양 채혈 시 권장된다.",
       "subject": "미생물",
@@ -193,7 +319,13 @@
     {
       "type": "mcq",
       "problem": "혈액배양 1쌍을 위한 권장 채혈량으로 가장 적절한 것은?",
-      "options": ["1~2 mL", "4~5 mL", "8~10 mL", "16~20 mL", "30~40 mL"],
+      "options": [
+        "1~2 mL",
+        "4~5 mL",
+        "8~10 mL",
+        "16~20 mL",
+        "30~40 mL"
+      ],
       "answer": 4,
       "explanation": "호기성/혐기성 병 각각 8~10 mL 정도, 총 16~20 mL 채혈이 중요하다.",
       "subject": "미생물",
@@ -202,7 +334,13 @@
     {
       "type": "mcq",
       "problem": "감염성 심내막염이 의심될 때 혈액배양을 30분~1시간 간격으로 시행하는 주된 목적은?",
-      "options": ["채혈량 감소", "지속적 균혈증 확인", "배지 비용 절감", "무조건 혐기성균 검출", "혈당 측정 동시 수행"],
+      "options": [
+        "채혈량 감소",
+        "지속적 균혈증 확인",
+        "배지 비용 절감",
+        "무조건 혐기성균 검출",
+        "혈당 측정 동시 수행"
+      ],
       "answer": 2,
       "explanation": "감염성 심내막염은 지속적 균혈증을 증명하는 것이 진단에 중요하다.",
       "subject": "미생물",
@@ -211,7 +349,13 @@
     {
       "type": "mcq",
       "problem": "혈액배양 오염(contamination)을 줄이기 위한 방법으로 가장 중요한 것은?",
-      "options": ["배지를 흔들지 않는다", "피부 소독과 무균 채혈을 철저히 한다", "항생제 투여 후 채혈한다", "항상 동맥에서 채혈한다", "한 병에만 주입한다"],
+      "options": [
+        "배지를 흔들지 않는다",
+        "피부 소독과 무균 채혈을 철저히 한다",
+        "항생제 투여 후 채혈한다",
+        "항상 동맥에서 채혈한다",
+        "한 병에만 주입한다"
+      ],
       "answer": 2,
       "explanation": "피부 상재균 오염을 줄이려면 피부 소독과 무균 채혈이 핵심이다.",
       "subject": "미생물",
@@ -220,7 +364,13 @@
     {
       "type": "mcq",
       "problem": "실제 임상에서 혈액배양 주사기 혈액을 먼저 주입하는 병으로 흔한 것은?",
-      "options": ["항상 혐기성 병", "항상 호기성 병", "무조건 무관", "소아병만 가능", "응급실에서는 주입하지 않는다"],
+      "options": [
+        "항상 혐기성 병",
+        "항상 호기성 병",
+        "무조건 무관",
+        "소아병만 가능",
+        "응급실에서는 주입하지 않는다"
+      ],
       "answer": 2,
       "explanation": "시험 지침과 달리 실제 임상에서는 공기 혼입 문제 때문에 호기성 병을 먼저 쓰는 경우가 많다.",
       "subject": "미생물",
@@ -229,7 +379,13 @@
     {
       "type": "mcq",
       "problem": "AB형 환자에게 농축적혈구를 응급 수혈할 때 거의 문제되지 않는 대안은?",
-      "options": ["AB형만 가능", "A형 농축적혈구", "O형 전혈만 가능", "B형 전혈 절대 금지", "RhD 양성 환자는 RhD 음성 혈액 금기"],
+      "options": [
+        "AB형만 가능",
+        "A형 농축적혈구",
+        "O형 전혈만 가능",
+        "B형 전혈 절대 금지",
+        "RhD 양성 환자는 RhD 음성 혈액 금기"
+      ],
       "answer": 2,
       "explanation": "AB형 환자는 혈장 항A/항B 항체가 없어 A형 적혈구 수혈이 거의 문제되지 않는다.",
       "subject": "수혈의학",
@@ -238,7 +394,13 @@
     {
       "type": "mcq",
       "problem": "발열성 비용혈성 수혈반응(FNHTR) 예방을 위해 가장 적절한 적혈구 제제는?",
-      "options": ["세척 적혈구", "백혈구 제거 적혈구", "전혈", "동결적혈구", "혈장"],
+      "options": [
+        "세척 적혈구",
+        "백혈구 제거 적혈구",
+        "전혈",
+        "동결적혈구",
+        "혈장"
+      ],
       "answer": 2,
       "explanation": "FNHTR은 잔존 백혈구와 관련이 커서 leukocyte-reduced RBC가 적절하다.",
       "subject": "수혈의학",
@@ -247,7 +409,13 @@
     {
       "type": "mcq",
       "problem": "급성 용혈성 수혈반응이 의심될 때 가장 먼저 해야 할 처치는?",
-      "options": ["수혈 속도 증가", "즉시 수혈 중단", "항응고제 추가", "혈액팩 폐기 후 종료", "산소 투여만 시행"],
+      "options": [
+        "수혈 속도 증가",
+        "즉시 수혈 중단",
+        "항응고제 추가",
+        "혈액팩 폐기 후 종료",
+        "산소 투여만 시행"
+      ],
       "answer": 2,
       "explanation": "급성 용혈성 수혈반응 의심 시 가장 먼저 수혈을 즉시 중단해야 한다.",
       "subject": "수혈의학",
@@ -256,7 +424,13 @@
     {
       "type": "mcq",
       "problem": "RhD 음성 가임기 여성에게 RhD 양성 혈소판을 수혈해야 하는 상황에서 추가로 고려할 처치는?",
-      "options": ["철분 투여", "Rh immune globulin", "비타민 K", "혈장교환술", "면역억제제 중단"],
+      "options": [
+        "철분 투여",
+        "Rh immune globulin",
+        "비타민 K",
+        "혈장교환술",
+        "면역억제제 중단"
+      ],
       "answer": 2,
       "explanation": "혈소판 제제 내 소량의 적혈구로 인한 Rh 동종면역을 예방하기 위해 RhIg를 고려한다.",
       "subject": "수혈의학",
@@ -265,7 +439,13 @@
     {
       "type": "mcq",
       "problem": "냉장 보관 적혈구의 저장손상(storage lesion)으로 옳은 것은?",
-      "options": ["ATP 증가", "2,3-DPG 증가", "막 유연성 증가", "막 성분 소실 증가", "조직 산소 전달능 증가"],
+      "options": [
+        "ATP 증가",
+        "2,3-DPG 증가",
+        "막 유연성 증가",
+        "막 성분 소실 증가",
+        "조직 산소 전달능 증가"
+      ],
       "answer": 4,
       "explanation": "저장 기간이 길어지면 ATP와 2,3-DPG가 감소하고 막 성분 소실이 증가한다.",
       "subject": "수혈의학",
@@ -274,7 +454,13 @@
     {
       "type": "mcq",
       "problem": "말초혈액도말에서 hypersegmented neutrophil이 보일 때 가장 먼저 떠올릴 질환은?",
-      "options": ["철결핍빈혈", "거대적아구성빈혈", "재생불량빈혈", "용혈빈혈", "유전구형적혈구증"],
+      "options": [
+        "철결핍빈혈",
+        "거대적아구성빈혈",
+        "재생불량빈혈",
+        "용혈빈혈",
+        "유전구형적혈구증"
+      ],
       "answer": 2,
       "explanation": "hypersegmented neutrophil은 비타민 B12 또는 엽산 결핍에 의한 거대적아구성빈혈에서 대표적이다.",
       "subject": "진단혈액",
@@ -283,7 +469,13 @@
     {
       "type": "mcq",
       "problem": "철결핍빈혈에서 전형적으로 기대되는 소견은?",
-      "options": ["ferritin 증가, TIBC 감소", "ferritin 감소, TIBC 증가", "MCV 증가, RDW 감소", "serum iron 증가", "transferrin saturation 증가"],
+      "options": [
+        "ferritin 증가, TIBC 감소",
+        "ferritin 감소, TIBC 증가",
+        "MCV 증가, RDW 감소",
+        "serum iron 증가",
+        "transferrin saturation 증가"
+      ],
       "answer": 2,
       "explanation": "철결핍빈혈에서는 ferritin과 serum iron이 감소하고 TIBC는 증가하는 경향을 보인다.",
       "subject": "진단혈액",
@@ -292,7 +484,13 @@
     {
       "type": "mcq",
       "problem": "AML을 시사하는 세포화학염색 소견으로 가장 적절한 것은?",
-      "options": ["MPO 양성", "PAS block positivity", "TdT 양성", "TRAP 양성", "acid phosphatase 양성"],
+      "options": [
+        "MPO 양성",
+        "PAS block positivity",
+        "TdT 양성",
+        "TRAP 양성",
+        "acid phosphatase 양성"
+      ],
       "answer": 1,
       "explanation": "myeloperoxidase 양성은 골수계 계통 분화를 시사하여 AML에서 중요하다.",
       "subject": "진단혈액",
@@ -301,7 +499,13 @@
     {
       "type": "mcq",
       "problem": "혈청과 혈장의 차이로 옳은 것은?",
-      "options": ["혈청에는 fibrinogen이 풍부하다", "혈장은 응고 후 상층액이다", "혈청은 응고인자가 일부 소모된 뒤 얻는다", "혈장은 항응고제가 필요 없다", "두 검체는 항상 동일한 단백 농도를 보인다"],
+      "options": [
+        "혈청에는 fibrinogen이 풍부하다",
+        "혈장은 응고 후 상층액이다",
+        "혈청은 응고인자가 일부 소모된 뒤 얻는다",
+        "혈장은 항응고제가 필요 없다",
+        "두 검체는 항상 동일한 단백 농도를 보인다"
+      ],
       "answer": 3,
       "explanation": "혈청은 채혈 후 응고시켜 얻으므로 fibrinogen 등 일부 응고인자가 소모된다.",
       "subject": "임상화학",
@@ -310,7 +514,13 @@
     {
       "type": "mcq",
       "problem": "용혈된 검체에서 거짓 상승하기 쉬운 검사 항목은?",
-      "options": ["칼륨", "나트륨", "염소", "혈당", "중성지방"],
+      "options": [
+        "칼륨",
+        "나트륨",
+        "염소",
+        "혈당",
+        "중성지방"
+      ],
       "answer": 1,
       "explanation": "적혈구 내 칼륨 농도가 높기 때문에 용혈 검체에서는 혈청 칼륨이 가짜로 증가할 수 있다.",
       "subject": "임상화학",
@@ -319,7 +529,13 @@
     {
       "type": "mcq",
       "problem": "Westgard rule 중 1_3s 위반의 의미로 가장 적절한 것은?",
-      "options": ["허용 가능한 경고 규칙일 뿐이다", "무작위 오차 가능성을 시사하는 reject rule이다", "체계적 오차만을 의미한다", "외부정도관리에서만 적용한다", "두 QC가 모두 2SD를 넘을 때만 의미가 있다"],
+      "options": [
+        "허용 가능한 경고 규칙일 뿐이다",
+        "무작위 오차 가능성을 시사하는 reject rule이다",
+        "체계적 오차만을 의미한다",
+        "외부정도관리에서만 적용한다",
+        "두 QC가 모두 2SD를 넘을 때만 의미가 있다"
+      ],
       "answer": 2,
       "explanation": "1_3s는 한 QC가 평균에서 3SD를 벗어난 경우로 run 거부를 고려하는 규칙이다.",
       "subject": "임상화학",
@@ -328,7 +544,13 @@
     {
       "type": "mcq",
       "problem": "HBV 백신 접종 후 면역 형성을 가장 잘 시사하는 혈청표지자 조합은?",
-      "options": ["HBsAg 양성, anti-HBc 양성", "HBsAg 음성, anti-HBs 양성, anti-HBc 음성", "HBsAg 음성, anti-HBs 음성, anti-HBc 양성", "HBeAg 양성, anti-HBe 음성", "HBV DNA 양성, anti-HBs 양성"],
+      "options": [
+        "HBsAg 양성, anti-HBc 양성",
+        "HBsAg 음성, anti-HBs 양성, anti-HBc 음성",
+        "HBsAg 음성, anti-HBs 음성, anti-HBc 양성",
+        "HBeAg 양성, anti-HBe 음성",
+        "HBV DNA 양성, anti-HBs 양성"
+      ],
       "answer": 2,
       "explanation": "예방접종에 의한 면역은 anti-HBs만 양성이고 anti-HBc는 음성인 양상이 전형적이다.",
       "subject": "진단면역",
@@ -337,7 +559,13 @@
     {
       "type": "mcq",
       "problem": "ANA 간접면역형광검사에서 homogeneous pattern과 가장 관련이 깊은 질환은?",
-      "options": ["SLE", "쇼그렌증후군", "전신경화증", "다발혈관염육아종증", "원발담즙성담관염"],
+      "options": [
+        "SLE",
+        "쇼그렌증후군",
+        "전신경화증",
+        "다발혈관염육아종증",
+        "원발담즙성담관염"
+      ],
       "answer": 1,
       "explanation": "homogeneous pattern은 anti-dsDNA, anti-histone 등과 연관되어 SLE에서 흔하다.",
       "subject": "진단면역",
@@ -346,7 +574,13 @@
     {
       "type": "mcq",
       "problem": "실시간 RT-PCR에서 Ct 값이 더 낮다는 의미로 옳은 것은?",
-      "options": ["초기 표적 핵산량이 더 적다", "증폭 억제물질이 더 많다", "초기 표적 핵산량이 더 많다", "반드시 오염이다", "내부대조군만 양성이다"],
+      "options": [
+        "초기 표적 핵산량이 더 적다",
+        "증폭 억제물질이 더 많다",
+        "초기 표적 핵산량이 더 많다",
+        "반드시 오염이다",
+        "내부대조군만 양성이다"
+      ],
       "answer": 3,
       "explanation": "threshold에 더 빨리 도달하므로 낮은 Ct는 더 많은 초기 표적 핵산량을 시사한다.",
       "subject": "분자진단",
@@ -355,7 +589,13 @@
     {
       "type": "mcq",
       "problem": "객담의 질 평가에서 저배율 시야당 편평상피세포가 많은 경우 의미하는 것은?",
-      "options": ["하부호흡기 검체로 우수하다", "침 오염이 많아 질이 낮다", "항균제 감수성검사를 우선 시행한다", "결핵 가능성이 높다", "진균감염을 시사한다"],
+      "options": [
+        "하부호흡기 검체로 우수하다",
+        "침 오염이 많아 질이 낮다",
+        "항균제 감수성검사를 우선 시행한다",
+        "결핵 가능성이 높다",
+        "진균감염을 시사한다"
+      ],
       "answer": 2,
       "explanation": "편평상피세포가 많으면 침 오염 가능성이 높아 질이 낮은 객담으로 판단한다.",
       "subject": "미생물",
@@ -364,7 +604,13 @@
     {
       "type": "mcq",
       "problem": "ABO 혈액형이 확인되지 않은 가임기 여성의 응급수혈에서 우선 고려할 적혈구 제제는?",
-      "options": ["AB형 농축적혈구", "A형 농축적혈구", "B형 농축적혈구", "O형 RhD 음성 농축적혈구", "O형 RhD 양성 농축적혈구"],
+      "options": [
+        "AB형 농축적혈구",
+        "A형 농축적혈구",
+        "B형 농축적혈구",
+        "O형 RhD 음성 농축적혈구",
+        "O형 RhD 양성 농축적혈구"
+      ],
       "answer": 4,
       "explanation": "가임기 여성은 Rh 감작을 줄이기 위해 가능하면 O형 RhD 음성 적혈구를 우선 사용한다.",
       "subject": "수혈의학",
@@ -373,7 +619,13 @@
     {
       "type": "mcq",
       "problem": "헤파린 치료 환자에서 헤파린 효과를 모니터링할 때 주로 참고하는 검사는?",
-      "options": ["PT", "aPTT", "bleeding time", "D-dimer", "fibrinogen"],
+      "options": [
+        "PT",
+        "aPTT",
+        "bleeding time",
+        "D-dimer",
+        "fibrinogen"
+      ],
       "answer": 2,
       "explanation": "비분획 헤파린의 항응고 효과 평가는 일반적으로 aPTT를 사용한다.",
       "subject": "진단혈액",
@@ -382,7 +634,13 @@
     {
       "type": "mcq",
       "problem": "DIC에서 비교적 흔히 관찰되는 검사 소견은?",
-      "options": ["platelet 증가", "PT/aPTT 단축", "D-dimer 증가", "fibrinogen 증가", "schistocyte 소실"],
+      "options": [
+        "platelet 증가",
+        "PT/aPTT 단축",
+        "D-dimer 증가",
+        "fibrinogen 증가",
+        "schistocyte 소실"
+      ],
       "answer": 3,
       "explanation": "DIC에서는 섬유소 용해가 활성화되어 D-dimer가 증가하고 혈소판 및 fibrinogen은 감소할 수 있다.",
       "subject": "진단혈액",
@@ -391,7 +649,13 @@
     {
       "type": "mcq",
       "problem": "고칼륨혈증 여부를 가장 빨리 확인해야 하는 상황에서 용혈 가능성이 큰 검체가 제출되었다. 가장 적절한 다음 조치는?",
-      "options": ["그 결과를 그대로 보고한다", "혈청 대신 새 검체로 재채혈을 요청한다", "칼륨 값을 10% 감산해 보고한다", "나트륨으로 대신 판단한다", "검체를 냉동 후 재검한다"],
+      "options": [
+        "그 결과를 그대로 보고한다",
+        "혈청 대신 새 검체로 재채혈을 요청한다",
+        "칼륨 값을 10% 감산해 보고한다",
+        "나트륨으로 대신 판단한다",
+        "검체를 냉동 후 재검한다"
+      ],
       "answer": 2,
       "explanation": "용혈은 가성 고칼륨혈증의 대표 원인이므로 임상적으로 중요하면 재채혈 후 재검이 적절하다.",
       "subject": "임상화학",
@@ -400,7 +664,13 @@
     {
       "type": "mcq",
       "problem": "혈청 삼투질차(osmolal gap)가 증가하는 상황과 가장 관련이 깊은 것은?",
-      "options": ["에탄올/메탄올 등 독성 알코올", "철결핍빈혈", "갑상선기능저하증", "비타민 B12 결핍", "DIC"],
+      "options": [
+        "에탄올/메탄올 등 독성 알코올",
+        "철결핍빈혈",
+        "갑상선기능저하증",
+        "비타민 B12 결핍",
+        "DIC"
+      ],
       "answer": 1,
       "explanation": "독성 알코올 섭취 시 측정 삼투질이 증가하여 osmolal gap이 커질 수 있다.",
       "subject": "임상화학",
@@ -409,7 +679,13 @@
     {
       "type": "mcq",
       "problem": "ANCA 관련 혈관염에서 microscopic polyangiitis와 더 관련이 깊은 항체는?",
-      "options": ["PR3-ANCA", "c-ANCA", "MPO-ANCA", "anti-GBM", "AMA"],
+      "options": [
+        "PR3-ANCA",
+        "c-ANCA",
+        "MPO-ANCA",
+        "anti-GBM",
+        "AMA"
+      ],
       "answer": 3,
       "explanation": "microscopic polyangiitis는 주로 MPO-ANCA(p-ANCA)와 관련이 깊다.",
       "subject": "진단면역",
@@ -418,7 +694,13 @@
     {
       "type": "mcq",
       "problem": "HIV 선별검사 양성 후 확진 단계에서 가장 중요한 원칙은?",
-      "options": ["즉시 AIDS로 진단한다", "다른 방법의 보충검사로 확인한다", "CD4 수치만 확인한다", "ELISA를 같은 검체로 세 번 반복한다", "항바이러스제 반응을 본다"],
+      "options": [
+        "즉시 AIDS로 진단한다",
+        "다른 방법의 보충검사로 확인한다",
+        "CD4 수치만 확인한다",
+        "ELISA를 같은 검체로 세 번 반복한다",
+        "항바이러스제 반응을 본다"
+      ],
       "answer": 2,
       "explanation": "HIV는 선별검사 양성 후 다른 원리의 보충검사나 핵산검사로 확인하는 절차가 중요하다.",
       "subject": "진단면역",
@@ -427,7 +709,13 @@
     {
       "type": "mcq",
       "problem": "Sanger sequencing과 비교한 NGS의 장점으로 가장 적절한 것은?",
-      "options": ["항상 비용이 더 낮다", "긴 단일 read를 반드시 제공한다", "대량 병렬 분석이 가능하다", "전처리가 필요 없다", "오염 위험이 전혀 없다"],
+      "options": [
+        "항상 비용이 더 낮다",
+        "긴 단일 read를 반드시 제공한다",
+        "대량 병렬 분석이 가능하다",
+        "전처리가 필요 없다",
+        "오염 위험이 전혀 없다"
+      ],
       "answer": 3,
       "explanation": "NGS의 핵심 장점은 많은 표적을 병렬로 동시에 분석할 수 있다는 점이다.",
       "subject": "분자진단",
@@ -436,7 +724,13 @@
     {
       "type": "mcq",
       "problem": "실시간 PCR에서 no template control이 양성으로 나왔다면 가장 먼저 의심해야 할 것은?",
-      "options": ["검체량 부족", "시약 오염", "표적 농도 과소", "내부대조군 실패", "RNA 분해"],
+      "options": [
+        "검체량 부족",
+        "시약 오염",
+        "표적 농도 과소",
+        "내부대조군 실패",
+        "RNA 분해"
+      ],
       "answer": 2,
       "explanation": "NTC 양성은 대개 시약이나 환경 오염을 시사한다.",
       "subject": "분자진단",
@@ -445,7 +739,13 @@
     {
       "type": "mcq",
       "problem": "혈액배양 채혈에서 검출률을 높이는 데 가장 중요한 요소 중 하나는?",
-      "options": ["주사기 색상", "채혈량", "검사실 위치", "항생제 이름", "환자 키"],
+      "options": [
+        "주사기 색상",
+        "채혈량",
+        "검사실 위치",
+        "항생제 이름",
+        "환자 키"
+      ],
       "answer": 2,
       "explanation": "혈액배양은 채혈량이 충분할수록 균 검출률이 증가한다.",
       "subject": "미생물",
@@ -454,7 +754,13 @@
     {
       "type": "mcq",
       "problem": "요배양에서 mixed flora가 다수 자라면서 colony count도 일정하지 않다면 우선적으로 생각할 것은?",
-      "options": ["진성 요로감염", "검체 오염", "결핵", "진균혈증", "패혈증"],
+      "options": [
+        "진성 요로감염",
+        "검체 오염",
+        "결핵",
+        "진균혈증",
+        "패혈증"
+      ],
       "answer": 2,
       "explanation": "mixed flora는 채뇨 과정 오염 가능성을 우선 시사한다.",
       "subject": "미생물",
@@ -463,7 +769,13 @@
     {
       "type": "mcq",
       "problem": "FFP 수혈의 적절한 적응증으로 가장 알맞은 것은?",
-      "options": ["철결핍빈혈", "응고인자 결핍에 의한 출혈", "혈소판 감소증 단독", "저알부민혈증 보충", "단순 체액 보충"],
+      "options": [
+        "철결핍빈혈",
+        "응고인자 결핍에 의한 출혈",
+        "혈소판 감소증 단독",
+        "저알부민혈증 보충",
+        "단순 체액 보충"
+      ],
       "answer": 2,
       "explanation": "FFP는 다수 응고인자 보충이 필요한 출혈성 상황에서 적응증이 된다.",
       "subject": "수혈의학",
@@ -472,7 +784,13 @@
     {
       "type": "mcq",
       "problem": "혈소판 수혈의 효과를 가장 흔히 평가하는 지표는?",
-      "options": ["reticulocyte count", "platelet count increment", "hematocrit 감소폭", "LD 증가 여부", "bilirubin 변화"],
+      "options": [
+        "reticulocyte count",
+        "platelet count increment",
+        "hematocrit 감소폭",
+        "LD 증가 여부",
+        "bilirubin 변화"
+      ],
       "answer": 2,
       "explanation": "혈소판 수혈 후에는 혈소판 증가량, 필요 시 CCI 등을 통해 효과를 평가한다.",
       "subject": "수혈의학",
@@ -481,7 +799,13 @@
     {
       "type": "mcq",
       "problem": "민감도(sensitivity)의 정의로 가장 적절한 것은?",
-      "options": ["질병이 없는 사람 중 음성 비율", "검사 양성자 중 실제 환자 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 음성자 중 실제 비환자 비율", "전체 대상자 중 검사 양성 비율"],
+      "options": [
+        "질병이 없는 사람 중 음성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 음성자 중 실제 비환자 비율",
+        "전체 대상자 중 검사 양성 비율"
+      ],
       "answer": 3,
       "explanation": "민감도는 질병이 있는 사람 중 검사에서 양성으로 나오는 비율이다.",
       "subject": "임상화학",
@@ -490,7 +814,13 @@
     {
       "type": "mcq",
       "problem": "특이도(specificity)의 정의로 가장 적절한 것은?",
-      "options": ["질병이 없는 사람 중 검사 음성 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 양성자 중 실제 환자 비율", "질병이 있는 사람 중 검사 음성 비율", "전체 중 음성 결과 비율"],
+      "options": [
+        "질병이 없는 사람 중 검사 음성 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 있는 사람 중 검사 음성 비율",
+        "전체 중 음성 결과 비율"
+      ],
       "answer": 1,
       "explanation": "특이도는 질병이 없는 사람 중 검사에서 음성으로 나오는 비율이다.",
       "subject": "임상화학",
@@ -499,7 +829,13 @@
     {
       "type": "mcq",
       "problem": "유병률이 증가할 때 일반적으로 증가하는 지표는?",
-      "options": ["민감도", "특이도", "양성예측도", "음성예측도", "분석 정확도"],
+      "options": [
+        "민감도",
+        "특이도",
+        "양성예측도",
+        "음성예측도",
+        "분석 정확도"
+      ],
       "answer": 3,
       "explanation": "유병률이 증가하면 양성예측도는 증가하고 음성예측도는 감소하는 경향을 보인다.",
       "subject": "임상화학",
@@ -508,7 +844,13 @@
     {
       "type": "mcq",
       "problem": "선별검사(screening test)에 더 적합한 특성은?",
-      "options": ["높은 특이도", "높은 민감도", "높은 양성예측도만 확보", "높은 검사 비용", "낮은 재현성"],
+      "options": [
+        "높은 특이도",
+        "높은 민감도",
+        "높은 양성예측도만 확보",
+        "높은 검사 비용",
+        "낮은 재현성"
+      ],
       "answer": 2,
       "explanation": "선별검사는 질환을 놓치지 않는 것이 중요하므로 높은 민감도가 유리하다.",
       "subject": "임상화학",
@@ -517,7 +859,13 @@
     {
       "type": "mcq",
       "problem": "확진검사(confirmatory test)에 더 적합한 특성은?",
-      "options": ["높은 특이도", "높은 민감도", "낮은 비용", "짧은 검사시간만 중요", "높은 유병률 필요"],
+      "options": [
+        "높은 특이도",
+        "높은 민감도",
+        "낮은 비용",
+        "짧은 검사시간만 중요",
+        "높은 유병률 필요"
+      ],
       "answer": 1,
       "explanation": "확진검사는 위양성을 줄이는 것이 중요하므로 높은 특이도가 유리하다.",
       "subject": "임상화학",
@@ -526,7 +874,13 @@
     {
       "type": "mcq",
       "problem": "위양성(false positive)에 해당하는 경우는?",
-      "options": ["환자인데 검사 음성", "비환자인데 검사 양성", "환자인데 검사 양성", "비환자인데 검사 음성", "검사 실패로 무효"],
+      "options": [
+        "환자인데 검사 음성",
+        "비환자인데 검사 양성",
+        "환자인데 검사 양성",
+        "비환자인데 검사 음성",
+        "검사 실패로 무효"
+      ],
       "answer": 2,
       "explanation": "false positive는 실제 질병이 없는데 검사 결과가 양성인 경우를 뜻한다.",
       "subject": "임상화학",
@@ -535,7 +889,13 @@
     {
       "type": "mcq",
       "problem": "위음성(false negative)에 해당하는 경우는?",
-      "options": ["비환자인데 검사 음성", "비환자인데 검사 양성", "환자인데 검사 양성", "환자인데 검사 음성", "재검이 필요한 경우"],
+      "options": [
+        "비환자인데 검사 음성",
+        "비환자인데 검사 양성",
+        "환자인데 검사 양성",
+        "환자인데 검사 음성",
+        "재검이 필요한 경우"
+      ],
       "answer": 4,
       "explanation": "false negative는 실제 질병이 있는데 검사 결과가 음성인 경우를 말한다.",
       "subject": "임상화학",
@@ -544,7 +904,13 @@
     {
       "type": "mcq",
       "problem": "혈청(serum)에 대한 설명으로 옳은 것은?",
-      "options": ["항응고제가 들어간 혈액에서 얻는다", "응고 후 상층액으로 fibrinogen이 감소한다", "항응고제가 반드시 필요하다", "전혈과 동일하다", "ABGA에 가장 적합하다"],
+      "options": [
+        "항응고제가 들어간 혈액에서 얻는다",
+        "응고 후 상층액으로 fibrinogen이 감소한다",
+        "항응고제가 반드시 필요하다",
+        "전혈과 동일하다",
+        "ABGA에 가장 적합하다"
+      ],
       "answer": 2,
       "explanation": "혈청은 혈액을 응고시킨 뒤 분리한 상층액으로 fibrinogen 등이 소모된다.",
       "subject": "임상화학",
@@ -553,7 +919,13 @@
     {
       "type": "mcq",
       "problem": "EDTA 튜브(보라색)의 주된 용도로 가장 적절한 것은?",
-      "options": ["응고검사", "CBC", "지질검사", "혈청화학", "혈액가스"],
+      "options": [
+        "응고검사",
+        "CBC",
+        "지질검사",
+        "혈청화학",
+        "혈액가스"
+      ],
       "answer": 2,
       "explanation": "EDTA는 혈구 형태 보존에 유리하여 CBC에 널리 사용된다.",
       "subject": "임상화학",
@@ -562,7 +934,13 @@
     {
       "type": "mcq",
       "problem": "Citrate 튜브(청색)의 주된 용도로 가장 적절한 것은?",
-      "options": ["CBC", "혈청 지질검사", "응고검사", "ABGA", "혈액배양"],
+      "options": [
+        "CBC",
+        "혈청 지질검사",
+        "응고검사",
+        "ABGA",
+        "혈액배양"
+      ],
       "answer": 3,
       "explanation": "citrate는 칼슘을 가역적으로 결합하여 응고검사에 사용한다.",
       "subject": "임상화학",
@@ -571,7 +949,13 @@
     {
       "type": "mcq",
       "problem": "Heparin 튜브(녹색)의 사용으로 가장 적절한 것은?",
-      "options": ["응고인자 활성 측정", "혈장 기반 화학검사", "CBC", "혈액배양", "ESR"],
+      "options": [
+        "응고인자 활성 측정",
+        "혈장 기반 화학검사",
+        "CBC",
+        "혈액배양",
+        "ESR"
+      ],
       "answer": 2,
       "explanation": "heparin은 혈장 기반 임상화학검사와 일부 혈액가스검사에 사용된다.",
       "subject": "임상화학",
@@ -580,7 +964,13 @@
     {
       "type": "mcq",
       "problem": "EDTA 오염이 의심될 때 가장 가능성이 높은 검사 결과 조합은?",
-      "options": ["Ca 증가, K 감소", "Ca 감소, K 증가", "Na 증가, Cl 증가", "AST 감소, LD 감소", "TG 감소, HDL 증가"],
+      "options": [
+        "Ca 증가, K 감소",
+        "Ca 감소, K 증가",
+        "Na 증가, Cl 증가",
+        "AST 감소, LD 감소",
+        "TG 감소, HDL 증가"
+      ],
       "answer": 2,
       "explanation": "EDTA는 칼슘을 킬레이트하고 K-EDTA 제제는 칼륨을 증가시킬 수 있다.",
       "subject": "임상화학",
@@ -589,7 +979,13 @@
     {
       "type": "mcq",
       "problem": "혈청 칼륨이 높게 나왔지만 검체가 심하게 용혈된 경우 가장 먼저 고려할 것은?",
-      "options": ["진성 고칼륨혈증", "가성 고칼륨혈증", "고나트륨혈증", "저칼슘혈증", "지질이상증"],
+      "options": [
+        "진성 고칼륨혈증",
+        "가성 고칼륨혈증",
+        "고나트륨혈증",
+        "저칼슘혈증",
+        "지질이상증"
+      ],
       "answer": 2,
       "explanation": "용혈로 적혈구 내 칼륨이 유리되어 pseudohyperkalemia가 발생할 수 있다.",
       "subject": "임상화학",
@@ -598,7 +994,13 @@
     {
       "type": "mcq",
       "problem": "지질검사에서 LDL cholesterol이 96 mg/dL일 때 분류는?",
-      "options": ["Optimal", "Near optimal/above optimal", "Borderline high", "High", "Very high"],
+      "options": [
+        "Optimal",
+        "Near optimal/above optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
       "answer": 1,
       "explanation": "LDL <100 mg/dL는 optimal에 해당한다.",
       "subject": "임상화학",
@@ -607,7 +1009,13 @@
     {
       "type": "mcq",
       "problem": "LDL cholesterol이 145 mg/dL일 때 가장 적절한 분류는?",
-      "options": ["Optimal", "Near optimal", "Borderline high", "High", "Very high"],
+      "options": [
+        "Optimal",
+        "Near optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
       "answer": 3,
       "explanation": "LDL 130-159 mg/dL는 borderline high로 분류한다.",
       "subject": "임상화학",
@@ -616,7 +1024,13 @@
     {
       "type": "mcq",
       "problem": "Total cholesterol 245 mg/dL의 분류는?",
-      "options": ["Desirable", "Near optimal", "Borderline high", "High", "Very high"],
+      "options": [
+        "Desirable",
+        "Near optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
       "answer": 4,
       "explanation": "총콜레스테롤 ≥240 mg/dL는 high로 분류한다.",
       "subject": "임상화학",
@@ -625,7 +1039,13 @@
     {
       "type": "mcq",
       "problem": "HDL cholesterol 35 mg/dL의 해석으로 옳은 것은?",
-      "options": ["높음", "정상", "낮음", "경계역", "매우 높음"],
+      "options": [
+        "높음",
+        "정상",
+        "낮음",
+        "경계역",
+        "매우 높음"
+      ],
       "answer": 3,
       "explanation": "HDL <40 mg/dL는 low HDL로 해석한다.",
       "subject": "임상화학",
@@ -634,7 +1054,13 @@
     {
       "type": "mcq",
       "problem": "HDL cholesterol 68 mg/dL의 해석으로 옳은 것은?",
-      "options": ["낮음", "경계역", "보통", "높음", "매우 높음"],
+      "options": [
+        "낮음",
+        "경계역",
+        "보통",
+        "높음",
+        "매우 높음"
+      ],
       "answer": 4,
       "explanation": "HDL ≥60 mg/dL는 높은 HDL로 해석한다.",
       "subject": "임상화학",
@@ -643,7 +1069,13 @@
     {
       "type": "mcq",
       "problem": "Triglyceride 180 mg/dL의 분류는?",
-      "options": ["Normal", "Borderline high", "High", "Very high", "Low"],
+      "options": [
+        "Normal",
+        "Borderline high",
+        "High",
+        "Very high",
+        "Low"
+      ],
       "answer": 2,
       "explanation": "중성지방 150-199 mg/dL는 borderline high이다.",
       "subject": "임상화학",
@@ -652,7 +1084,13 @@
     {
       "type": "mcq",
       "problem": "Triglyceride 540 mg/dL의 분류는?",
-      "options": ["Normal", "Borderline high", "High", "Very high", "Optimal"],
+      "options": [
+        "Normal",
+        "Borderline high",
+        "High",
+        "Very high",
+        "Optimal"
+      ],
       "answer": 4,
       "explanation": "중성지방 ≥500 mg/dL는 very high이다.",
       "subject": "임상화학",
@@ -661,7 +1099,13 @@
     {
       "type": "mcq",
       "problem": "양성예측도(PPV)에 대한 설명으로 옳은 것은?",
-      "options": ["검사 음성자 중 실제 비환자 비율", "질병이 있는 사람 중 검사 양성 비율", "검사 양성자 중 실제 환자 비율", "질병이 없는 사람 중 검사 음성 비율", "유병률과 무관하다"],
+      "options": [
+        "검사 음성자 중 실제 비환자 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 없는 사람 중 검사 음성 비율",
+        "유병률과 무관하다"
+      ],
       "answer": 3,
       "explanation": "PPV는 검사 양성자 중 실제로 질병이 있는 비율이다.",
       "subject": "임상화학",
@@ -670,7 +1114,13 @@
     {
       "type": "mcq",
       "problem": "음성예측도(NPV)에 대한 설명으로 옳은 것은?",
-      "options": ["검사 음성자 중 실제 비환자 비율", "질병이 있는 사람 중 검사 음성 비율", "질병이 없는 사람 중 검사 음성 비율", "검사 양성자 중 실제 환자 비율", "유병률이 높을수록 증가한다"],
+      "options": [
+        "검사 음성자 중 실제 비환자 비율",
+        "질병이 있는 사람 중 검사 음성 비율",
+        "질병이 없는 사람 중 검사 음성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "유병률이 높을수록 증가한다"
+      ],
       "answer": 1,
       "explanation": "NPV는 검사 음성자 중 실제로 질병이 없는 비율이다.",
       "subject": "임상화학",
@@ -679,7 +1129,13 @@
     {
       "type": "mcq",
       "problem": "같은 민감도와 특이도를 가진 검사라도 유병률이 낮은 집단에서 상대적으로 높아지기 쉬운 것은?",
-      "options": ["민감도", "특이도", "양성예측도", "음성예측도", "정밀도"],
+      "options": [
+        "민감도",
+        "특이도",
+        "양성예측도",
+        "음성예측도",
+        "정밀도"
+      ],
       "answer": 4,
       "explanation": "유병률이 낮으면 일반적으로 NPV는 높아지고 PPV는 낮아진다.",
       "subject": "임상화학",
@@ -688,7 +1144,13 @@
     {
       "type": "mcq",
       "problem": "검사 cut-off를 낮추면 일반적으로 나타나는 변화는?",
-      "options": ["민감도 감소, 특이도 증가", "민감도 증가, 특이도 감소", "민감도와 특이도 모두 증가", "민감도와 특이도 모두 감소", "유병률 증가"],
+      "options": [
+        "민감도 감소, 특이도 증가",
+        "민감도 증가, 특이도 감소",
+        "민감도와 특이도 모두 증가",
+        "민감도와 특이도 모두 감소",
+        "유병률 증가"
+      ],
       "answer": 2,
       "explanation": "cut-off를 낮추면 양성 판정이 늘어나 민감도는 증가하고 특이도는 감소하는 경향이 있다.",
       "subject": "임상화학",
@@ -697,7 +1159,13 @@
     {
       "type": "mcq",
       "problem": "혈장(plasma)에 대한 설명으로 가장 적절한 것은?",
-      "options": ["응고 후 얻는다", "fibrinogen이 없다", "항응고제가 첨가된 혈액에서 얻는다", "혈청보다 항상 칼륨이 낮다", "응고검사에 부적합하다"],
+      "options": [
+        "응고 후 얻는다",
+        "fibrinogen이 없다",
+        "항응고제가 첨가된 혈액에서 얻는다",
+        "혈청보다 항상 칼륨이 낮다",
+        "응고검사에 부적합하다"
+      ],
       "answer": 3,
       "explanation": "혈장은 항응고제가 있는 상태에서 원심분리해 얻으며 fibrinogen을 포함한다.",
       "subject": "임상화학",
@@ -706,7 +1174,13 @@
     {
       "type": "mcq",
       "problem": "Heparinized whole blood가 특히 흔히 사용되는 검사는?",
-      "options": ["PT", "aPTT", "ABGA", "CBC", "혈액배양"],
+      "options": [
+        "PT",
+        "aPTT",
+        "ABGA",
+        "CBC",
+        "혈액배양"
+      ],
       "answer": 3,
       "explanation": "혈액가스분석에는 heparinized whole blood를 흔히 사용한다.",
       "subject": "임상화학",
@@ -715,7 +1189,13 @@
     {
       "type": "mcq",
       "problem": "정확도(accuracy)에 대한 설명으로 가장 적절한 것은?",
-      "options": ["반복 측정 시 값끼리의 일치도", "참값에 얼마나 가까운가", "결과의 표준편차", "검사 양성률", "검사자의 숙련도만 반영"],
+      "options": [
+        "반복 측정 시 값끼리의 일치도",
+        "참값에 얼마나 가까운가",
+        "결과의 표준편차",
+        "검사 양성률",
+        "검사자의 숙련도만 반영"
+      ],
       "answer": 2,
       "explanation": "정확도는 측정값이 참값에 얼마나 가까운지를 의미한다.",
       "subject": "임상화학",
@@ -724,7 +1204,13 @@
     {
       "type": "mcq",
       "problem": "정밀도(precision)에 대한 설명으로 가장 적절한 것은?",
-      "options": ["참값과의 근접성", "반복 측정 결과들 간의 일치도", "검사 민감도", "검사 특이도", "유병률의 함수"],
+      "options": [
+        "참값과의 근접성",
+        "반복 측정 결과들 간의 일치도",
+        "검사 민감도",
+        "검사 특이도",
+        "유병률의 함수"
+      ],
       "answer": 2,
       "explanation": "정밀도는 반복 측정 시 결과들이 서로 얼마나 가까운지를 의미한다.",
       "subject": "임상화학",
@@ -733,7 +1219,13 @@
     {
       "type": "mcq",
       "problem": "외부정도관리(EQA)가 더 직접적으로 평가하는 항목은?",
-      "options": ["정밀도", "정확도", "유병률", "민감도", "특이도"],
+      "options": [
+        "정밀도",
+        "정확도",
+        "유병률",
+        "민감도",
+        "특이도"
+      ],
       "answer": 2,
       "explanation": "외부정도관리는 참값 또는 타기관과의 비교를 통해 정확도를 평가하는 데 유용하다.",
       "subject": "임상화학",
@@ -742,7 +1234,13 @@
     {
       "type": "mcq",
       "problem": "내부정도관리(IQC)가 특히 중요하게 보는 항목은?",
-      "options": ["정밀도", "유병률", "양성예측도", "음성예측도", "질병 중증도"],
+      "options": [
+        "정밀도",
+        "유병률",
+        "양성예측도",
+        "음성예측도",
+        "질병 중증도"
+      ],
       "answer": 1,
       "explanation": "내부정도관리는 반복 측정의 일관성, 즉 정밀도 평가에 중요하다.",
       "subject": "임상화학",
@@ -751,7 +1249,13 @@
     {
       "type": "mcq",
       "problem": "CBC에 포함되는 항목으로 가장 적절한 것은?",
-      "options": ["pH", "WBC", "Creatinine", "Protein", "Ketone"],
+      "options": [
+        "pH",
+        "WBC",
+        "Creatinine",
+        "Protein",
+        "Ketone"
+      ],
       "answer": 2,
       "explanation": "CBC는 혈구수와 혈색소, 적혈구 지표 등을 포함하며 WBC가 대표 항목이다.",
       "subject": "진단혈액",
@@ -760,7 +1264,13 @@
     {
       "type": "mcq",
       "problem": "MCV 증가와 가장 잘 연관되는 빈혈은?",
-      "options": ["철결핍빈혈", "만성질환빈혈", "거대적아구성빈혈", "지중해빈혈", "출혈 직후 빈혈"],
+      "options": [
+        "철결핍빈혈",
+        "만성질환빈혈",
+        "거대적아구성빈혈",
+        "지중해빈혈",
+        "출혈 직후 빈혈"
+      ],
       "answer": 3,
       "explanation": "거대적아구성빈혈은 macrocytic anemia로 MCV 증가가 특징적이다.",
       "subject": "진단혈액",
@@ -769,7 +1279,13 @@
     {
       "type": "mcq",
       "problem": "철결핍빈혈에서 흔한 적혈구 지표 조합은?",
-      "options": ["MCV 증가, RDW 감소", "MCV 감소, RDW 증가", "MCV 정상, RDW 감소", "MCV 증가, MCHC 증가", "MCV 감소, reticulocyte 증가만"],
+      "options": [
+        "MCV 증가, RDW 감소",
+        "MCV 감소, RDW 증가",
+        "MCV 정상, RDW 감소",
+        "MCV 증가, MCHC 증가",
+        "MCV 감소, reticulocyte 증가만"
+      ],
       "answer": 2,
       "explanation": "철결핍빈혈에서는 microcytosis와 anisocytosis가 흔해 MCV 감소, RDW 증가가 흔하다.",
       "subject": "진단혈액",
@@ -778,7 +1294,13 @@
     {
       "type": "mcq",
       "problem": "백혈구 감별계산에서 세균 감염과 가장 잘 연관되는 변화는?",
-      "options": ["호산구 증가", "호중구 증가", "림프구 감소만", "호염구 증가", "단핵구 감소"],
+      "options": [
+        "호산구 증가",
+        "호중구 증가",
+        "림프구 감소만",
+        "호염구 증가",
+        "단핵구 감소"
+      ],
       "answer": 2,
       "explanation": "급성 세균 감염에서는 neutrophilia가 흔하다.",
       "subject": "진단혈액",
@@ -787,7 +1309,13 @@
     {
       "type": "mcq",
       "problem": "혈소판 감소가 있을 때 가장 직접적으로 평가되는 CBC 항목은?",
-      "options": ["Hb", "Hct", "Platelet count", "MCV", "MCHC"],
+      "options": [
+        "Hb",
+        "Hct",
+        "Platelet count",
+        "MCV",
+        "MCHC"
+      ],
       "answer": 3,
       "explanation": "혈소판감소증 평가는 platelet count로 직접 확인한다.",
       "subject": "진단혈액",
@@ -796,7 +1324,13 @@
     {
       "type": "mcq",
       "problem": "RFT(renal function test)의 대표 항목 조합은?",
-      "options": ["AST/ALT", "BUN/Cr", "PT/aPTT", "Na/K만", "HbA1c/glucose"],
+      "options": [
+        "AST/ALT",
+        "BUN/Cr",
+        "PT/aPTT",
+        "Na/K만",
+        "HbA1c/glucose"
+      ],
       "answer": 2,
       "explanation": "신기능 평가는 BUN과 creatinine이 대표적이다.",
       "subject": "임상화학",
@@ -805,7 +1339,13 @@
     {
       "type": "mcq",
       "problem": "사구체여과율(GFR) 감소를 가장 직접적으로 시사하는 혈액검사는?",
-      "options": ["Creatinine 상승", "ALT 상승", "Albumin 상승", "Calcium 상승", "HDL 상승"],
+      "options": [
+        "Creatinine 상승",
+        "ALT 상승",
+        "Albumin 상승",
+        "Calcium 상승",
+        "HDL 상승"
+      ],
       "answer": 1,
       "explanation": "GFR가 떨어지면 creatinine 배설이 감소해 혈중 creatinine이 상승한다.",
       "subject": "임상화학",
@@ -814,7 +1354,13 @@
     {
       "type": "mcq",
       "problem": "탈수에서 흔히 관찰될 수 있는 BUN/Cr 변화는?",
-      "options": ["둘 다 감소", "BUN/Cr 비 증가", "Creatinine만 감소", "BUN만 감소", "변화 없음"],
+      "options": [
+        "둘 다 감소",
+        "BUN/Cr 비 증가",
+        "Creatinine만 감소",
+        "BUN만 감소",
+        "변화 없음"
+      ],
       "answer": 2,
       "explanation": "prerenal azotemia에서는 BUN/Cr ratio 증가가 흔하다.",
       "subject": "임상화학",
@@ -823,7 +1369,13 @@
     {
       "type": "mcq",
       "problem": "ABGA에서 pH 7.28, PaCO2 30 mmHg, HCO3- 14 mEq/L일 때 가장 적절한 해석은?",
-      "options": ["대사성 산증", "대사성 알칼리증", "호흡성 산증", "호흡성 알칼리증", "정상"],
+      "options": [
+        "대사성 산증",
+        "대사성 알칼리증",
+        "호흡성 산증",
+        "호흡성 알칼리증",
+        "정상"
+      ],
       "answer": 1,
       "explanation": "낮은 pH와 낮은 bicarbonate가 일차적으로 metabolic acidosis를 시사한다.",
       "subject": "임상화학",
@@ -832,7 +1384,13 @@
     {
       "type": "mcq",
       "problem": "ABGA에서 pH 7.52, PaCO2 28 mmHg, HCO3- 23 mEq/L일 때 가장 적절한 해석은?",
-      "options": ["대사성 산증", "대사성 알칼리증", "호흡성 산증", "호흡성 알칼리증", "혼합성 대사장애"],
+      "options": [
+        "대사성 산증",
+        "대사성 알칼리증",
+        "호흡성 산증",
+        "호흡성 알칼리증",
+        "혼합성 대사장애"
+      ],
       "answer": 4,
       "explanation": "높은 pH와 낮은 PaCO2는 respiratory alkalosis를 시사한다.",
       "subject": "임상화학",
@@ -841,7 +1399,13 @@
     {
       "type": "mcq",
       "problem": "ABGA에서 산소화 상태를 직접 반영하는 주요 항목은?",
-      "options": ["HCO3-", "Base excess", "PaO2", "Anion gap", "BUN"],
+      "options": [
+        "HCO3-",
+        "Base excess",
+        "PaO2",
+        "Anion gap",
+        "BUN"
+      ],
       "answer": 3,
       "explanation": "PaO2는 동맥혈 내 산소분압으로 산소화를 평가하는 핵심 항목이다.",
       "subject": "임상화학",
@@ -850,7 +1414,13 @@
     {
       "type": "mcq",
       "problem": "ABGA 검체 채취 후 가장 중요한 처리로 적절한 것은?",
-      "options": ["상온에 오래 둔다", "heparinized syringe 사용 후 신속 분석", "EDTA 튜브에 옮긴다", "응고 후 측정한다", "항응고제 없이 방치한다"],
+      "options": [
+        "상온에 오래 둔다",
+        "heparinized syringe 사용 후 신속 분석",
+        "EDTA 튜브에 옮긴다",
+        "응고 후 측정한다",
+        "항응고제 없이 방치한다"
+      ],
       "answer": 2,
       "explanation": "ABGA는 heparinized syringe를 사용하고 공기 노출을 줄이며 빠르게 분석해야 한다.",
       "subject": "임상화학",
@@ -859,7 +1429,13 @@
     {
       "type": "mcq",
       "problem": "요검사 dipstick에서 단백뇨를 가장 직접적으로 반영하는 항목은?",
-      "options": ["bilirubin", "protein", "glucose", "ketone", "nitrite"],
+      "options": [
+        "bilirubin",
+        "protein",
+        "glucose",
+        "ketone",
+        "nitrite"
+      ],
       "answer": 2,
       "explanation": "dipstick protein 항목은 주로 albumin을 반영한다.",
       "subject": "임상화학",
@@ -868,7 +1444,13 @@
     {
       "type": "mcq",
       "problem": "요 nitrite 양성의 해석으로 가장 적절한 것은?",
-      "options": ["사구체신염 확진", "세균뇨 시사", "당뇨병 확진", "케톤산증 확진", "결석 확진"],
+      "options": [
+        "사구체신염 확진",
+        "세균뇨 시사",
+        "당뇨병 확진",
+        "케톤산증 확진",
+        "결석 확진"
+      ],
       "answer": 2,
       "explanation": "nitrite 양성은 nitrate를 nitrite로 환원하는 세균 존재를 시사한다.",
       "subject": "임상화학",
@@ -877,7 +1459,13 @@
     {
       "type": "mcq",
       "problem": "요 sediment에서 RBC cast가 보이면 가장 먼저 생각할 것은?",
-      "options": ["방광염", "사구체질환", "요붕증", "신증후군만", "고지혈증"],
+      "options": [
+        "방광염",
+        "사구체질환",
+        "요붕증",
+        "신증후군만",
+        "고지혈증"
+      ],
       "answer": 2,
       "explanation": "RBC cast는 사구체 출혈과 연관되어 glomerulonephritis를 시사한다.",
       "subject": "임상화학",
@@ -886,7 +1474,13 @@
     {
       "type": "mcq",
       "problem": "요검사에서 glucose 양성이지만 혈당이 정상이라면 가장 먼저 고려할 수 있는 것은?",
-      "options": ["간성혼수", "신세뇨관 재흡수 이상", "혈액 오염", "요비중 감소만", "정상 변이"],
+      "options": [
+        "간성혼수",
+        "신세뇨관 재흡수 이상",
+        "혈액 오염",
+        "요비중 감소만",
+        "정상 변이"
+      ],
       "answer": 2,
       "explanation": "renal glycosuria처럼 세뇨관 재흡수 이상이 있으면 혈당 정상이어도 요당이 나올 수 있다.",
       "subject": "임상화학",
@@ -895,7 +1489,13 @@
     {
       "type": "mcq",
       "problem": "요검사에서 specific gravity가 높다는 의미로 가장 적절한 것은?",
-      "options": ["희석뇨", "농축뇨", "무뇨", "단백뇨 없음", "혈뇨 없음"],
+      "options": [
+        "희석뇨",
+        "농축뇨",
+        "무뇨",
+        "단백뇨 없음",
+        "혈뇨 없음"
+      ],
       "answer": 2,
       "explanation": "specific gravity 증가는 소변이 상대적으로 농축되었음을 시사한다.",
       "subject": "임상화학",
@@ -904,7 +1504,13 @@
     {
       "type": "mcq",
       "problem": "요검사에서 leukocyte esterase 양성의 의미로 가장 적절한 것은?",
-      "options": ["당뇨병", "백혈구 존재 시사", "고지혈증", "근육손상", "간질환"],
+      "options": [
+        "당뇨병",
+        "백혈구 존재 시사",
+        "고지혈증",
+        "근육손상",
+        "간질환"
+      ],
       "answer": 2,
       "explanation": "leukocyte esterase 양성은 소변 내 백혈구를 시사해 UTI 평가에 도움된다.",
       "subject": "임상화학",
@@ -913,7 +1519,13 @@
     {
       "type": "mcq",
       "problem": "HbA1c가 반영하는 평균 혈당 기간으로 가장 적절한 것은?",
-      "options": ["1주", "2~3주", "2~3개월", "6개월", "1년"],
+      "options": [
+        "1주",
+        "2~3주",
+        "2~3개월",
+        "6개월",
+        "1년"
+      ],
       "answer": 3,
       "explanation": "HbA1c는 적혈구 수명에 기반해 대략 최근 2~3개월 평균 혈당을 반영한다.",
       "subject": "임상화학",
@@ -922,7 +1534,13 @@
     {
       "type": "mcq",
       "problem": "HbA1c 해석 시 거짓으로 낮게 나올 수 있는 상황은?",
-      "options": ["철결핍빈혈", "적혈구 수명 단축", "만성 고혈당", "요독증", "고중성지방혈증"],
+      "options": [
+        "철결핍빈혈",
+        "적혈구 수명 단축",
+        "만성 고혈당",
+        "요독증",
+        "고중성지방혈증"
+      ],
       "answer": 2,
       "explanation": "용혈이나 출혈 등으로 적혈구 수명이 짧아지면 HbA1c가 실제보다 낮게 나올 수 있다.",
       "subject": "임상화학",
@@ -931,7 +1549,13 @@
     {
       "type": "mcq",
       "problem": "급성 심근손상에서 특이성과 민감도가 가장 높아 핵심으로 쓰이는 심장표지자는?",
-      "options": ["CK", "CK-MB", "Troponin", "Myoglobin", "LDH"],
+      "options": [
+        "CK",
+        "CK-MB",
+        "Troponin",
+        "Myoglobin",
+        "LDH"
+      ],
       "answer": 3,
       "explanation": "cardiac troponin은 심근손상 평가의 핵심 biomarker다.",
       "subject": "임상화학",
@@ -940,7 +1564,13 @@
     {
       "type": "mcq",
       "problem": "AMI 발병 초기에 가장 빨리 상승하지만 특이도가 낮은 심장표지자는?",
-      "options": ["Troponin I", "Troponin T", "Myoglobin", "BNP", "NT-proBNP"],
+      "options": [
+        "Troponin I",
+        "Troponin T",
+        "Myoglobin",
+        "BNP",
+        "NT-proBNP"
+      ],
       "answer": 3,
       "explanation": "myoglobin은 매우 빨리 상승하지만 심근 특이도가 낮다.",
       "subject": "임상화학",
@@ -949,7 +1579,13 @@
     {
       "type": "mcq",
       "problem": "심부전 평가에 특히 유용한 표지자는?",
-      "options": ["Troponin", "CK-MB", "BNP/NT-proBNP", "AST", "Lactate"],
+      "options": [
+        "Troponin",
+        "CK-MB",
+        "BNP/NT-proBNP",
+        "AST",
+        "Lactate"
+      ],
       "answer": 3,
       "explanation": "BNP와 NT-proBNP는 심부전의 진단과 중증도 평가에 도움된다.",
       "subject": "임상화학",
@@ -958,7 +1594,13 @@
     {
       "type": "mcq",
       "problem": "혈청 나트륨 126 mEq/L의 해석으로 가장 적절한 것은?",
-      "options": ["정상", "경도 고나트륨혈증", "저나트륨혈증", "정상 상한", "위양성"],
+      "options": [
+        "정상",
+        "경도 고나트륨혈증",
+        "저나트륨혈증",
+        "정상 상한",
+        "위양성"
+      ],
       "answer": 3,
       "explanation": "혈청 sodium 126 mEq/L는 hyponatremia에 해당한다.",
       "subject": "임상화학",
@@ -967,7 +1609,13 @@
     {
       "type": "mcq",
       "problem": "용혈 검체에서 거짓 상승 가능성이 특히 큰 전해질은?",
-      "options": ["Na", "K", "Cl", "HCO3-", "Phosphate만"],
+      "options": [
+        "Na",
+        "K",
+        "Cl",
+        "HCO3-",
+        "Phosphate만"
+      ],
       "answer": 2,
       "explanation": "세포 내 농도가 높은 potassium은 용혈 시 pseudohyperkalemia를 보일 수 있다.",
       "subject": "임상화학",
@@ -976,7 +1624,13 @@
     {
       "type": "mcq",
       "problem": "고칼륨혈증에서 임상적으로 가장 주의해야 할 합병증은?",
-      "options": ["빈혈", "부정맥", "황달", "당뇨병", "지질이상"],
+      "options": [
+        "빈혈",
+        "부정맥",
+        "황달",
+        "당뇨병",
+        "지질이상"
+      ],
       "answer": 2,
       "explanation": "hyperkalemia는 치명적인 cardiac arrhythmia를 유발할 수 있다.",
       "subject": "임상화학",
@@ -985,7 +1639,13 @@
     {
       "type": "mcq",
       "problem": "이온화 칼슘 측정에서 pH 변화와 가장 관련된 해석은?",
-      "options": ["pH 증가 시 이온화 칼슘 증가", "pH 증가 시 이온화 칼슘 감소", "pH와 무관", "총칼슘만 변함", "칼륨만 변함"],
+      "options": [
+        "pH 증가 시 이온화 칼슘 증가",
+        "pH 증가 시 이온화 칼슘 감소",
+        "pH와 무관",
+        "총칼슘만 변함",
+        "칼륨만 변함"
+      ],
       "answer": 2,
       "explanation": "alkalosis에서는 단백 결합이 증가해 ionized calcium이 감소할 수 있다.",
       "subject": "임상화학",
@@ -994,7 +1654,13 @@
     {
       "type": "mcq",
       "problem": "anion gap 계산에 직접 포함되는 전해질 조합은?",
-      "options": ["Na, K, Cl, HCO3-", "Ca, Mg, P", "AST, ALT, ALP", "BUN, Cr, uric acid", "troponin, CK-MB"],
+      "options": [
+        "Na, K, Cl, HCO3-",
+        "Ca, Mg, P",
+        "AST, ALT, ALP",
+        "BUN, Cr, uric acid",
+        "troponin, CK-MB"
+      ],
       "answer": 1,
       "explanation": "anion gap은 보통 Na - (Cl + HCO3-)로 계산하며 상황에 따라 K를 포함하기도 한다.",
       "subject": "임상화학",
@@ -1003,7 +1669,13 @@
     {
       "type": "mcq",
       "problem": "내부정도관리 허용기준을 2SD에서 3SD로 바꾸면 일반적으로 나타나는 변화는?",
-      "options": ["위거부율 증가, 오차발견율 증가", "위거부율 감소, 오차발견율 감소", "위거부율 증가, 오차발견율 감소", "위거부율 감소, 오차발견율 증가", "아무 변화 없음"],
+      "options": [
+        "위거부율 증가, 오차발견율 증가",
+        "위거부율 감소, 오차발견율 감소",
+        "위거부율 증가, 오차발견율 감소",
+        "위거부율 감소, 오차발견율 증가",
+        "아무 변화 없음"
+      ],
       "answer": 2,
       "explanation": "기준을 느슨하게 하면 run rejection은 줄지만 오류 탐지력도 낮아진다.",
       "subject": "임상화학",
@@ -1012,7 +1684,13 @@
     {
       "type": "mcq",
       "problem": "참값을 아는 물질을 매일 환자 검체처럼 돌려 검사실 내 재현성을 확인하는 활동은?",
-      "options": ["외부정도관리", "내부정도관리", "delta check", "동등성 검사", "교차반응 시험"],
+      "options": [
+        "외부정도관리",
+        "내부정도관리",
+        "delta check",
+        "동등성 검사",
+        "교차반응 시험"
+      ],
       "answer": 2,
       "explanation": "내부정도관리는 일상적으로 정도관리물질을 검사해 정밀도와 run 상태를 확인한다.",
       "subject": "임상화학",
@@ -1021,7 +1699,13 @@
     {
       "type": "mcq",
       "problem": "측정기관마다 값이 다르게 나오는 상황에서 가장 먼저 점검할 핵심 지표와 조합으로 적절한 것은?",
-      "options": ["정밀도 / 내부정도관리", "정확도 / 외부정도관리", "민감도 / ROC curve", "특이도 / cut-off", "유병률 / 환자수"],
+      "options": [
+        "정밀도 / 내부정도관리",
+        "정확도 / 외부정도관리",
+        "민감도 / ROC curve",
+        "특이도 / cut-off",
+        "유병률 / 환자수"
+      ],
       "answer": 2,
       "explanation": "기관 간 차이는 정확도 문제를 시사하며 외부정도관리 또는 비교평가가 중요하다.",
       "subject": "임상화학",
@@ -1030,7 +1714,13 @@
     {
       "type": "mcq",
       "problem": "중성지방 측정 결과에 간섭할 수 있는 실제 존재 분자로 자주 언급되는 것은?",
-      "options": ["glycerol", "bilirubin", "albumin", "creatine", "ammonia"],
+      "options": [
+        "glycerol",
+        "bilirubin",
+        "albumin",
+        "creatine",
+        "ammonia"
+      ],
       "answer": 1,
       "explanation": "free glycerol은 triglyceride assay에 양의 간섭을 줄 수 있다.",
       "subject": "임상화학",
@@ -1039,7 +1729,13 @@
     {
       "type": "mcq",
       "problem": "바이러스성 간염에서 AST, ALT 증가와 관련해 가장 타당한 설명은?",
-      "options": ["ALP만 증가한다", "예후와 관련될 수 있다", "절대 증가하지 않는다", "항상 AST가 ALT보다 3배 높다", "GGT만 의미 있다"],
+      "options": [
+        "ALP만 증가한다",
+        "예후와 관련될 수 있다",
+        "절대 증가하지 않는다",
+        "항상 AST가 ALT보다 3배 높다",
+        "GGT만 의미 있다"
+      ],
       "answer": 2,
       "explanation": "복원 자료 기준으로 반복 출제된 진술이며, 간세포 손상 정도와 임상 경과 판단에 참고될 수 있다.",
       "subject": "임상화학",
@@ -1048,7 +1744,13 @@
     {
       "type": "mcq",
       "problem": "알코올성 간질환의 효소 패턴으로 상대적으로 더 잘 맞는 설명은?",
-      "options": ["AST, ALT 상승과 ALP는 대체로 정상 범위 가능", "ALT만 상승하고 AST는 정상", "ALP만 상승", "bilirubin은 항상 정상", "GGT는 절대 상승하지 않는다"],
+      "options": [
+        "AST, ALT 상승과 ALP는 대체로 정상 범위 가능",
+        "ALT만 상승하고 AST는 정상",
+        "ALP만 상승",
+        "bilirubin은 항상 정상",
+        "GGT는 절대 상승하지 않는다"
+      ],
       "answer": 1,
       "explanation": "복원 자료에서 반복된 표현으로, 알코올성 간질환에서는 AST/ALT 상승과 함께 ALP가 꼭 높지 않을 수 있다.",
       "subject": "임상화학",
@@ -1057,7 +1759,13 @@
     {
       "type": "mcq",
       "problem": "담도 폐쇄 환자 수술 후 bilirubin이 늦게 떨어지는 이유로 가장 적절한 것은?",
-      "options": ["delta bilirubin이 albumin에 결합해서", "AST가 bilirubin과 결합해서", "ALP가 bilirubin 배설을 막아서", "용혈이 항상 동반되어서", "creatinine이 상승해서"],
+      "options": [
+        "delta bilirubin이 albumin에 결합해서",
+        "AST가 bilirubin과 결합해서",
+        "ALP가 bilirubin 배설을 막아서",
+        "용혈이 항상 동반되어서",
+        "creatinine이 상승해서"
+      ],
       "answer": 1,
       "explanation": "delta bilirubin은 albumin-bound conjugated bilirubin으로 서서히 감소한다.",
       "subject": "임상화학",
@@ -1066,7 +1774,13 @@
     {
       "type": "mcq",
       "problem": "PSA에 대한 설명으로 가장 타당한 것은?",
-      "options": ["종양특이성이 매우 높다", "조직특이성이 있다", "전립선암과 양성질환을 완벽히 구분한다", "나이가 들수록 감소한다", "total PSA만으로 조기암 진단이 충분하다"],
+      "options": [
+        "종양특이성이 매우 높다",
+        "조직특이성이 있다",
+        "전립선암과 양성질환을 완벽히 구분한다",
+        "나이가 들수록 감소한다",
+        "total PSA만으로 조기암 진단이 충분하다"
+      ],
       "answer": 2,
       "explanation": "PSA는 organ-specific marker로 이해하는 것이 적절하며 tumor-specific marker는 아니다.",
       "subject": "임상화학",
@@ -1075,7 +1789,13 @@
     {
       "type": "mcq",
       "problem": "total PSA가 4-10 ng/mL 범위일 때 전립선암 가능성을 더 시사하는 소견은?",
-      "options": ["free PSA 비율 증가", "free PSA 비율 감소", "PSA 완전 음성", "ALP 감소", "bilirubin 증가"],
+      "options": [
+        "free PSA 비율 증가",
+        "free PSA 비율 감소",
+        "PSA 완전 음성",
+        "ALP 감소",
+        "bilirubin 증가"
+      ],
       "answer": 2,
       "explanation": "tPSA 4-10 구간에서 낮은 free PSA ratio는 전립선암 가능성을 높인다.",
       "subject": "임상화학",
@@ -1084,7 +1804,13 @@
     {
       "type": "mcq",
       "problem": "국가암검진사업에서 제시된 보기 중 사용되는 종양표지자로 가장 적절한 것은?",
-      "options": ["CEA", "PSA", "AFP", "CA 19-9", "CA-125"],
+      "options": [
+        "CEA",
+        "PSA",
+        "AFP",
+        "CA 19-9",
+        "CA-125"
+      ],
       "answer": 3,
       "explanation": "복원 자료에서 반복적으로 AFP가 정답으로 제시되었다.",
       "subject": "임상화학",
@@ -1093,7 +1819,13 @@
     {
       "type": "mcq",
       "problem": "CEA와 가장 대표적으로 연결되는 암종은?",
-      "options": ["갑상선암", "대장암", "전립선암", "간세포암", "난소암"],
+      "options": [
+        "갑상선암",
+        "대장암",
+        "전립선암",
+        "간세포암",
+        "난소암"
+      ],
       "answer": 2,
       "explanation": "CEA는 colorectal cancer와 대표적으로 연관된다.",
       "subject": "임상화학",
@@ -1102,7 +1834,13 @@
     {
       "type": "mcq",
       "problem": "AFP CLIA의 희석 전 측정범위가 1.3-1000, 희석 후가 1.3-8000일 때 결과 1200이 나왔다면 가장 적절한 조치는?",
-      "options": ["1200으로 바로 보고", "1000 이상으로 보고", "1000-8000으로 보고", "그대로 재검", "희석하여 재검"],
+      "options": [
+        "1200으로 바로 보고",
+        "1000 이상으로 보고",
+        "1000-8000으로 보고",
+        "그대로 재검",
+        "희석하여 재검"
+      ],
       "answer": 5,
       "explanation": "AMR 상한을 넘은 값은 희석 후 재측정하여 reportable range 내에서 보고해야 한다.",
       "subject": "임상화학",
@@ -1111,7 +1849,13 @@
     {
       "type": "mcq",
       "problem": "AMR과 CRR 관계에 대한 설명으로 가장 적절한 것은?",
-      "options": ["AMR은 희석 후 보고범위다", "CRR은 임상 보고 가능한 최종 범위다", "두 용어는 항상 완전히 같다", "AMR은 민감도를 뜻한다", "CRR은 특이도를 뜻한다"],
+      "options": [
+        "AMR은 희석 후 보고범위다",
+        "CRR은 임상 보고 가능한 최종 범위다",
+        "두 용어는 항상 완전히 같다",
+        "AMR은 민감도를 뜻한다",
+        "CRR은 특이도를 뜻한다"
+      ],
       "answer": 2,
       "explanation": "CRR은 필요 시 희석 등을 포함한 최종 보고 가능 범위이며 AMR보다 넓을 수 있다.",
       "subject": "임상화학",
@@ -1120,7 +1864,13 @@
     {
       "type": "mcq",
       "problem": "Hook effect에 대한 설명으로 가장 적절한 것은?",
-      "options": ["낮은 농도에서 위양성이 나는 현상", "매우 높은 농도에서 위음성 또는 저평가가 생길 수 있는 현상", "EDTA 오염 현상", "용혈 지수 상승", "혈당 저하 현상"],
+      "options": [
+        "낮은 농도에서 위양성이 나는 현상",
+        "매우 높은 농도에서 위음성 또는 저평가가 생길 수 있는 현상",
+        "EDTA 오염 현상",
+        "용혈 지수 상승",
+        "혈당 저하 현상"
+      ],
       "answer": 2,
       "explanation": "고농도 analyte가 sandwich immunoassay를 방해해 비정상적으로 낮게 나오는 현상이다.",
       "subject": "임상화학",
@@ -1129,7 +1879,13 @@
     {
       "type": "mcq",
       "problem": "M peak가 혈청단백전기영동에서 보일 때 가장 먼저 떠올릴 질환은?",
-      "options": ["iron deficiency anemia", "multiple myeloma", "viral hepatitis", "nephrotic syndrome", "hypoparathyroidism"],
+      "options": [
+        "iron deficiency anemia",
+        "multiple myeloma",
+        "viral hepatitis",
+        "nephrotic syndrome",
+        "hypoparathyroidism"
+      ],
       "answer": 2,
       "explanation": "단클론성 면역글로불린 증가는 다발골수종에서 대표적이다.",
       "subject": "임상화학",
@@ -1138,7 +1894,13 @@
     {
       "type": "mcq",
       "problem": "혈중 cortisol의 일중변화에 대한 설명으로 맞는 것은?",
-      "options": ["밤에 가장 높다", "새벽 또는 이른 아침에 높다", "하루 종일 일정하다", "식후에만 높다", "운동과 무관하다"],
+      "options": [
+        "밤에 가장 높다",
+        "새벽 또는 이른 아침에 높다",
+        "하루 종일 일정하다",
+        "식후에만 높다",
+        "운동과 무관하다"
+      ],
       "answer": 2,
       "explanation": "cortisol은 circadian rhythm을 보여 이른 아침에 높고 밤에 낮다.",
       "subject": "임상화학",
@@ -1147,7 +1909,13 @@
     {
       "type": "mcq",
       "problem": "Na가 140 mEq/L로 측정되었고 검체의 10%가 단백질/지질에 해당한다면 실제 수분상 Na 농도는 더 높게 계산될 수 있다. 가장 가까운 값은?",
-      "options": ["140", "144", "150", "154", "156"],
+      "options": [
+        "140",
+        "144",
+        "150",
+        "154",
+        "156"
+      ],
       "answer": 5,
       "explanation": "고형 성분이 증가한 간접 ISE 상황에서는 pseudohyponatremia가 생기며 실제 수분상 농도는 더 높다.",
       "subject": "임상화학",
@@ -1156,7 +1924,13 @@
     {
       "type": "mcq",
       "problem": "cTn의 국제 진단기준에서 upper reference limit로 주로 쓰는 것은?",
-      "options": ["95th percentile", "97th percentile", "99th percentile", "mean + 1SD", "mean + 2SD"],
+      "options": [
+        "95th percentile",
+        "97th percentile",
+        "99th percentile",
+        "mean + 1SD",
+        "mean + 2SD"
+      ],
       "answer": 3,
       "explanation": "심근경색 진단에서 cardiac troponin의 99th percentile upper reference limit가 중요하다.",
       "subject": "임상화학",
@@ -1165,7 +1939,13 @@
     {
       "type": "mcq",
       "problem": "high-sensitivity troponin assay가 권장되기 위한 변이계수(CV)의 일반 기준은 99th percentile에서 얼마 이하인가?",
-      "options": ["5%", "10%", "15%", "20%", "25%"],
+      "options": [
+        "5%",
+        "10%",
+        "15%",
+        "20%",
+        "25%"
+      ],
       "answer": 2,
       "explanation": "복원 자료 기준으로 99th percentile에서 CV 10%가 반복 포인트다.",
       "subject": "임상화학",
@@ -1174,7 +1954,13 @@
     {
       "type": "mcq",
       "problem": "CRP와 hsTnI의 단위 조합으로 가장 적절한 것은?",
-      "options": ["CRP g/L, hsTnI mg/L", "CRP mg/L, hsTnI ng/L", "CRP ng/L, hsTnI mg/L", "둘 다 mmol/L", "둘 다 IU/L"],
+      "options": [
+        "CRP g/L, hsTnI mg/L",
+        "CRP mg/L, hsTnI ng/L",
+        "CRP ng/L, hsTnI mg/L",
+        "둘 다 mmol/L",
+        "둘 다 IU/L"
+      ],
       "answer": 2,
       "explanation": "복원 자료 기준으로 CRP는 mg/L, hsTnI는 ng/L가 포인트다.",
       "subject": "임상화학",
@@ -1183,7 +1969,13 @@
     {
       "type": "mcq",
       "problem": "H-index, I-index, L-index의 의미 조합으로 가장 적절한 것은?",
-      "options": ["hemolysis, icterus, lipemia", "hematocrit, iron, lactate", "hemoglobin, insulin, leukocyte", "heparin, iodine, lipid", "hook, interference, linearity"],
+      "options": [
+        "hemolysis, icterus, lipemia",
+        "hematocrit, iron, lactate",
+        "hemoglobin, insulin, leukocyte",
+        "heparin, iodine, lipid",
+        "hook, interference, linearity"
+      ],
       "answer": 1,
       "explanation": "자동분석기 간섭지수에서 HIL index는 hemolysis, icterus, lipemia를 뜻한다.",
       "subject": "임상화학",
@@ -1192,7 +1984,13 @@
     {
       "type": "mcq",
       "problem": "양성예측도(PPV)가 높다는 의미로 가장 적절한 것은?",
-      "options": ["검사 양성이면 실제 질환일 가능성이 높다", "검사 음성이면 실제 비질환일 가능성이 높다", "민감도가 높다", "특이도가 낮다", "유병률이 낮다"],
+      "options": [
+        "검사 양성이면 실제 질환일 가능성이 높다",
+        "검사 음성이면 실제 비질환일 가능성이 높다",
+        "민감도가 높다",
+        "특이도가 낮다",
+        "유병률이 낮다"
+      ],
       "answer": 1,
       "explanation": "PPV는 양성 결과를 받은 사람 중 실제 환자일 확률이다.",
       "subject": "임상화학",
@@ -1201,7 +1999,13 @@
     {
       "type": "mcq",
       "problem": "음성예측도(NPV)가 높다는 의미로 가장 적절한 것은?",
-      "options": ["검사 양성이면 질병이 확실하다", "검사 음성이면 실제 질병이 없을 가능성이 높다", "특이도가 높다", "민감도가 낮다", "위양성이 많다"],
+      "options": [
+        "검사 양성이면 질병이 확실하다",
+        "검사 음성이면 실제 질병이 없을 가능성이 높다",
+        "특이도가 높다",
+        "민감도가 낮다",
+        "위양성이 많다"
+      ],
       "answer": 2,
       "explanation": "NPV는 음성 결과를 받은 사람 중 실제 비환자일 확률이다.",
       "subject": "임상화학",
@@ -1210,7 +2014,13 @@
     {
       "type": "mcq",
       "problem": "선별검사에 적합한 ROC 특성으로 가장 적절한 것은?",
-      "options": ["민감도가 낮고 특이도가 높다", "민감도가 높고 위음성이 적다", "위양성이 전혀 없다", "cut-off가 매우 높다", "유병률과 무관하다"],
+      "options": [
+        "민감도가 낮고 특이도가 높다",
+        "민감도가 높고 위음성이 적다",
+        "위양성이 전혀 없다",
+        "cut-off가 매우 높다",
+        "유병률과 무관하다"
+      ],
       "answer": 2,
       "explanation": "screening은 질환을 놓치지 않는 것이 중요하므로 높은 sensitivity가 유리하다.",
       "subject": "임상화학",
@@ -1219,7 +2029,13 @@
     {
       "type": "mcq",
       "problem": "채혈 튜브 순서로 가장 적절한 것은?",
-      "options": ["EDTA - citrate - SST - blood culture", "blood culture - citrate - SST - EDTA", "citrate - blood culture - EDTA - SST", "SST - EDTA - citrate - blood culture", "heparin - blood culture - SST - EDTA"],
+      "options": [
+        "EDTA - citrate - SST - blood culture",
+        "blood culture - citrate - SST - EDTA",
+        "citrate - blood culture - EDTA - SST",
+        "SST - EDTA - citrate - blood culture",
+        "heparin - blood culture - SST - EDTA"
+      ],
       "answer": 2,
       "explanation": "복원 자료에서 반복된 핵심 포인트다.",
       "subject": "임상화학",
@@ -1228,7 +2044,13 @@
     {
       "type": "mcq",
       "problem": "HbA1c 검사에 가장 흔히 사용하는 튜브는?",
-      "options": ["SST", "citrate", "EDTA", "heparin", "fluoride"],
+      "options": [
+        "SST",
+        "citrate",
+        "EDTA",
+        "heparin",
+        "fluoride"
+      ],
       "answer": 3,
       "explanation": "HbA1c는 전혈 EDTA 검체를 흔히 사용한다.",
       "subject": "임상화학",
@@ -1237,7 +2059,13 @@
     {
       "type": "mcq",
       "problem": "철결핍성 빈혈에서 HbA1c가 높게 측정될 수 있는 설명으로 가장 타당한 것은?",
-      "options": ["적혈구 수명이 짧아져서", "적혈구가 오래 존재하는 비율이 늘어서", "혈장 포도당이 항상 낮아서", "citrate 오염 때문에", "용혈이 심해서"],
+      "options": [
+        "적혈구 수명이 짧아져서",
+        "적혈구가 오래 존재하는 비율이 늘어서",
+        "혈장 포도당이 항상 낮아서",
+        "citrate 오염 때문에",
+        "용혈이 심해서"
+      ],
       "answer": 2,
       "explanation": "복원 자료 기준으로 오래된 적혈구 비율 증가가 핵심 포인트다.",
       "subject": "임상화학",
@@ -1246,7 +2074,13 @@
     {
       "type": "mcq",
       "problem": "구토 환자의 산염기 이상으로 가장 적절한 것은?",
-      "options": ["pH 감소, HCO3- 감소", "pH 증가, HCO3- 증가", "pH 감소, PaCO2 감소", "pH 증가, HCO3- 감소", "정상"],
+      "options": [
+        "pH 감소, HCO3- 감소",
+        "pH 증가, HCO3- 증가",
+        "pH 감소, PaCO2 감소",
+        "pH 증가, HCO3- 감소",
+        "정상"
+      ],
       "answer": 2,
       "explanation": "위산 소실로 metabolic alkalosis가 생겨 pH와 bicarbonate가 증가한다.",
       "subject": "임상화학",
@@ -1255,7 +2089,13 @@
     {
       "type": "mcq",
       "problem": "total blood glucose가 분리된 serum glucose보다 낮게 나올 수 있는 주된 이유는?",
-      "options": ["전혈에 지질이 많아서", "혈구가 포도당을 계속 소비해서", "항상 EDTA가 들어 있어서", "혈청에 당이 더 희석돼서", "bilirubin 간섭 때문에"],
+      "options": [
+        "전혈에 지질이 많아서",
+        "혈구가 포도당을 계속 소비해서",
+        "항상 EDTA가 들어 있어서",
+        "혈청에 당이 더 희석돼서",
+        "bilirubin 간섭 때문에"
+      ],
       "answer": 2,
       "explanation": "혈청 분리 전까지 혈구가 glucose를 소모하므로 total blood에서 더 낮게 측정될 수 있다.",
       "subject": "임상화학",
@@ -1264,7 +2104,13 @@
     {
       "type": "mcq",
       "problem": "용혈 시 가장 먼저 또는 뚜렷하게 상승하는 것으로 자주 묻는 항목은?",
-      "options": ["LDH", "albumin", "HDL", "bilirubin direct", "CRP"],
+      "options": [
+        "LDH",
+        "albumin",
+        "HDL",
+        "bilirubin direct",
+        "CRP"
+      ],
       "answer": 1,
       "explanation": "복원 자료에서는 LDH가 대표 정답으로 반복된다.",
       "subject": "임상화학",
@@ -1273,7 +2119,13 @@
     {
       "type": "mcq",
       "problem": "hypoparathyroidism에서 기대되는 생화학적 변화는?",
-      "options": ["Ca 증가, P 감소", "Ca 감소, P 증가", "Ca 증가, P 증가", "Ca 감소, P 감소", "Ca 정상, P 정상"],
+      "options": [
+        "Ca 증가, P 감소",
+        "Ca 감소, P 증가",
+        "Ca 증가, P 증가",
+        "Ca 감소, P 감소",
+        "Ca 정상, P 정상"
+      ],
       "answer": 2,
       "explanation": "PTH 감소로 저칼슘혈증과 고인산혈증이 나타난다.",
       "subject": "임상화학",
@@ -1282,7 +2134,13 @@
     {
       "type": "mcq",
       "problem": "신기능 평가에서 creatinine 외에 비교 대상으로 자주 언급되는 표지자는?",
-      "options": ["cystatin C", "troponin I", "AFP", "CEA", "PSA"],
+      "options": [
+        "cystatin C",
+        "troponin I",
+        "AFP",
+        "CEA",
+        "PSA"
+      ],
       "answer": 1,
       "explanation": "복원 자료에서 creatinine과 cystatin C 비교가 언급되었다.",
       "subject": "임상화학",
@@ -1291,7 +2149,13 @@
     {
       "type": "mcq",
       "problem": "정량검사 성능평가 항목으로 보기 어려운 것은?",
-      "options": ["직선성", "정밀도", "정확도", "민감도/특이도", "AMR"],
+      "options": [
+        "직선성",
+        "정밀도",
+        "정확도",
+        "민감도/특이도",
+        "AMR"
+      ],
       "answer": 4,
       "explanation": "정량분석 자체의 analytical performance는 직선성, 정밀도, 정확도, 측정범위 등이 중심이다.",
       "subject": "임상화학",
@@ -1300,7 +2164,13 @@
     {
       "type": "mcq",
       "problem": "동등성 검사가 특히 필요한 상황으로 가장 적절한 것은?",
-      "options": ["동일 장비 동일 시약만 사용하는 경우", "검사법이나 장비를 변경해 결과 비교가 필요할 때", "유병률 계산 시", "ROC curve 작성 시", "검사실 면적 측정 시"],
+      "options": [
+        "동일 장비 동일 시약만 사용하는 경우",
+        "검사법이나 장비를 변경해 결과 비교가 필요할 때",
+        "유병률 계산 시",
+        "ROC curve 작성 시",
+        "검사실 면적 측정 시"
+      ],
       "answer": 2,
       "explanation": "method comparison 또는 instrument change 시 comparability 확인이 중요하다.",
       "subject": "임상화학",
@@ -1309,7 +2179,13 @@
     {
       "type": "mcq",
       "problem": "H-index가 높다는 말의 의미로 가장 적절한 것은?",
-      "options": ["lipemia 간섭이 크다", "hemolysis 간섭이 크다", "icterus 간섭이 크다", "hook effect가 있다", "heparin 오염이다"],
+      "options": [
+        "lipemia 간섭이 크다",
+        "hemolysis 간섭이 크다",
+        "icterus 간섭이 크다",
+        "hook effect가 있다",
+        "heparin 오염이다"
+      ],
       "answer": 2,
       "explanation": "HIL index에서 H는 hemolysis를 뜻한다.",
       "subject": "임상화학",
@@ -1318,7 +2194,13 @@
     {
       "type": "mcq",
       "problem": "I-index가 높다는 말의 의미로 가장 적절한 것은?",
-      "options": ["hemolysis", "icterus", "lipemia", "insulin", "interference by EDTA"],
+      "options": [
+        "hemolysis",
+        "icterus",
+        "lipemia",
+        "insulin",
+        "interference by EDTA"
+      ],
       "answer": 2,
       "explanation": "I는 icterus, 즉 bilirubin 간섭을 의미한다.",
       "subject": "임상화학",
@@ -1327,7 +2209,13 @@
     {
       "type": "mcq",
       "problem": "L-index가 높다는 말의 의미로 가장 적절한 것은?",
-      "options": ["leukocytosis", "lipemia", "lactate 증가", "low accuracy", "liver failure"],
+      "options": [
+        "leukocytosis",
+        "lipemia",
+        "lactate 증가",
+        "low accuracy",
+        "liver failure"
+      ],
       "answer": 2,
       "explanation": "L은 lipemia를 뜻한다.",
       "subject": "임상화학",
@@ -1336,7 +2224,13 @@
     {
       "type": "mcq",
       "problem": "PSA에 대해 옳은 설명은?",
-      "options": ["조직특이성이 있다", "종양특이성이 매우 높다", "양성 전립선비대증에서는 증가하지 않는다", "나이와 무관하다", "free PSA가 높을수록 암 가능성이 높다"],
+      "options": [
+        "조직특이성이 있다",
+        "종양특이성이 매우 높다",
+        "양성 전립선비대증에서는 증가하지 않는다",
+        "나이와 무관하다",
+        "free PSA가 높을수록 암 가능성이 높다"
+      ],
       "answer": 1,
       "explanation": "PSA는 organ-specific marker이며 tumor-specific marker는 아니다.",
       "subject": "임상화학",
@@ -1345,7 +2239,13 @@
     {
       "type": "mcq",
       "problem": "다음 중 태아성암항원과 가장 관련 있는 조합은?",
-      "options": ["CEA - 대장암", "PSA - 간세포암", "AFP - 전립선암", "troponin - 위암", "CA125 - 갑상선암"],
+      "options": [
+        "CEA - 대장암",
+        "PSA - 간세포암",
+        "AFP - 전립선암",
+        "troponin - 위암",
+        "CA125 - 갑상선암"
+      ],
       "answer": 1,
       "explanation": "CEA는 대표적으로 colorectal cancer와 연결된다.",
       "subject": "임상화학",
@@ -1354,7 +2254,13 @@
     {
       "type": "mcq",
       "problem": "산전 선별검사 결과 해석 시 일반적으로 고려 대상이 아닌 것은?",
-      "options": ["산모 체중", "인종", "다태아 여부", "임신 주수", "태아 성별"],
+      "options": [
+        "산모 체중",
+        "인종",
+        "다태아 여부",
+        "임신 주수",
+        "태아 성별"
+      ],
       "answer": 5,
       "explanation": "복원 자료에서 태아 성별이 정답 포인트로 반복 언급되었다.",
       "subject": "임상화학",
@@ -1363,7 +2269,13 @@
     {
       "type": "mcq",
       "problem": "CRP의 단위로 적절한 것은?",
-      "options": ["mg/L", "ng/L", "IU/L", "g/dL", "mEq/L"],
+      "options": [
+        "mg/L",
+        "ng/L",
+        "IU/L",
+        "g/dL",
+        "mEq/L"
+      ],
       "answer": 1,
       "explanation": "복원 자료에서 CRP 단위는 mg/L로 제시되었다.",
       "subject": "임상화학",
@@ -1372,7 +2284,13 @@
     {
       "type": "mcq",
       "problem": "hsTnI의 단위로 적절한 것은?",
-      "options": ["mg/L", "ng/L", "g/L", "mmol/L", "mEq/L"],
+      "options": [
+        "mg/L",
+        "ng/L",
+        "g/L",
+        "mmol/L",
+        "mEq/L"
+      ],
       "answer": 2,
       "explanation": "복원 자료에서 hsTnI 단위는 ng/L가 포인트였다.",
       "subject": "임상화학",
@@ -1381,7 +2299,13 @@
     {
       "type": "mcq",
       "problem": "소변 dipstick의 glucose에 직접 영향이 적은 보기로 자주 언급된 것은?",
-      "options": ["creatine", "glucose oxidase", "ascorbic acid", "ketone", "bilirubin"],
+      "options": [
+        "creatine",
+        "glucose oxidase",
+        "ascorbic acid",
+        "ketone",
+        "bilirubin"
+      ],
       "answer": 1,
       "explanation": "복원 메모 기준으로 creatine이 보기로 언급되었고 영향이 적은 쪽으로 회상되었다. 추론 항목이다.",
       "subject": "임상화학",
@@ -1390,7 +2314,13 @@
     {
       "type": "mcq",
       "problem": "외부정도관리(EQA)에 대한 설명으로 가장 적절한 것은?",
-      "options": ["매일 환자 검체처럼 검사한다", "주로 기관 간 비교를 통해 정확도를 평가한다", "정밀도만 본다", "검사실 내부 평균 설정만 중요하다", "delta check와 동일하다"],
+      "options": [
+        "매일 환자 검체처럼 검사한다",
+        "주로 기관 간 비교를 통해 정확도를 평가한다",
+        "정밀도만 본다",
+        "검사실 내부 평균 설정만 중요하다",
+        "delta check와 동일하다"
+      ],
       "answer": 2,
       "explanation": "EQA는 비교 가능한 시료를 통해 기관 간 정확도를 확인한다.",
       "subject": "임상화학",
@@ -1399,7 +2329,13 @@
     {
       "type": "mcq",
       "problem": "delta check의 주된 목적은?",
-      "options": ["유병률 계산", "이전 결과와 큰 차이를 보여 검체 오류나 급격한 변화 확인", "민감도 상승", "특이도 계산", "교차반응 평가"],
+      "options": [
+        "유병률 계산",
+        "이전 결과와 큰 차이를 보여 검체 오류나 급격한 변화 확인",
+        "민감도 상승",
+        "특이도 계산",
+        "교차반응 평가"
+      ],
       "answer": 2,
       "explanation": "delta check는 이전 결과와 비교해 비정상적 변화나 specimen mix-up을 찾는 데 도움된다.",
       "subject": "임상화학",
@@ -1408,7 +2344,13 @@
     {
       "type": "mcq",
       "problem": "알코올성 간질환에서 흔히 상대적으로 더 높은 효소는?",
-      "options": ["ALT", "AST", "ALP만", "amylase", "troponin"],
+      "options": [
+        "ALT",
+        "AST",
+        "ALP만",
+        "amylase",
+        "troponin"
+      ],
       "answer": 2,
       "explanation": "알코올성 간질환에서는 AST가 ALT보다 상대적으로 높게 나오는 패턴이 흔하다.",
       "subject": "임상화학",
@@ -1417,7 +2359,13 @@
     {
       "type": "mcq",
       "problem": "담도계 폐쇄를 더 시사하는 효소 조합은?",
-      "options": ["AST/ALT", "ALP/GGT", "CK/CK-MB", "LDH/troponin", "BUN/Cr"],
+      "options": [
+        "AST/ALT",
+        "ALP/GGT",
+        "CK/CK-MB",
+        "LDH/troponin",
+        "BUN/Cr"
+      ],
       "answer": 2,
       "explanation": "cholestasis에서는 ALP와 GGT 상승이 중요하다.",
       "subject": "임상화학",
@@ -1426,11 +2374,1517 @@
     {
       "type": "mcq",
       "problem": "바이러스성 간염에서 더 두드러지는 전형적 패턴은?",
-      "options": ["ALP/GGT 우세 상승", "AST/ALT 우세 상승", "CK 우세 상승", "amylase 우세 상승", "troponin 우세 상승"],
+      "options": [
+        "ALP/GGT 우세 상승",
+        "AST/ALT 우세 상승",
+        "CK 우세 상승",
+        "amylase 우세 상승",
+        "troponin 우세 상승"
+      ],
       "answer": 2,
       "explanation": "hepatocellular injury에서는 AST/ALT 상승이 우세하다.",
       "subject": "임상화학",
       "unit": "임상화학+알파 집중"
+    },
+    {
+      "type": "mcq",
+      "problem": "민감도(sensitivity)의 정의로 가장 적절한 것은?",
+      "options": [
+        "질병이 없는 사람 중 음성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 음성자 중 실제 비환자 비율",
+        "전체 대상자 중 검사 양성 비율"
+      ],
+      "answer": 3,
+      "explanation": "민감도는 질병이 있는 사람 중 검사에서 양성으로 나오는 비율이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "특이도(specificity)의 정의로 가장 적절한 것은?",
+      "options": [
+        "질병이 없는 사람 중 검사 음성 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 있는 사람 중 검사 음성 비율",
+        "전체 중 음성 결과 비율"
+      ],
+      "answer": 1,
+      "explanation": "특이도는 질병이 없는 사람 중 검사에서 음성으로 나오는 비율이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "유병률이 증가할 때 일반적으로 증가하는 지표는?",
+      "options": [
+        "민감도",
+        "특이도",
+        "양성예측도",
+        "음성예측도",
+        "분석 정확도"
+      ],
+      "answer": 3,
+      "explanation": "유병률이 증가하면 양성예측도는 증가하고 음성예측도는 감소하는 경향을 보인다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "선별검사(screening test)에 더 적합한 특성은?",
+      "options": [
+        "높은 특이도",
+        "높은 민감도",
+        "높은 양성예측도만 확보",
+        "높은 검사 비용",
+        "낮은 재현성"
+      ],
+      "answer": 2,
+      "explanation": "선별검사는 질환을 놓치지 않는 것이 중요하므로 높은 민감도가 유리하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "확진검사(confirmatory test)에 더 적합한 특성은?",
+      "options": [
+        "높은 특이도",
+        "높은 민감도",
+        "낮은 비용",
+        "짧은 검사시간만 중요",
+        "높은 유병률 필요"
+      ],
+      "answer": 1,
+      "explanation": "확진검사는 위양성을 줄이는 것이 중요하므로 높은 특이도가 유리하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "위양성(false positive)에 해당하는 경우는?",
+      "options": [
+        "환자인데 검사 음성",
+        "비환자인데 검사 양성",
+        "환자인데 검사 양성",
+        "비환자인데 검사 음성",
+        "검사 실패로 무효"
+      ],
+      "answer": 2,
+      "explanation": "false positive는 실제 질병이 없는데 검사 결과가 양성인 경우를 뜻한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "위음성(false negative)에 해당하는 경우는?",
+      "options": [
+        "비환자인데 검사 음성",
+        "비환자인데 검사 양성",
+        "환자인데 검사 양성",
+        "환자인데 검사 음성",
+        "재검이 필요한 경우"
+      ],
+      "answer": 4,
+      "explanation": "false negative는 실제 질병이 있는데 검사 결과가 음성인 경우를 말한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청(serum)에 대한 설명으로 옳은 것은?",
+      "options": [
+        "항응고제가 들어간 혈액에서 얻는다",
+        "응고 후 상층액으로 fibrinogen이 감소한다",
+        "항응고제가 반드시 필요하다",
+        "전혈과 동일하다",
+        "ABGA에 가장 적합하다"
+      ],
+      "answer": 2,
+      "explanation": "혈청은 혈액을 응고시킨 뒤 분리한 상층액으로 fibrinogen 등이 소모된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "EDTA 튜브(보라색)의 주된 용도로 가장 적절한 것은?",
+      "options": [
+        "응고검사",
+        "CBC",
+        "지질검사",
+        "혈청화학",
+        "혈액가스"
+      ],
+      "answer": 2,
+      "explanation": "EDTA는 혈구 형태 보존에 유리하여 CBC에 널리 사용된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Citrate 튜브(청색)의 주된 용도로 가장 적절한 것은?",
+      "options": [
+        "CBC",
+        "혈청 지질검사",
+        "응고검사",
+        "ABGA",
+        "혈액배양"
+      ],
+      "answer": 3,
+      "explanation": "citrate는 칼슘을 가역적으로 결합하여 응고검사에 사용한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Heparin 튜브(녹색)의 사용으로 가장 적절한 것은?",
+      "options": [
+        "응고인자 활성 측정",
+        "혈장 기반 화학검사",
+        "CBC",
+        "혈액배양",
+        "ESR"
+      ],
+      "answer": 2,
+      "explanation": "heparin은 혈장 기반 임상화학검사와 일부 혈액가스검사에 사용된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "EDTA 오염이 의심될 때 가장 가능성이 높은 검사 결과 조합은?",
+      "options": [
+        "Ca 증가, K 감소",
+        "Ca 감소, K 증가",
+        "Na 증가, Cl 증가",
+        "AST 감소, LD 감소",
+        "TG 감소, HDL 증가"
+      ],
+      "answer": 2,
+      "explanation": "EDTA는 칼슘을 킬레이트하고 K-EDTA 제제는 칼륨을 증가시킬 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청 칼륨이 높게 나왔지만 검체가 심하게 용혈된 경우 가장 먼저 고려할 것은?",
+      "options": [
+        "진성 고칼륨혈증",
+        "가성 고칼륨혈증",
+        "고나트륨혈증",
+        "저칼슘혈증",
+        "지질이상증"
+      ],
+      "answer": 2,
+      "explanation": "용혈로 적혈구 내 칼륨이 유리되어 pseudohyperkalemia가 발생할 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "지질검사에서 LDL cholesterol이 96 mg/dL일 때 분류는?",
+      "options": [
+        "Optimal",
+        "Near optimal/above optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
+      "answer": 1,
+      "explanation": "LDL <100 mg/dL는 optimal에 해당한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "LDL cholesterol이 145 mg/dL일 때 가장 적절한 분류는?",
+      "options": [
+        "Optimal",
+        "Near optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
+      "answer": 3,
+      "explanation": "LDL 130-159 mg/dL는 borderline high로 분류한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Total cholesterol 245 mg/dL의 분류는?",
+      "options": [
+        "Desirable",
+        "Near optimal",
+        "Borderline high",
+        "High",
+        "Very high"
+      ],
+      "answer": 4,
+      "explanation": "총콜레스테롤 ≥240 mg/dL는 high로 분류한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "HDL cholesterol 35 mg/dL의 해석으로 옳은 것은?",
+      "options": [
+        "높음",
+        "정상",
+        "낮음",
+        "경계역",
+        "매우 높음"
+      ],
+      "answer": 3,
+      "explanation": "HDL <40 mg/dL는 low HDL로 해석한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "HDL cholesterol 68 mg/dL의 해석으로 옳은 것은?",
+      "options": [
+        "낮음",
+        "경계역",
+        "보통",
+        "높음",
+        "매우 높음"
+      ],
+      "answer": 4,
+      "explanation": "HDL ≥60 mg/dL는 높은 HDL로 해석한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Triglyceride 180 mg/dL의 분류는?",
+      "options": [
+        "Normal",
+        "Borderline high",
+        "High",
+        "Very high",
+        "Low"
+      ],
+      "answer": 2,
+      "explanation": "중성지방 150-199 mg/dL는 borderline high이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Triglyceride 540 mg/dL의 분류는?",
+      "options": [
+        "Normal",
+        "Borderline high",
+        "High",
+        "Very high",
+        "Optimal"
+      ],
+      "answer": 4,
+      "explanation": "중성지방 ≥500 mg/dL는 very high이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "양성예측도(PPV)에 대한 설명으로 옳은 것은?",
+      "options": [
+        "검사 음성자 중 실제 비환자 비율",
+        "질병이 있는 사람 중 검사 양성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "질병이 없는 사람 중 검사 음성 비율",
+        "유병률과 무관하다"
+      ],
+      "answer": 3,
+      "explanation": "PPV는 검사 양성자 중 실제로 질병이 있는 비율이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "음성예측도(NPV)에 대한 설명으로 옳은 것은?",
+      "options": [
+        "검사 음성자 중 실제 비환자 비율",
+        "질병이 있는 사람 중 검사 음성 비율",
+        "질병이 없는 사람 중 검사 음성 비율",
+        "검사 양성자 중 실제 환자 비율",
+        "유병률이 높을수록 증가한다"
+      ],
+      "answer": 1,
+      "explanation": "NPV는 검사 음성자 중 실제로 질병이 없는 비율이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "같은 민감도와 특이도를 가진 검사라도 유병률이 낮은 집단에서 상대적으로 높아지기 쉬운 것은?",
+      "options": [
+        "민감도",
+        "특이도",
+        "양성예측도",
+        "음성예측도",
+        "정밀도"
+      ],
+      "answer": 4,
+      "explanation": "유병률이 낮으면 일반적으로 NPV는 높아지고 PPV는 낮아진다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "검사 cut-off를 낮추면 일반적으로 나타나는 변화는?",
+      "options": [
+        "민감도 감소, 특이도 증가",
+        "민감도 증가, 특이도 감소",
+        "민감도와 특이도 모두 증가",
+        "민감도와 특이도 모두 감소",
+        "유병률 증가"
+      ],
+      "answer": 2,
+      "explanation": "cut-off를 낮추면 양성 판정이 늘어나 민감도는 증가하고 특이도는 감소하는 경향이 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈장(plasma)에 대한 설명으로 가장 적절한 것은?",
+      "options": [
+        "응고 후 얻는다",
+        "fibrinogen이 없다",
+        "항응고제가 첨가된 혈액에서 얻는다",
+        "혈청보다 항상 칼륨이 낮다",
+        "응고검사에 부적합하다"
+      ],
+      "answer": 3,
+      "explanation": "혈장은 항응고제가 있는 상태에서 원심분리해 얻으며 fibrinogen을 포함한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Heparinized whole blood가 특히 흔히 사용되는 검사는?",
+      "options": [
+        "PT",
+        "aPTT",
+        "ABGA",
+        "CBC",
+        "혈액배양"
+      ],
+      "answer": 3,
+      "explanation": "혈액가스분석에는 heparinized whole blood를 흔히 사용한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "정확도(accuracy)에 대한 설명으로 가장 적절한 것은?",
+      "options": [
+        "반복 측정 시 값끼리의 일치도",
+        "참값에 얼마나 가까운가",
+        "결과의 표준편차",
+        "검사 양성률",
+        "검사자의 숙련도만 반영"
+      ],
+      "answer": 2,
+      "explanation": "정확도는 측정값이 참값에 얼마나 가까운지를 의미한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "정밀도(precision)에 대한 설명으로 가장 적절한 것은?",
+      "options": [
+        "참값과의 근접성",
+        "반복 측정 결과들 간의 일치도",
+        "검사 민감도",
+        "검사 특이도",
+        "유병률의 함수"
+      ],
+      "answer": 2,
+      "explanation": "정밀도는 반복 측정 시 결과들이 서로 얼마나 가까운지를 의미한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "외부정도관리(EQA)가 더 직접적으로 평가하는 항목은?",
+      "options": [
+        "정밀도",
+        "정확도",
+        "유병률",
+        "민감도",
+        "특이도"
+      ],
+      "answer": 2,
+      "explanation": "외부정도관리는 참값 또는 타기관과의 비교를 통해 정확도를 평가하는 데 유용하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "내부정도관리(IQC)가 특히 중요하게 보는 항목은?",
+      "options": [
+        "정밀도",
+        "유병률",
+        "양성예측도",
+        "음성예측도",
+        "질병 중증도"
+      ],
+      "answer": 1,
+      "explanation": "내부정도관리는 반복 측정의 일관성, 즉 정밀도 평가에 중요하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "CBC에 포함되는 항목으로 가장 적절한 것은?",
+      "options": [
+        "pH",
+        "WBC",
+        "Creatinine",
+        "Protein",
+        "Ketone"
+      ],
+      "answer": 2,
+      "explanation": "CBC는 혈구수와 혈색소, 적혈구 지표 등을 포함하며 WBC가 대표 항목이다.",
+      "subject": "진단혈액",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "MCV 증가와 가장 잘 연관되는 빈혈은?",
+      "options": [
+        "철결핍빈혈",
+        "만성질환빈혈",
+        "거대적아구성빈혈",
+        "지중해빈혈",
+        "출혈 직후 빈혈"
+      ],
+      "answer": 3,
+      "explanation": "거대적아구성빈혈은 macrocytic anemia로 MCV 증가가 특징적이다.",
+      "subject": "진단혈액",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "철결핍빈혈에서 흔한 적혈구 지표 조합은?",
+      "options": [
+        "MCV 증가, RDW 감소",
+        "MCV 감소, RDW 증가",
+        "MCV 정상, RDW 감소",
+        "MCV 증가, MCHC 증가",
+        "MCV 감소, reticulocyte 증가만"
+      ],
+      "answer": 2,
+      "explanation": "철결핍빈혈에서는 microcytosis와 anisocytosis가 흔해 MCV 감소, RDW 증가가 흔하다.",
+      "subject": "진단혈액",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "백혈구 감별계산에서 세균 감염과 가장 잘 연관되는 변화는?",
+      "options": [
+        "호산구 증가",
+        "호중구 증가",
+        "림프구 감소만",
+        "호염구 증가",
+        "단핵구 감소"
+      ],
+      "answer": 2,
+      "explanation": "급성 세균 감염에서는 neutrophilia가 흔하다.",
+      "subject": "진단혈액",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈소판 감소가 있을 때 가장 직접적으로 평가되는 CBC 항목은?",
+      "options": [
+        "Hb",
+        "Hct",
+        "Platelet count",
+        "MCV",
+        "MCHC"
+      ],
+      "answer": 3,
+      "explanation": "혈소판감소증 평가는 platelet count로 직접 확인한다.",
+      "subject": "진단혈액",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "RFT(renal function test)의 대표 항목 조합은?",
+      "options": [
+        "AST/ALT",
+        "BUN/Cr",
+        "PT/aPTT",
+        "Na/K만",
+        "HbA1c/glucose"
+      ],
+      "answer": 2,
+      "explanation": "신기능 평가는 BUN과 creatinine이 대표적이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "사구체여과율(GFR) 감소를 가장 직접적으로 시사하는 혈액검사는?",
+      "options": [
+        "Creatinine 상승",
+        "ALT 상승",
+        "Albumin 상승",
+        "Calcium 상승",
+        "HDL 상승"
+      ],
+      "answer": 1,
+      "explanation": "GFR가 떨어지면 creatinine 배설이 감소해 혈중 creatinine이 상승한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "탈수에서 흔히 관찰될 수 있는 BUN/Cr 변화는?",
+      "options": [
+        "둘 다 감소",
+        "BUN/Cr 비 증가",
+        "Creatinine만 감소",
+        "BUN만 감소",
+        "변화 없음"
+      ],
+      "answer": 2,
+      "explanation": "prerenal azotemia에서는 BUN/Cr ratio 증가가 흔하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 pH 7.28, PaCO2 30 mmHg, HCO3- 14 mEq/L일 때 가장 적절한 해석은?",
+      "options": [
+        "대사성 산증",
+        "대사성 알칼리증",
+        "호흡성 산증",
+        "호흡성 알칼리증",
+        "정상"
+      ],
+      "answer": 1,
+      "explanation": "낮은 pH와 낮은 bicarbonate가 일차적으로 metabolic acidosis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 pH 7.52, PaCO2 28 mmHg, HCO3- 23 mEq/L일 때 가장 적절한 해석은?",
+      "options": [
+        "대사성 산증",
+        "대사성 알칼리증",
+        "호흡성 산증",
+        "호흡성 알칼리증",
+        "혼합성 대사장애"
+      ],
+      "answer": 4,
+      "explanation": "높은 pH와 낮은 PaCO2는 respiratory alkalosis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA에서 산소화 상태를 직접 반영하는 주요 항목은?",
+      "options": [
+        "HCO3-",
+        "Base excess",
+        "PaO2",
+        "Anion gap",
+        "BUN"
+      ],
+      "answer": 3,
+      "explanation": "PaO2는 동맥혈 내 산소분압으로 산소화를 평가하는 핵심 항목이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "ABGA 검체 채취 후 가장 중요한 처리로 적절한 것은?",
+      "options": [
+        "상온에 오래 둔다",
+        "heparinized syringe 사용 후 신속 분석",
+        "EDTA 튜브에 옮긴다",
+        "응고 후 측정한다",
+        "항응고제 없이 방치한다"
+      ],
+      "answer": 2,
+      "explanation": "ABGA는 heparinized syringe를 사용하고 공기 노출을 줄이며 빠르게 분석해야 한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사 dipstick에서 단백뇨를 가장 직접적으로 반영하는 항목은?",
+      "options": [
+        "bilirubin",
+        "protein",
+        "glucose",
+        "ketone",
+        "nitrite"
+      ],
+      "answer": 2,
+      "explanation": "dipstick protein 항목은 주로 albumin을 반영한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요 nitrite 양성의 해석으로 가장 적절한 것은?",
+      "options": [
+        "사구체신염 확진",
+        "세균뇨 시사",
+        "당뇨병 확진",
+        "케톤산증 확진",
+        "결석 확진"
+      ],
+      "answer": 2,
+      "explanation": "nitrite 양성은 nitrate를 nitrite로 환원하는 세균 존재를 시사한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요 sediment에서 RBC cast가 보이면 가장 먼저 생각할 것은?",
+      "options": [
+        "방광염",
+        "사구체질환",
+        "요붕증",
+        "신증후군만",
+        "고지혈증"
+      ],
+      "answer": 2,
+      "explanation": "RBC cast는 사구체 출혈과 연관되어 glomerulonephritis를 시사한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 glucose 양성이지만 혈당이 정상이라면 가장 먼저 고려할 수 있는 것은?",
+      "options": [
+        "간성혼수",
+        "신세뇨관 재흡수 이상",
+        "혈액 오염",
+        "요비중 감소만",
+        "정상 변이"
+      ],
+      "answer": 2,
+      "explanation": "renal glycosuria처럼 세뇨관 재흡수 이상이 있으면 혈당 정상이어도 요당이 나올 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 specific gravity가 높다는 의미로 가장 적절한 것은?",
+      "options": [
+        "희석뇨",
+        "농축뇨",
+        "무뇨",
+        "단백뇨 없음",
+        "혈뇨 없음"
+      ],
+      "answer": 2,
+      "explanation": "specific gravity 증가는 소변이 상대적으로 농축되었음을 시사한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "요검사에서 leukocyte esterase 양성의 의미로 가장 적절한 것은?",
+      "options": [
+        "당뇨병",
+        "백혈구 존재 시사",
+        "고지혈증",
+        "근육손상",
+        "간질환"
+      ],
+      "answer": 2,
+      "explanation": "leukocyte esterase 양성은 소변 내 백혈구를 시사해 UTI 평가에 도움된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c가 반영하는 평균 혈당 기간으로 가장 적절한 것은?",
+      "options": [
+        "1주",
+        "2~3주",
+        "2~3개월",
+        "6개월",
+        "1년"
+      ],
+      "answer": 3,
+      "explanation": "HbA1c는 적혈구 수명에 기반해 대략 최근 2~3개월 평균 혈당을 반영한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c 해석 시 거짓으로 낮게 나올 수 있는 상황은?",
+      "options": [
+        "철결핍빈혈",
+        "적혈구 수명 단축",
+        "만성 고혈당",
+        "요독증",
+        "고중성지방혈증"
+      ],
+      "answer": 2,
+      "explanation": "용혈이나 출혈 등으로 적혈구 수명이 짧아지면 HbA1c가 실제보다 낮게 나올 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "급성 심근손상에서 특이성과 민감도가 가장 높아 핵심으로 쓰이는 심장표지자는?",
+      "options": [
+        "CK",
+        "CK-MB",
+        "Troponin",
+        "Myoglobin",
+        "LDH"
+      ],
+      "answer": 3,
+      "explanation": "cardiac troponin은 심근손상 평가의 핵심 biomarker다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "AMI 발병 초기에 가장 빨리 상승하지만 특이도가 낮은 심장표지자는?",
+      "options": [
+        "Troponin I",
+        "Troponin T",
+        "Myoglobin",
+        "BNP",
+        "NT-proBNP"
+      ],
+      "answer": 3,
+      "explanation": "myoglobin은 매우 빨리 상승하지만 심근 특이도가 낮다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "심부전 평가에 특히 유용한 표지자는?",
+      "options": [
+        "Troponin",
+        "CK-MB",
+        "BNP/NT-proBNP",
+        "AST",
+        "Lactate"
+      ],
+      "answer": 3,
+      "explanation": "BNP와 NT-proBNP는 심부전의 진단과 중증도 평가에 도움된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈청 나트륨 126 mEq/L의 해석으로 가장 적절한 것은?",
+      "options": [
+        "정상",
+        "경도 고나트륨혈증",
+        "저나트륨혈증",
+        "정상 상한",
+        "위양성"
+      ],
+      "answer": 3,
+      "explanation": "혈청 sodium 126 mEq/L는 hyponatremia에 해당한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "용혈 검체에서 거짓 상승 가능성이 특히 큰 전해질은?",
+      "options": [
+        "Na",
+        "K",
+        "Cl",
+        "HCO3-",
+        "Phosphate만"
+      ],
+      "answer": 2,
+      "explanation": "세포 내 농도가 높은 potassium은 용혈 시 pseudohyperkalemia를 보일 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "고칼륨혈증에서 임상적으로 가장 주의해야 할 합병증은?",
+      "options": [
+        "빈혈",
+        "부정맥",
+        "황달",
+        "당뇨병",
+        "지질이상"
+      ],
+      "answer": 2,
+      "explanation": "hyperkalemia는 치명적인 cardiac arrhythmia를 유발할 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "이온화 칼슘 측정에서 pH 변화와 가장 관련된 해석은?",
+      "options": [
+        "pH 증가 시 이온화 칼슘 증가",
+        "pH 증가 시 이온화 칼슘 감소",
+        "pH와 무관",
+        "총칼슘만 변함",
+        "칼륨만 변함"
+      ],
+      "answer": 2,
+      "explanation": "alkalosis에서는 단백 결합이 증가해 ionized calcium이 감소할 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "anion gap 계산에 직접 포함되는 전해질 조합은?",
+      "options": [
+        "Na, K, Cl, HCO3-",
+        "Ca, Mg, P",
+        "AST, ALT, ALP",
+        "BUN, Cr, uric acid",
+        "troponin, CK-MB"
+      ],
+      "answer": 1,
+      "explanation": "anion gap은 보통 Na - (Cl + HCO3-)로 계산하며 상황에 따라 K를 포함하기도 한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "내부정도관리 허용기준을 2SD에서 3SD로 바꾸면 일반적으로 나타나는 변화는?",
+      "options": [
+        "위거부율 증가, 오차발견율 증가",
+        "위거부율 감소, 오차발견율 감소",
+        "위거부율 증가, 오차발견율 감소",
+        "위거부율 감소, 오차발견율 증가",
+        "아무 변화 없음"
+      ],
+      "answer": 2,
+      "explanation": "기준을 느슨하게 하면 run rejection은 줄지만 오류 탐지력도 낮아진다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "참값을 아는 물질을 매일 환자 검체처럼 돌려 검사실 내 재현성을 확인하는 활동은?",
+      "options": [
+        "외부정도관리",
+        "내부정도관리",
+        "delta check",
+        "동등성 검사",
+        "교차반응 시험"
+      ],
+      "answer": 2,
+      "explanation": "내부정도관리는 일상적으로 정도관리물질을 검사해 정밀도와 run 상태를 확인한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "측정기관마다 값이 다르게 나오는 상황에서 가장 먼저 점검할 핵심 지표와 조합으로 적절한 것은?",
+      "options": [
+        "정밀도 / 내부정도관리",
+        "정확도 / 외부정도관리",
+        "민감도 / ROC curve",
+        "특이도 / cut-off",
+        "유병률 / 환자수"
+      ],
+      "answer": 2,
+      "explanation": "기관 간 차이는 정확도 문제를 시사하며 외부정도관리 또는 비교평가가 중요하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "중성지방 측정 결과에 간섭할 수 있는 실제 존재 분자로 자주 언급되는 것은?",
+      "options": [
+        "glycerol",
+        "bilirubin",
+        "albumin",
+        "creatine",
+        "ammonia"
+      ],
+      "answer": 1,
+      "explanation": "free glycerol은 triglyceride assay에 양의 간섭을 줄 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "바이러스성 간염에서 AST, ALT 증가와 관련해 가장 타당한 설명은?",
+      "options": [
+        "ALP만 증가한다",
+        "예후와 관련될 수 있다",
+        "절대 증가하지 않는다",
+        "항상 AST가 ALT보다 3배 높다",
+        "GGT만 의미 있다"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 반복 출제된 진술이며, 간세포 손상 정도와 임상 경과 판단에 참고될 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "알코올성 간질환의 효소 패턴으로 상대적으로 더 잘 맞는 설명은?",
+      "options": [
+        "AST, ALT 상승과 ALP는 대체로 정상 범위 가능",
+        "ALT만 상승하고 AST는 정상",
+        "ALP만 상승",
+        "bilirubin은 항상 정상",
+        "GGT는 절대 상승하지 않는다"
+      ],
+      "answer": 1,
+      "explanation": "복원 자료에서 반복된 표현으로, 알코올성 간질환에서는 AST/ALT 상승과 함께 ALP가 꼭 높지 않을 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "담도 폐쇄 환자 수술 후 bilirubin이 늦게 떨어지는 이유로 가장 적절한 것은?",
+      "options": [
+        "delta bilirubin이 albumin에 결합해서",
+        "AST가 bilirubin과 결합해서",
+        "ALP가 bilirubin 배설을 막아서",
+        "용혈이 항상 동반되어서",
+        "creatinine이 상승해서"
+      ],
+      "answer": 1,
+      "explanation": "delta bilirubin은 albumin-bound conjugated bilirubin으로 서서히 감소한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "PSA에 대한 설명으로 가장 타당한 것은?",
+      "options": [
+        "종양특이성이 매우 높다",
+        "조직특이성이 있다",
+        "전립선암과 양성질환을 완벽히 구분한다",
+        "나이가 들수록 감소한다",
+        "total PSA만으로 조기암 진단이 충분하다"
+      ],
+      "answer": 2,
+      "explanation": "PSA는 organ-specific marker로 이해하는 것이 적절하며 tumor-specific marker는 아니다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "total PSA가 4-10 ng/mL 범위일 때 전립선암 가능성을 더 시사하는 소견은?",
+      "options": [
+        "free PSA 비율 증가",
+        "free PSA 비율 감소",
+        "PSA 완전 음성",
+        "ALP 감소",
+        "bilirubin 증가"
+      ],
+      "answer": 2,
+      "explanation": "tPSA 4-10 구간에서 낮은 free PSA ratio는 전립선암 가능성을 높인다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "국가암검진사업에서 제시된 보기 중 사용되는 종양표지자로 가장 적절한 것은?",
+      "options": [
+        "CEA",
+        "PSA",
+        "AFP",
+        "CA 19-9",
+        "CA-125"
+      ],
+      "answer": 3,
+      "explanation": "복원 자료에서 반복적으로 AFP가 정답으로 제시되었다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "CEA와 가장 대표적으로 연결되는 암종은?",
+      "options": [
+        "갑상선암",
+        "대장암",
+        "전립선암",
+        "간세포암",
+        "난소암"
+      ],
+      "answer": 2,
+      "explanation": "CEA는 colorectal cancer와 대표적으로 연관된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "AFP CLIA의 희석 전 측정범위가 1.3-1000, 희석 후가 1.3-8000일 때 결과 1200이 나왔다면 가장 적절한 조치는?",
+      "options": [
+        "1200으로 바로 보고",
+        "1000 이상으로 보고",
+        "1000-8000으로 보고",
+        "그대로 재검",
+        "희석하여 재검"
+      ],
+      "answer": 5,
+      "explanation": "AMR 상한을 넘은 값은 희석 후 재측정하여 reportable range 내에서 보고해야 한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "AMR과 CRR 관계에 대한 설명으로 가장 적절한 것은?",
+      "options": [
+        "AMR은 희석 후 보고범위다",
+        "CRR은 임상 보고 가능한 최종 범위다",
+        "두 용어는 항상 완전히 같다",
+        "AMR은 민감도를 뜻한다",
+        "CRR은 특이도를 뜻한다"
+      ],
+      "answer": 2,
+      "explanation": "CRR은 필요 시 희석 등을 포함한 최종 보고 가능 범위이며 AMR보다 넓을 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Hook effect에 대한 설명으로 가장 적절한 것은?",
+      "options": [
+        "낮은 농도에서 위양성이 나는 현상",
+        "매우 높은 농도에서 위음성 또는 저평가가 생길 수 있는 현상",
+        "EDTA 오염 현상",
+        "용혈 지수 상승",
+        "혈당 저하 현상"
+      ],
+      "answer": 2,
+      "explanation": "고농도 analyte가 sandwich immunoassay를 방해해 비정상적으로 낮게 나오는 현상이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "M peak가 혈청단백전기영동에서 보일 때 가장 먼저 떠올릴 질환은?",
+      "options": [
+        "iron deficiency anemia",
+        "multiple myeloma",
+        "viral hepatitis",
+        "nephrotic syndrome",
+        "hypoparathyroidism"
+      ],
+      "answer": 2,
+      "explanation": "단클론성 면역글로불린 증가는 다발골수종에서 대표적이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "혈중 cortisol의 일중변화에 대한 설명으로 맞는 것은?",
+      "options": [
+        "밤에 가장 높다",
+        "새벽 또는 이른 아침에 높다",
+        "하루 종일 일정하다",
+        "식후에만 높다",
+        "운동과 무관하다"
+      ],
+      "answer": 2,
+      "explanation": "cortisol은 circadian rhythm을 보여 이른 아침에 높고 밤에 낮다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "Na가 140 mEq/L로 측정되었고 검체의 10%가 단백질/지질에 해당한다면 실제 수분상 Na 농도는 더 높게 계산될 수 있다. 가장 가까운 값은?",
+      "options": [
+        "140",
+        "144",
+        "150",
+        "154",
+        "156"
+      ],
+      "answer": 5,
+      "explanation": "고형 성분이 증가한 간접 ISE 상황에서는 pseudohyponatremia가 생기며 실제 수분상 농도는 더 높다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "cTn의 국제 진단기준에서 upper reference limit로 주로 쓰는 것은?",
+      "options": [
+        "95th percentile",
+        "97th percentile",
+        "99th percentile",
+        "mean + 1SD",
+        "mean + 2SD"
+      ],
+      "answer": 3,
+      "explanation": "심근경색 진단에서 cardiac troponin의 99th percentile upper reference limit가 중요하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "high-sensitivity troponin assay가 권장되기 위한 변이계수(CV)의 일반 기준은 99th percentile에서 얼마 이하인가?",
+      "options": [
+        "5%",
+        "10%",
+        "15%",
+        "20%",
+        "25%"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 99th percentile에서 CV 10%가 반복 포인트다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "CRP와 hsTnI의 단위 조합으로 가장 적절한 것은?",
+      "options": [
+        "CRP g/L, hsTnI mg/L",
+        "CRP mg/L, hsTnI ng/L",
+        "CRP ng/L, hsTnI mg/L",
+        "둘 다 mmol/L",
+        "둘 다 IU/L"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 CRP는 mg/L, hsTnI는 ng/L가 포인트다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "H-index, I-index, L-index의 의미 조합으로 가장 적절한 것은?",
+      "options": [
+        "hemolysis, icterus, lipemia",
+        "hematocrit, iron, lactate",
+        "hemoglobin, insulin, leukocyte",
+        "heparin, iodine, lipid",
+        "hook, interference, linearity"
+      ],
+      "answer": 1,
+      "explanation": "자동분석기 간섭지수에서 HIL index는 hemolysis, icterus, lipemia를 뜻한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "양성예측도(PPV)가 높다는 의미로 가장 적절한 것은?",
+      "options": [
+        "검사 양성이면 실제 질환일 가능성이 높다",
+        "검사 음성이면 실제 비질환일 가능성이 높다",
+        "민감도가 높다",
+        "특이도가 낮다",
+        "유병률이 낮다"
+      ],
+      "answer": 1,
+      "explanation": "PPV는 양성 결과를 받은 사람 중 실제 환자일 확률이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "음성예측도(NPV)가 높다는 의미로 가장 적절한 것은?",
+      "options": [
+        "검사 양성이면 질병이 확실하다",
+        "검사 음성이면 실제 질병이 없을 가능성이 높다",
+        "특이도가 높다",
+        "민감도가 낮다",
+        "위양성이 많다"
+      ],
+      "answer": 2,
+      "explanation": "NPV는 음성 결과를 받은 사람 중 실제 비환자일 확률이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "선별검사에 적합한 ROC 특성으로 가장 적절한 것은?",
+      "options": [
+        "민감도가 낮고 특이도가 높다",
+        "민감도가 높고 위음성이 적다",
+        "위양성이 전혀 없다",
+        "cut-off가 매우 높다",
+        "유병률과 무관하다"
+      ],
+      "answer": 2,
+      "explanation": "screening은 질환을 놓치지 않는 것이 중요하므로 높은 sensitivity가 유리하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "채혈 튜브 순서로 가장 적절한 것은?",
+      "options": [
+        "EDTA - citrate - SST - blood culture",
+        "blood culture - citrate - SST - EDTA",
+        "citrate - blood culture - EDTA - SST",
+        "SST - EDTA - citrate - blood culture",
+        "heparin - blood culture - SST - EDTA"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료에서 반복된 핵심 포인트다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "HbA1c 검사에 가장 흔히 사용하는 튜브는?",
+      "options": [
+        "SST",
+        "citrate",
+        "EDTA",
+        "heparin",
+        "fluoride"
+      ],
+      "answer": 3,
+      "explanation": "HbA1c는 전혈 EDTA 검체를 흔히 사용한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "철결핍성 빈혈에서 HbA1c가 높게 측정될 수 있는 설명으로 가장 타당한 것은?",
+      "options": [
+        "적혈구 수명이 짧아져서",
+        "적혈구가 오래 존재하는 비율이 늘어서",
+        "혈장 포도당이 항상 낮아서",
+        "citrate 오염 때문에",
+        "용혈이 심해서"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료 기준으로 오래된 적혈구 비율 증가가 핵심 포인트다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "구토 환자의 산염기 이상으로 가장 적절한 것은?",
+      "options": [
+        "pH 감소, HCO3- 감소",
+        "pH 증가, HCO3- 증가",
+        "pH 감소, PaCO2 감소",
+        "pH 증가, HCO3- 감소",
+        "정상"
+      ],
+      "answer": 2,
+      "explanation": "위산 소실로 metabolic alkalosis가 생겨 pH와 bicarbonate가 증가한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "total blood glucose가 분리된 serum glucose보다 낮게 나올 수 있는 주된 이유는?",
+      "options": [
+        "전혈에 지질이 많아서",
+        "혈구가 포도당을 계속 소비해서",
+        "항상 EDTA가 들어 있어서",
+        "혈청에 당이 더 희석돼서",
+        "bilirubin 간섭 때문에"
+      ],
+      "answer": 2,
+      "explanation": "혈청 분리 전까지 혈구가 glucose를 소모하므로 total blood에서 더 낮게 측정될 수 있다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "용혈 시 가장 먼저 또는 뚜렷하게 상승하는 것으로 자주 묻는 항목은?",
+      "options": [
+        "LDH",
+        "albumin",
+        "HDL",
+        "bilirubin direct",
+        "CRP"
+      ],
+      "answer": 1,
+      "explanation": "복원 자료에서는 LDH가 대표 정답으로 반복된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "hypoparathyroidism에서 기대되는 생화학적 변화는?",
+      "options": [
+        "Ca 증가, P 감소",
+        "Ca 감소, P 증가",
+        "Ca 증가, P 증가",
+        "Ca 감소, P 감소",
+        "Ca 정상, P 정상"
+      ],
+      "answer": 2,
+      "explanation": "PTH 감소로 저칼슘혈증과 고인산혈증이 나타난다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "신기능 평가에서 creatinine 외에 비교 대상으로 자주 언급되는 표지자는?",
+      "options": [
+        "cystatin C",
+        "troponin I",
+        "AFP",
+        "CEA",
+        "PSA"
+      ],
+      "answer": 1,
+      "explanation": "복원 자료에서 creatinine과 cystatin C 비교가 언급되었다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "정량검사 성능평가 항목으로 보기 어려운 것은?",
+      "options": [
+        "직선성",
+        "정밀도",
+        "정확도",
+        "민감도/특이도",
+        "AMR"
+      ],
+      "answer": 4,
+      "explanation": "정량분석 자체의 analytical performance는 직선성, 정밀도, 정확도, 측정범위 등이 중심이다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "동등성 검사가 특히 필요한 상황으로 가장 적절한 것은?",
+      "options": [
+        "동일 장비 동일 시약만 사용하는 경우",
+        "검사법이나 장비를 변경해 결과 비교가 필요할 때",
+        "유병률 계산 시",
+        "ROC curve 작성 시",
+        "검사실 면적 측정 시"
+      ],
+      "answer": 2,
+      "explanation": "method comparison 또는 instrument change 시 comparability 확인이 중요하다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "H-index가 높다는 말의 의미로 가장 적절한 것은?",
+      "options": [
+        "lipemia 간섭이 크다",
+        "hemolysis 간섭이 크다",
+        "icterus 간섭이 크다",
+        "hook effect가 있다",
+        "heparin 오염이다"
+      ],
+      "answer": 2,
+      "explanation": "HIL index에서 H는 hemolysis를 뜻한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "I-index가 높다는 말의 의미로 가장 적절한 것은?",
+      "options": [
+        "hemolysis",
+        "icterus",
+        "lipemia",
+        "insulin",
+        "interference by EDTA"
+      ],
+      "answer": 2,
+      "explanation": "I는 icterus, 즉 bilirubin 간섭을 의미한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "L-index가 높다는 말의 의미로 가장 적절한 것은?",
+      "options": [
+        "leukocytosis",
+        "lipemia",
+        "lactate 증가",
+        "low accuracy",
+        "liver failure"
+      ],
+      "answer": 2,
+      "explanation": "L은 lipemia를 뜻한다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "PSA에 대해 옳은 설명은?",
+      "options": [
+        "조직특이성이 있다",
+        "종양특이성이 매우 높다",
+        "양성 전립선비대증에서는 증가하지 않는다",
+        "나이와 무관하다",
+        "free PSA가 높을수록 암 가능성이 높다"
+      ],
+      "answer": 1,
+      "explanation": "PSA는 organ-specific marker이며 tumor-specific marker는 아니다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "다음 중 태아성암항원과 가장 관련 있는 조합은?",
+      "options": [
+        "CEA - 대장암",
+        "PSA - 간세포암",
+        "AFP - 전립선암",
+        "troponin - 위암",
+        "CA125 - 갑상선암"
+      ],
+      "answer": 1,
+      "explanation": "CEA는 대표적으로 colorectal cancer와 연결된다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "산전 선별검사 결과 해석 시 일반적으로 고려 대상이 아닌 것은?",
+      "options": [
+        "산모 체중",
+        "인종",
+        "다태아 여부",
+        "임신 주수",
+        "태아 성별"
+      ],
+      "answer": 5,
+      "explanation": "복원 자료에서 태아 성별이 정답 포인트로 반복 언급되었다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "CRP의 단위로 적절한 것은?",
+      "options": [
+        "mg/L",
+        "ng/L",
+        "IU/L",
+        "g/dL",
+        "mEq/L"
+      ],
+      "answer": 1,
+      "explanation": "복원 자료에서 CRP 단위는 mg/L로 제시되었다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
+    },
+    {
+      "type": "mcq",
+      "problem": "hsTnI의 단위로 적절한 것은?",
+      "options": [
+        "mg/L",
+        "ng/L",
+        "g/L",
+        "mmol/L",
+        "mEq/L"
+      ],
+      "answer": 2,
+      "explanation": "복원 자료에서 hsTnI 단위는 ng/L가 포인트였다.",
+      "subject": "임상화학",
+      "unit": "파이널 객관식 세트"
     }
   ],
   "cloze": [
@@ -2435,13 +4889,12 @@
     },
     {
       "type": "cloze",
-      "response_type": "cloze",
+      "response_type": "ox",
       "front": "CBC에서 빈혈 평가에 핵심인 기본 항목은 Hb, Hct, RBC count이다.",
       "answer": "O",
       "explanation": "기본 혈구수와 혈색소/헤마토크릿이 빈혈 평가의 출발점이다.",
       "subject": "진단혈액",
-      "unit": "임상화학+알파 집중",
-      "response_type": "ox"
+      "unit": "임상화학+알파 집중"
     },
     {
       "type": "cloze",
