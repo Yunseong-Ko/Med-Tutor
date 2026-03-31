@@ -298,7 +298,7 @@ def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
 def is_supabase_required():
-    value = os.getenv("AXIOMA_REQUIRE_SUPABASE", "1").strip().lower()
+    value = os.getenv("AXIOMA_REQUIRE_SUPABASE", "0").strip().lower()
     return value not in {"0", "false", "no", "off"}
 
 if is_supabase_required() and not is_supabase_enabled():

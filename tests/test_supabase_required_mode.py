@@ -33,7 +33,7 @@ class SupabaseRequiredModeTests(unittest.TestCase):
         self.assertFalse(ns["is_valid_email"]("userexample.com"))
         self.assertFalse(ns["is_valid_email"]("user@"))
 
-    def test_is_supabase_required_default_true(self):
+    def test_is_supabase_required_default_false(self):
         import os
 
         prev = os.environ.get("AXIOMA_REQUIRE_SUPABASE")
@@ -41,7 +41,7 @@ class SupabaseRequiredModeTests(unittest.TestCase):
             del os.environ["AXIOMA_REQUIRE_SUPABASE"]
         try:
             ns = _load_functions(["is_supabase_required"], {"os": os})
-            self.assertTrue(ns["is_supabase_required"]())
+            self.assertFalse(ns["is_supabase_required"]())
         finally:
             if prev is not None:
                 os.environ["AXIOMA_REQUIRE_SUPABASE"] = prev
