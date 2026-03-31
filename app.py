@@ -1424,21 +1424,16 @@ def maybe_seed_lab_exam_questions_for_allowed_viewer():
     if not (seed_text or seed_cloze):
         return 0
     settings = load_user_settings()
-    if str(settings.get("lab_exam_seed_version") or "") == seed_version:
-        return 0
 
     bank = load_questions()
     existing_items = list(bank.get("text", [])) + list(bank.get("cloze", []))
-    only_seeded_items = bool(existing_items) and all(str(item.get("unit") or "") == "실습시험 시드" for item in existing_items)
+    seeded_units = {
+        str(item.get("unit") or "실습시험 시드")
+        for item in seed_text + seed_cloze
+        if isinstance(item, dict)
+    }
+    only_seeded_items = bool(existing_items) and all(str(item.get("unit") or "") in seeded_units for item in existing_items)
 
-    if not existing_items or only_seeded_items:
-        payload = ensure_question_ids({"text": seed_text, "cloze": seed_cloze})
-        save_questions(payload)
-        settings["lab_exam_seed_version"] = seed_version
-        save_user_settings(settings)
-        return len(payload.get("text", [])) + len(payload.get("cloze", []))
-
-    added = 0
     existing_text_keys = {
         build_question_dedupe_key(item, MODE_MCQ)
         for item in bank.get("text", [])
@@ -1449,6 +1444,40 @@ def maybe_seed_lab_exam_questions_for_allowed_viewer():
         for item in bank.get("cloze", [])
         if isinstance(item, dict)
     }
+    missing_seed_items = False
+    for item in seed_text:
+        if not isinstance(item, dict):
+            continue
+        normalized = normalize_mcq_item(item)
+        if not normalized:
+            continue
+        key = build_question_dedupe_key(normalized, MODE_MCQ)
+        if key and key not in existing_text_keys:
+            missing_seed_items = True
+            break
+    if not missing_seed_items:
+        for item in seed_cloze:
+            if not isinstance(item, dict):
+                continue
+            normalized = normalize_cloze_item(item)
+            if not normalized:
+                continue
+            key = build_question_dedupe_key(normalized, MODE_CLOZE)
+            if key and key not in existing_cloze_keys:
+                missing_seed_items = True
+                break
+
+    if str(settings.get("lab_exam_seed_version") or "") == seed_version and not missing_seed_items:
+        return 0
+
+    if not existing_items or only_seeded_items:
+        payload = ensure_question_ids({"text": seed_text, "cloze": seed_cloze})
+        save_questions(payload)
+        settings["lab_exam_seed_version"] = seed_version
+        save_user_settings(settings)
+        return len(payload.get("text", [])) + len(payload.get("cloze", []))
+
+    added = 0
     for item in seed_text:
         if not isinstance(item, dict):
             continue
