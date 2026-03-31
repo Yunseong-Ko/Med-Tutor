@@ -2074,6 +2074,20 @@ def get_question_stats():
         "total_cloze": len(bank.get("cloze", []))
     }
 
+def get_final_mcq_items(bank=None, limit=100):
+    """시험 직전용 파이널 객관식 세트 추출.
+
+    1) 별도 단원(`파이널 객관식 세트`)이 있으면 우선 사용
+    2) 없으면 `임상화학+알파 집중` 객관식에서 대체 추출
+    """
+    bank = bank or load_questions()
+    text_items = list((bank or {}).get("text", []))
+    preferred = [q for q in text_items if str(q.get("unit") or "") == "파이널 객관식 세트"]
+    if preferred:
+        return preferred[:limit]
+    fallback = [q for q in text_items if str(q.get("unit") or "") == "임상화학+알파 집중"]
+    return fallback[:limit]
+
 def fuzzy_match(user_answer, correct_answer, threshold=0.8):
     """Cloze 답변 유사도 비교"""
     user_clean = re.sub(r'[^\w가-힣]', '', str(user_answer).lower())
@@ -6677,6 +6691,15 @@ if active_page == "home":
     st.write(f"전체 정답률: {acc_text}")
     st.write(f"저장된 객관식: {stats['total_text']} · 저장된 빈칸: {stats['total_cloze']}")
 
+    final_mcq_items = get_final_mcq_items(bank, limit=100)
+    if final_mcq_items:
+        if st.button("🚀 파이널 객관식 100문제 바로 시작", use_container_width=True, key="home_start_final_mcq"):
+            started = start_exam_session_from_items(final_mcq_items, "객관식", "시험모드")
+            if started:
+                st.session_state.exam_mode_entry_anchor = "home_final_mcq"
+                st.session_state.last_action_notice = f"파이널 객관식 세트 {started}문항을 준비했습니다. 실전 시험 탭에서 바로 이어서 풀 수 있습니다."
+                st.rerun()
+
     with st.expander("🔐 초기 이용자용: API 키 발급 가이드", expanded=False):
         st.caption("문항 생성/변환/AI 보조 기능은 아래 모델 키가 필요합니다.")
         key_tabs = st.tabs(["Google Gemini", "OpenAI"])
@@ -8592,6 +8615,13 @@ if active_page == "exam":
     if not bank["text"] and not bank["cloze"]:
         st.warning("📌 저장된 문제가 없습니다. 먼저 **📚 문제 생성** 탭에서 문제를 생성하세요.")
     else:
+        final_mcq_items = get_final_mcq_items(bank, limit=100)
+        if final_mcq_items:
+            if st.button("🚀 파이널 객관식 100문제 시작", use_container_width=True, key="exam_start_final_mcq"):
+                started = start_exam_session_from_items(final_mcq_items, "객관식", "시험모드")
+                if started:
+                    st.session_state.exam_mode_entry_anchor = "exam_final_mcq"
+                    st.rerun()
         st.info("기출문제 파일 변환은 **🧾 기출문제 변환** 탭에서 진행합니다.")
         if st.session_state.get("exam_mode_entry_anchor") and st.session_state.get("exam_questions"):
             st.success(
