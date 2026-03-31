@@ -6723,6 +6723,8 @@ if active_page == "home":
                         units = ["미분류"]
                     key_name = f"home_unit_filter_{subj}"
                     prev_units = st.session_state.get(key_name, units)
+                    if "파이널 객관식 세트" in units and "파이널 객관식 세트" not in prev_units:
+                        prev_units = units
                     selected_units = st.multiselect(
                         f"{subj} 단원",
                         options=units,
@@ -8677,6 +8679,8 @@ if active_page == "exam":
                             units = ["미분류"]
                         unit_key = f"unit_filter_{subj}"
                         previous = st.session_state.get(unit_key, units)
+                        if "파이널 객관식 세트" in units and "파이널 객관식 세트" not in previous:
+                            previous = units
                         default_units = previous if set(previous) <= set(units) else units
                         selected_units_for_subject = st.multiselect(
                             f"{subj} 단원",
