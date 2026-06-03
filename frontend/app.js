@@ -68,6 +68,7 @@ const studentPracticeMode = document.querySelector("#studentPracticeMode");
 const startStudentPracticeButton = document.querySelector("#startStudentPractice");
 const studentPracticeStatus = document.querySelector("#studentPracticeStatus");
 const studentPracticeStage = document.querySelector("#studentPracticeStage");
+const studentPracticePage = document.querySelector("#student-practice");
 
 let modelCatalog = null;
 let progressTimer = null;
@@ -430,6 +431,33 @@ function practiceChoiceEntries(question) {
     .sort(([left], [right]) => Number(left) - Number(right));
 }
 
+function renderPracticeQuestionStrip(questions) {
+  if (!questions.length) return "";
+  const windowSize = 18;
+  const start = Math.max(0, Math.min(currentPracticeIndex - 8, questions.length - windowSize));
+  const visibleQuestions = questions.slice(start, start + windowSize);
+  return `
+    <div class="practice-question-strip" aria-label="문항 빠른 이동">
+      ${visibleQuestions.map((item, offset) => {
+        const index = start + offset;
+        const key = item.question_id || String(item.question_number || index);
+        const answered = currentPracticeAnswers[key];
+        const active = index === currentPracticeIndex;
+        return `
+          <button
+            type="button"
+            class="${active ? "active" : ""} ${answered ? "answered" : ""}"
+            data-practice-jump="${escapeHtml(index)}"
+            aria-label="${escapeHtml(index + 1)}번 문항으로 이동"
+          >
+            ${escapeHtml(index + 1)}
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderPracticeMedia(mediaRefs) {
   const media = (mediaRefs || []).filter((item) => item.url);
   if (!media.length) return "";
@@ -452,6 +480,7 @@ function renderPracticeMedia(mediaRefs) {
 
 function renderStudentPracticeQuestion() {
   if (!studentPracticeStage) return;
+  studentPracticeStage.className = "practice-layout uworld-layout";
   const questions = currentPracticeExam?.questions || [];
   const question = questions[currentPracticeIndex];
   if (!question) {
@@ -471,6 +500,12 @@ function renderStudentPracticeQuestion() {
   const selectedAnswer = currentPracticeAnswers[questionKey];
   const answer = String(question.answer || "");
   const revealAnswer = Boolean(selectedAnswer) && (studentPracticeMode?.value || "study") === "study";
+  const correctCount = questions.filter((item, index) => {
+    const key = item.question_id || String(item.question_number || index);
+    return currentPracticeAnswers[key] && String(item.answer || "") === currentPracticeAnswers[key];
+  }).length;
+  const answeredCount = Object.keys(currentPracticeAnswers).length;
+  const progressPercent = questions.length ? Math.round(((currentPracticeIndex + 1) / questions.length) * 100) : 0;
   const choices = practiceChoiceEntries(question)
     .map(([key, text]) => {
       const normalizedKey = String(key);
@@ -498,40 +533,79 @@ function renderStudentPracticeQuestion() {
       ? answer === selectedAnswer ? "정답입니다." : `오답입니다. 정답은 ${answer || "미확인"}번입니다.`
       : "선택이 저장됐습니다. 시험 모드에서는 마지막에 해설을 확인합니다."
     : "선지를 선택하면 학습 모드에서는 정답과 해설이 바로 표시됩니다.";
+  const answerPanel = selectedAnswer
+    ? `
+      <section class="uworld-explanation-card ${revealAnswer && answer === selectedAnswer ? "correct" : revealAnswer ? "incorrect" : ""}">
+        <span>${revealAnswer ? answer === selectedAnswer ? "Correct" : "Incorrect" : "Selected"}</span>
+        <strong>${revealAnswer ? `정답 ${escapeHtml(answer || "미확인")}번` : `${escapeHtml(selectedAnswer)}번 선택됨`}</strong>
+        ${revealAnswer
+          ? question.explanation
+            ? `<p>${escapeHtml(question.explanation)}</p>`
+            : "<p>저장된 해설이 없습니다. 교수 검토 단계에서 해설 보강이 필요합니다.</p>"
+          : "<p>시험 모드에서는 세션 종료 후 해설을 확인하도록 설계할 수 있습니다.</p>"
+        }
+      </section>
+    `
+    : `
+      <section class="uworld-explanation-card pending">
+        <span>Tutor Panel</span>
+        <strong>선지를 선택하면 해설이 열립니다.</strong>
+        <p>오른쪽 패널은 UWorld식 학습 모드처럼 정답, 해설, 관련 개념, 복습 버튼을 모아두는 영역입니다.</p>
+      </section>
+    `;
 
   studentPracticeStage.innerHTML = `
-    <article class="practice-question">
-      <div class="practice-meta">
-        <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</span>
-        <strong>${escapeHtml(currentPracticeIndex + 1)} / ${escapeHtml(questions.length)}</strong>
-      </div>
-      <p>${escapeHtml(question.stem || "문항 지문 미추출")}</p>
-      ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
-      ${renderPracticeMedia(question.media_refs || [])}
-      <div class="practice-choices interactive">${choices}</div>
-      ${revealAnswer ? `
-        <div class="practice-feedback ${answer === selectedAnswer ? "correct" : "incorrect"}">
-          <strong>${answer === selectedAnswer ? "정답" : "해설 확인"}</strong>
-          <p>정답: ${escapeHtml(answer || "미확인")}번</p>
-          ${question.explanation ? `<p>${escapeHtml(question.explanation)}</p>` : "<p>저장된 해설이 없습니다. 교수 검토 단계에서 해설 보강이 필요합니다.</p>"}
+    <section class="uworld-practice-shell">
+      <header class="uworld-testbar">
+        <div>
+          <span>Block 1</span>
+          <strong>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</strong>
         </div>
-      ` : ""}
-      <div class="practice-nav-actions">
-        <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>이전</button>
-        <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>다음</button>
+        <div class="uworld-progress">
+          <span>${escapeHtml(currentPracticeIndex + 1)} / ${escapeHtml(questions.length)}</span>
+          <div aria-hidden="true"><b style="width: ${escapeHtml(progressPercent)}%"></b></div>
+        </div>
+        <div class="uworld-session-stats">
+          <span>${escapeHtml(studentPracticeMode?.value === "exam" ? "Exam Mode" : "Tutor Mode")}</span>
+          <strong>${escapeHtml(answeredCount)} answered</strong>
+          <button type="button" data-practice-reset>세트 변경</button>
+        </div>
+      </header>
+
+      ${renderPracticeQuestionStrip(questions)}
+
+      <div class="uworld-workspace">
+        <article class="practice-question uworld-question-panel">
+          <div class="uworld-question-head">
+            <span>Question</span>
+            <strong>${escapeHtml(currentPracticeIndex + 1)} of ${escapeHtml(questions.length)}</strong>
+          </div>
+          <p class="uworld-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
+          ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
+          ${renderPracticeMedia(question.media_refs || [])}
+          <div class="practice-choices interactive uworld-choice-list">${choices}</div>
+          <div class="practice-nav-actions uworld-bottom-actions">
+            <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>이전</button>
+            <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>다음</button>
+          </div>
+        </article>
+
+        <aside class="practice-helper uworld-side-panel">
+          <h3>해설 · 복습</h3>
+          <div class="practice-helper-status">${escapeHtml(helperStatus)}</div>
+          ${answerPanel}
+          <dl class="practice-mini-metrics">
+            <div><dt>풀이</dt><dd>${escapeHtml(answeredCount)}문항</dd></div>
+            <div><dt>정답</dt><dd>${escapeHtml(correctCount)}문항</dd></div>
+            <div><dt>태그</dt><dd>${escapeHtml(conceptTags.slice(0, 3).join(", ") || labels.cognitive_level || "라벨 필요")}</dd></div>
+          </dl>
+          <div class="uworld-side-actions">
+            <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념</button>
+            <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드</button>
+          </div>
+        </aside>
       </div>
-    </article>
-    <aside class="practice-helper">
-      <h3>학습 모드 도구</h3>
-      <div class="practice-helper-status">${escapeHtml(helperStatus)}</div>
-      <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
-      <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-      <dl class="practice-mini-metrics">
-        <div><dt>풀이</dt><dd>${escapeHtml(Object.keys(currentPracticeAnswers).length)}문항</dd></div>
-        <div><dt>정답</dt><dd>${escapeHtml(answer || "미확인")}</dd></div>
-        <div><dt>태그</dt><dd>${escapeHtml(conceptTags.slice(0, 3).join(", ") || labels.cognitive_level || "라벨 필요")}</dd></div>
-      </dl>
-    </aside>
+    </section>
   `;
 }
 
@@ -551,6 +625,7 @@ async function startStudentPractice() {
     currentPracticeExam = payload;
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
+    studentPracticePage?.classList.add("practice-active");
     if (studentPracticeStatus) {
       const summary = payload.summary || {};
       studentPracticeStatus.textContent = `${examTitle(summary)} 세트를 열었습니다. ${payload.questions?.length || 0}문항을 풀 수 있습니다.`;
@@ -1669,15 +1744,50 @@ studentPracticeStage?.addEventListener("click", (event) => {
     return;
   }
 
-  const navButton = event.target.closest("[data-practice-nav]");
-  if (!navButton) return;
-  if (navButton.dataset.practiceNav === "prev") {
-    currentPracticeIndex = Math.max(0, currentPracticeIndex - 1);
-  } else {
-    const lastIndex = Math.max(0, (currentPracticeExam?.questions || []).length - 1);
-    currentPracticeIndex = Math.min(lastIndex, currentPracticeIndex + 1);
+  const resetButton = event.target.closest("[data-practice-reset]");
+  if (resetButton) {
+    currentPracticeExam = null;
+    currentPracticeIndex = 0;
+    currentPracticeAnswers = {};
+    studentPracticePage?.classList.remove("practice-active");
+    studentPracticeStage.className = "practice-layout";
+    studentPracticeStage.innerHTML = `
+      <article class="practice-question empty-practice">
+        <p>기출/과정시험 세트를 선택하면 UWorld식 문제풀이 화면으로 열립니다.</p>
+      </article>
+      <aside class="practice-helper">
+        <h3>학습 모드 도구</h3>
+        <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
+        <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
+        <p>세트 선택 후 문제를 풀면 정답/해설, 관련 개념, 복습 카드가 같은 흐름으로 이어집니다.</p>
+      </aside>
+    `;
+    if (studentPracticeStatus) {
+      studentPracticeStatus.textContent = `${studentExamSelect?.options?.length || 0}개 풀이 가능 세트를 불러왔습니다. 세트를 선택해 문제 풀이를 시작할 수 있습니다.`;
+    }
+    return;
   }
-  renderStudentPracticeQuestion();
+
+  const navButton = event.target.closest("[data-practice-nav]");
+  if (navButton) {
+    if (navButton.dataset.practiceNav === "prev") {
+      currentPracticeIndex = Math.max(0, currentPracticeIndex - 1);
+    } else {
+      const lastIndex = Math.max(0, (currentPracticeExam?.questions || []).length - 1);
+      currentPracticeIndex = Math.min(lastIndex, currentPracticeIndex + 1);
+    }
+    renderStudentPracticeQuestion();
+    return;
+  }
+
+  const jumpButton = event.target.closest("[data-practice-jump]");
+  if (!jumpButton) return;
+  const jumpIndex = Number(jumpButton.dataset.practiceJump);
+  const lastIndex = Math.max(0, (currentPracticeExam?.questions || []).length - 1);
+  if (Number.isFinite(jumpIndex)) {
+    currentPracticeIndex = Math.max(0, Math.min(lastIndex, jumpIndex));
+    renderStudentPracticeQuestion();
+  }
 });
 
 lightboxClose?.addEventListener("click", () => {
