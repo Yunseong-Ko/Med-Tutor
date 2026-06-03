@@ -89,7 +89,7 @@ const pageMeta = {
   "faculty-studio": ["문항 생성", "강의자료·기출·제시자료 기반 초안 생성"],
   "faculty-review": ["문항 검토", "승인 전 문항 확인"],
   "faculty-archive": ["아카이브/내보내기", "승인 세트 보관과 export"],
-  "faculty-report": ["수업 리포트", "학생 학업성취도와 오답 개념 분석"],
+  "faculty-report": ["수업 리포트", "신경 및 특수감각기학 통합 성취도 분석"],
   "faculty-ops": ["운영 보드", "팀 작업 배분과 주차별 산출물 관리"],
   "faculty-medlegal": ["EMR/CPX 훈련", "의료법·설명의무·진료기록 교육"],
   "student-dashboard": ["학습 홈", "문제·개념·복습"],

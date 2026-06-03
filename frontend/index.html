@@ -542,13 +542,19 @@
           <section class="report-summary-card" id="report">
             <div class="report-title-block">
               <p class="section-label">Performance Analysis</p>
-              <h2>2026 1차 임종평 1교시 학습성과</h2>
-              <p>문항별 정답률과 풀이 시간을 분과, 세부 주제, 평가 항목으로 다시 묶어 다음 수업의 보강 우선순위를 정합니다.</p>
+              <h2>신경 및 특수감각기학 1·2차 과정시험 통합 분석</h2>
+              <p>1·2차 과정시험 문항을 하나의 과목 블럭으로 묶고, 정답률과 풀이 시간을 단원·세부 주제·평가 항목 단위로 다시 정리합니다.</p>
+              <div class="course-scope-row" aria-label="분석 범위">
+                <span>본과 2학년</span>
+                <span>1·2차 과정시험 통합</span>
+                <span>객관식 257문항</span>
+                <span>교수자 과목 단위 리포트</span>
+              </div>
             </div>
             <div class="report-objective-card">
-              <span>Class EPC</span>
-              <strong>68%</strong>
-              <small>평균 64.2 · SD 9.8</small>
+              <span>Course EPC</span>
+              <strong>62%</strong>
+              <small>평균 62.8 · SD 10.9</small>
             </div>
           </section>
 
@@ -562,23 +568,23 @@
           <section class="report-kpi-grid">
             <article>
               <span>Completed</span>
-              <strong>80</strong>
-              <small>문항 응시 완료</small>
+              <strong>257</strong>
+              <small>1·2차 문항 통합</small>
             </article>
             <article>
               <span>Correct</span>
-              <strong>68%</strong>
-              <small>전체 정답률</small>
+              <strong>62%</strong>
+              <small>과목 전체 정답률</small>
             </article>
             <article>
               <span>Avg. Time</span>
-              <strong>92s</strong>
+              <strong>86s</strong>
               <small>문항당 평균 풀이 시간</small>
             </article>
             <article>
               <span>Priority</span>
-              <strong>6</strong>
-              <small>보강 필요 주제</small>
+              <strong>7</strong>
+              <small>보강 필요 단원</small>
             </article>
           </section>
 
@@ -617,16 +623,16 @@
               </div>
               <ol class="recommendation-list">
                 <li>
-                  <div><strong>호흡기 · 자료해석형</strong><span>X-ray/ABGA 해석과 초기 처치</span></div>
+                  <div><strong>뇌혈관·운동계 · 병변 위치 추론</strong><span>뇌간/척수/소뇌 병변과 신경학적 징후 연결</span></div>
                   <button type="button" data-page-link="faculty-studio">문항 만들기</button>
                 </li>
                 <li>
-                  <div><strong>순환기 · ECG 판독</strong><span>리듬 판독 시간 2.1배 지연</span></div>
-                  <button type="button" class="secondary-button">자료 연결</button>
+                  <div><strong>시각계 · 시야결손/안구운동</strong><span>optic chiasm/tract, CN III/IV/VI 병변 감별</span></div>
+                  <button type="button" class="secondary-button">도식 연결</button>
                 </li>
                 <li>
-                  <div><strong>법/윤리 · 신고 의무</strong><span>선지 간 법적 주체 혼동</span></div>
-                  <button type="button" class="secondary-button">개념 보강</button>
+                  <div><strong>전정·청각 · 말초/중추 감별</strong><span>어지럼, 안진, 청력저하 단서 통합</span></div>
+                  <button type="button" class="secondary-button">증례 보강</button>
                 </li>
               </ol>
             </article>
@@ -659,36 +665,52 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>호흡기</strong></td>
-                    <td>흉부영상, ABGA, 산소치료</td>
-                    <td>12</td>
-                    <td><span class="score-chip low">43%</span></td>
-                    <td>128s</td>
-                    <td>자료해석형 보강</td>
-                  </tr>
-                  <tr>
-                    <td><strong>순환기</strong></td>
-                    <td>ECG, 쇼크, 수혈 전 검사</td>
-                    <td>15</td>
-                    <td><span class="score-chip mid">58%</span></td>
-                    <td>111s</td>
-                    <td>오답 문항 재풀이</td>
-                  </tr>
-                  <tr>
-                    <td><strong>법/윤리</strong></td>
-                    <td>신고의무, 보험급여, 개인정보</td>
-                    <td>18</td>
+                    <td><strong>신경해부/신경생리</strong></td>
+                    <td>뇌간, 척수로, 말초신경, 반사</td>
+                    <td>48</td>
                     <td><span class="score-chip mid">61%</span></td>
-                    <td>74s</td>
-                    <td>개념 비교표</td>
+                    <td>82s</td>
+                    <td>경로 도식 보강</td>
                   </tr>
                   <tr>
-                    <td><strong>소화기</strong></td>
-                    <td>복통, 간담췌, 위장관 출혈</td>
-                    <td>10</td>
-                    <td><span class="score-chip high">76%</span></td>
-                    <td>68s</td>
-                    <td>유지</td>
+                    <td><strong>뇌혈관/운동계</strong></td>
+                    <td>뇌졸중, 추체로, 불수의운동</td>
+                    <td>62</td>
+                    <td><span class="score-chip low">47%</span></td>
+                    <td>117s</td>
+                    <td>병변 위치 추론</td>
+                  </tr>
+                  <tr>
+                    <td><strong>시각계</strong></td>
+                    <td>시야, 안구운동, 동공반사</td>
+                    <td>41</td>
+                    <td><span class="score-chip low">52%</span></td>
+                    <td>103s</td>
+                    <td>시각경로 도식</td>
+                  </tr>
+                  <tr>
+                    <td><strong>청각·전정</strong></td>
+                    <td>청력검사, 안진, 전정신경</td>
+                    <td>34</td>
+                    <td><span class="score-chip mid">58%</span></td>
+                    <td>91s</td>
+                    <td>말초/중추 감별</td>
+                  </tr>
+                  <tr>
+                    <td><strong>감각계/통증</strong></td>
+                    <td>체성감각, 통증경로, 특수감각</td>
+                    <td>39</td>
+                    <td><span class="score-chip high">70%</span></td>
+                    <td>72s</td>
+                    <td>유지·심화</td>
+                  </tr>
+                  <tr>
+                    <td><strong>고위기능/임상신경</strong></td>
+                    <td>의식, 언어, 기억, 신경심리</td>
+                    <td>33</td>
+                    <td><span class="score-chip mid">64%</span></td>
+                    <td>79s</td>
+                    <td>증례형 보강</td>
                   </tr>
                 </tbody>
               </table>
@@ -706,24 +728,35 @@
             <div class="question-analytics-list">
               <article>
                 <span class="question-status incorrect">Incorrect</span>
-                <strong>Q47 · 호흡기 자료해석형</strong>
-                <p>X-ray/ABGA 해석 후 초기 처치 선택</p>
+                <strong>Q42 · 뇌간 병변 위치 추론</strong>
+                <p>복시, 안면마비, 반대측 편마비를 이용한 병변 위치 감별</p>
                 <dl>
                   <div><dt>난이도</dt><dd>Hard</dd></div>
-                  <div><dt>정답률</dt><dd>38%</dd></div>
-                  <div><dt>평균 시간</dt><dd>2:18</dd></div>
-                  <div><dt>비교</dt><dd>-17%p</dd></div>
+                  <div><dt>정답률</dt><dd>34%</dd></div>
+                  <div><dt>평균 시간</dt><dd>2:05</dd></div>
+                  <div><dt>비교</dt><dd>-21%p</dd></div>
                 </dl>
               </article>
               <article>
                 <span class="question-status review-needed">Review</span>
-                <strong>Q63 · ECG 판독</strong>
-                <p>Wide QRS tachycardia 감별</p>
+                <strong>Q76 · 시야결손과 시각경로</strong>
+                <p>양측성/동측성 시야결손을 optic chiasm/tract 병변과 연결</p>
                 <dl>
                   <div><dt>난이도</dt><dd>Medium</dd></div>
-                  <div><dt>정답률</dt><dd>52%</dd></div>
-                  <div><dt>평균 시간</dt><dd>1:54</dd></div>
-                  <div><dt>비교</dt><dd>-9%p</dd></div>
+                  <div><dt>정답률</dt><dd>49%</dd></div>
+                  <div><dt>평균 시간</dt><dd>1:47</dd></div>
+                  <div><dt>비교</dt><dd>-12%p</dd></div>
+                </dl>
+              </article>
+              <article>
+                <span class="question-status review-needed">Review</span>
+                <strong>Q88 · 전정계 말초/중추 감별</strong>
+                <p>안진 방향, 청력저하, 신경학적 징후를 이용한 감별</p>
+                <dl>
+                  <div><dt>난이도</dt><dd>Medium</dd></div>
+                  <div><dt>정답률</dt><dd>55%</dd></div>
+                  <div><dt>평균 시간</dt><dd>1:32</dd></div>
+                  <div><dt>비교</dt><dd>-7%p</dd></div>
                 </dl>
               </article>
             </div>

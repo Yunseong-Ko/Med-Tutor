@@ -3028,6 +3028,23 @@ html {
   line-height: 1.65;
 }
 
+.course-scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.course-scope-row span {
+  border: 1px solid #d6e2ee;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #415069;
+  background: #f7fafc;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .report-objective-card {
   display: grid;
   min-height: 150px;
