@@ -1,3 +1,4 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap");
 
 :root {
@@ -34,7 +35,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+  font-family: "Pretendard", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
   background: var(--bg);
 }
 
@@ -2406,6 +2407,18 @@ textarea {
   line-height: 1.65;
 }
 
+.explanation-source-badge {
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #075946;
+  background: rgba(0, 168, 150, 0.12);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
 .uworld-explanation-card.correct {
   border-color: rgba(20, 162, 125, 0.36);
   background: #f0fbf6;
@@ -2509,24 +2522,28 @@ body.practice-session-active #student-practice > .practice-status {
 
 .amboss-topbar {
   display: grid;
-  grid-template-columns: 56px minmax(280px, 620px) auto;
-  gap: 18px;
+  grid-template-columns: 76px minmax(280px, 620px) auto;
+  gap: 16px;
   align-items: center;
   padding: 0 24px;
   color: #ffffff;
-  background: #07595d;
+  background:
+    linear-gradient(90deg, rgba(0, 51, 102, 0.98), rgba(0, 77, 92, 0.96)),
+    #003366;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.14);
 }
 
 .amboss-menu-button {
-  width: 38px;
+  width: 64px;
   height: 38px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  color: #d8eef0;
-  background: rgba(255, 255, 255, 0.08);
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  color: #e8f4f7;
+  background: rgba(255, 255, 255, 0.1);
   box-shadow: none;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .amboss-search {
@@ -2535,11 +2552,14 @@ body.practice-session-active #student-practice > .practice-status {
   align-items: center;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.74);
-  background: rgba(6, 38, 44, 0.68);
-  font-size: 1rem;
-  font-style: italic;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 4px solid rgba(0, 168, 150, 0.9);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(4, 18, 32, 0.36);
+  font-size: 0.94rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .amboss-search kbd {
@@ -2561,8 +2581,8 @@ body.practice-session-active #student-practice > .practice-status {
   height: 34px;
   place-items: center;
   border-radius: 50%;
-  color: #073b45;
-  background: #20b7c8;
+  color: #003366;
+  background: #d8f6ef;
   font-weight: 900;
 }
 
@@ -2593,7 +2613,7 @@ body.practice-session-active #student-practice > .practice-status {
 
 .amboss-session-summary {
   padding: 22px;
-  border-bottom: 4px solid #5f7285;
+  border-bottom: 4px solid #003366;
 }
 
 .amboss-session-summary span {
@@ -2601,11 +2621,11 @@ body.practice-session-active #student-practice > .practice-status {
   margin-bottom: 14px;
   padding: 7px 12px;
   border-radius: 999px;
-  color: #48596b;
-  background: #eef3f6;
+  color: #075946;
+  background: #e6f6f2;
   font-size: 0.78rem;
   font-weight: 900;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .amboss-session-summary strong {
@@ -2723,7 +2743,7 @@ body.practice-session-active #student-practice > .practice-status {
   color: #607386;
   font-size: 0.72rem;
   font-weight: 900;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .amboss-session-footer button {
@@ -2762,6 +2782,7 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-reader-toolbar span {
   color: #607386;
   font-weight: 900;
+  letter-spacing: -0.01em;
 }
 
 .amboss-reader-toolbar strong {
@@ -2782,8 +2803,9 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-stem {
   margin: 18px 0 0;
   color: #1f2933;
-  font-size: 1.18rem;
+  font-size: 1.12rem;
   line-height: 1.65;
+  letter-spacing: -0.015em;
 }
 
 .amboss-info-tabs {
@@ -2803,9 +2825,9 @@ body.practice-session-active #student-practice > .practice-status {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 900;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .amboss-info-tabs button.active::after {
@@ -2814,7 +2836,8 @@ body.practice-session-active #student-practice > .practice-status {
   right: 0;
   bottom: -22px;
   height: 4px;
-  background: #526273;
+  border-radius: 999px;
+  background: #00a896;
   content: "";
 }
 
@@ -2834,7 +2857,7 @@ body.practice-session-active #student-practice > .practice-status {
   height: 44px;
   place-items: center;
   border-radius: 50%;
-  color: #07595d;
+  color: #003366;
   background: #dff4f2;
   font-size: 0.75rem;
   font-weight: 900;
@@ -2843,9 +2866,18 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-key-info p {
   margin: 0;
   color: #26323f;
-  font-size: 1.02rem;
-  font-style: italic;
+  font-size: 1rem;
   line-height: 1.65;
+  letter-spacing: -0.01em;
+}
+
+.amboss-key-info small {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: #0d7b62;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .amboss-choice-list {
@@ -2884,6 +2916,7 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-choice strong {
   color: inherit;
   font-size: 1rem;
+  letter-spacing: -0.015em;
 }
 
 .amboss-choice em {
@@ -2912,11 +2945,17 @@ body.practice-session-active #student-practice > .practice-status {
   background: #e7fbf4;
 }
 
+.amboss-choice-explanation.supplemental {
+  border-left-color: #003366;
+  background: #f1f7fb;
+}
+
 .amboss-choice-explanation p {
   margin: 0 0 14px;
   color: #26323f;
   font-size: 1rem;
   line-height: 1.65;
+  letter-spacing: -0.01em;
 }
 
 .amboss-study-footer {
@@ -2940,7 +2979,7 @@ body.practice-session-active #student-practice > .practice-status {
   color: #607386;
   font-size: 0.76rem;
   font-weight: 900;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .amboss-study-footer strong {
@@ -2964,8 +3003,12 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-bottom-nav button {
   border-radius: 0;
   color: #ffffff;
-  background: #078993;
+  background: #003366;
   box-shadow: none;
+}
+
+.amboss-bottom-nav button:hover {
+  background: #0a315b;
 }
 
 .amboss-bottom-nav .secondary-button {
@@ -2973,6 +3016,11 @@ body.practice-session-active #student-practice > .practice-status {
   border: 0;
   border-right: 1px solid #d5dde6;
   background: #ffffff;
+}
+
+.amboss-bottom-nav .secondary-button:hover {
+  color: #003366;
+  background: #f1f7fb;
 }
 
 .amboss-bottom-nav button:disabled {
