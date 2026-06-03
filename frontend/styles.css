@@ -2945,3 +2945,457 @@ html {
 [data-nav-group][hidden] {
   display: none !important;
 }
+
+/* Clean PNU analytics skin */
+.topbar {
+  min-height: auto;
+  align-items: center;
+  padding: 18px 22px;
+  border: 1px solid rgba(203, 216, 231, 0.9);
+  border-radius: 22px;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 253, 0.96));
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+}
+
+.topbar .subtle {
+  color: var(--medical-green);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.topbar h1 {
+  max-width: none;
+  color: var(--text);
+  font-size: clamp(1.45rem, 2.6vw, 2.15rem);
+  line-height: 1.18;
+  letter-spacing: -0.045em;
+}
+
+.topbar-actions {
+  align-items: center;
+}
+
+.topbar-actions button {
+  color: #ffffff;
+  border: 1px solid var(--pnu-blue);
+  background: var(--pnu-blue);
+  box-shadow: 0 10px 22px rgba(18, 60, 105, 0.16);
+}
+
+.topbar-actions button:hover {
+  color: #ffffff;
+  background: #0a315b;
+}
+
+.report-page-v2 {
+  gap: 14px;
+}
+
+.report-summary-card,
+.analysis-tabs,
+.report-kpi-grid article,
+.performance-card,
+.recommendation-card,
+.system-performance-card,
+.session-analysis-card {
+  border: 1px solid rgba(203, 216, 231, 0.92);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.055);
+}
+
+.report-summary-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  gap: 20px;
+  align-items: center;
+  padding: 24px;
+}
+
+.report-title-block h2 {
+  margin-top: 7px;
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+  line-height: 1.14;
+  letter-spacing: -0.06em;
+}
+
+.report-title-block p:last-child {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.report-objective-card {
+  display: grid;
+  min-height: 150px;
+  align-content: center;
+  justify-items: center;
+  border-radius: 18px;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.16), transparent 34%),
+    linear-gradient(145deg, #0b3a66, #0f766e);
+}
+
+.report-objective-card span,
+.report-objective-card small {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 800;
+}
+
+.report-objective-card strong {
+  margin: 6px 0;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.analysis-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  background: #f4f7fb;
+}
+
+.analysis-tabs button {
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #536176;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.9rem;
+}
+
+.analysis-tabs button.active {
+  color: var(--pnu-blue);
+  border-color: #cfe0f2;
+  background: #ffffff;
+}
+
+.report-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-kpi-grid article {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+}
+
+.report-kpi-grid span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.report-kpi-grid strong {
+  color: var(--pnu-blue);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.report-kpi-grid small {
+  color: var(--medical-green);
+  font-weight: 800;
+}
+
+.analysis-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
+  gap: 14px;
+}
+
+.performance-card,
+.recommendation-card,
+.system-performance-card,
+.session-analysis-card {
+  padding: 20px;
+}
+
+.trend-plot {
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid #e2eaf3;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fbfdff, #f5f8fb);
+}
+
+.trend-plot svg {
+  display: block;
+  width: 100%;
+  height: 260px;
+}
+
+.trend-plot .grid-line {
+  fill: none;
+  stroke: #dce6ef;
+  stroke-width: 1;
+}
+
+.trend-plot .trend-area {
+  fill: rgba(15, 118, 110, 0.12);
+}
+
+.trend-plot .trend-line {
+  fill: none;
+  stroke: #0f766e;
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+
+.trend-plot circle {
+  fill: #ffffff;
+  stroke: #0f766e;
+  stroke-width: 4;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  color: #425168;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.trend-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.trend-legend b {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0f766e;
+}
+
+.trend-legend .muted-dot b {
+  background: #9aa8b8;
+}
+
+.recommendation-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommendation-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid #e2eaf3;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.recommendation-list strong,
+.recommendation-list span {
+  display: block;
+}
+
+.recommendation-list strong {
+  color: var(--text);
+}
+
+.recommendation-list span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.recommendation-list button {
+  padding: 9px 12px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.segmented-filter {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d8e4ef;
+  border-radius: 999px;
+  background: #f4f7fb;
+}
+
+.segmented-filter button {
+  min-height: 32px;
+  padding: 7px 11px;
+  color: #536176;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.82rem;
+}
+
+.segmented-filter button.active {
+  color: var(--pnu-blue);
+  background: #ffffff;
+}
+
+.performance-table-wrap {
+  overflow-x: auto;
+}
+
+.performance-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+  font-size: 0.92rem;
+}
+
+.performance-table th,
+.performance-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #e6edf5;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.performance-table th {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.performance-table td {
+  color: #334155;
+}
+
+.score-chip {
+  display: inline-flex;
+  min-width: 54px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 900;
+}
+
+.score-chip.low {
+  color: #9b1c1c;
+  background: #fee2df;
+}
+
+.score-chip.mid {
+  color: #7a4a11;
+  background: #fff3d8;
+}
+
+.score-chip.high {
+  color: #0f766e;
+  background: #e7f5f1;
+}
+
+.question-analytics-list {
+  display: grid;
+  gap: 10px;
+}
+
+.question-analytics-list article {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 0.75fr) minmax(240px, 1fr) minmax(360px, 1.3fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #e2eaf3;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.question-analytics-list strong {
+  color: var(--text);
+}
+
+.question-analytics-list p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.question-analytics-list dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.question-analytics-list dt {
+  color: #7b8795;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.question-analytics-list dd {
+  margin: 3px 0 0;
+  color: var(--pnu-blue);
+  font-weight: 900;
+}
+
+.question-status {
+  display: inline-flex;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.question-status.incorrect {
+  color: #9b1c1c;
+  background: #fee2df;
+}
+
+.question-status.review-needed {
+  color: #7a4a11;
+  background: #fff3d8;
+}
+
+@media (max-width: 1180px) {
+  .report-summary-card,
+  .analysis-layout,
+  .question-analytics-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .report-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .report-kpi-grid,
+  .question-analytics-list dl {
+    grid-template-columns: 1fr;
+  }
+
+  .report-objective-card {
+    justify-items: start;
+    padding: 18px;
+  }
+
+  .segmented-filter {
+    overflow-x: auto;
+    width: 100%;
+  }
+}

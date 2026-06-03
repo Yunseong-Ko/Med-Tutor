@@ -538,56 +538,195 @@
           </div>
         </section>
 
-        <section class="page-view report-page" id="faculty-report" data-page="faculty-report">
-          <section class="card report-brief" id="report">
-            <div>
-              <p class="section-label">Teaching Insight</p>
-              <h2>다음 수업에서 보강할 항목을 먼저 보여줍니다</h2>
-              <p>평균과 표준편차만 보던 시험 결과를 분과, 세부 주제, 평가 항목 단위로 다시 묶어 교수자의 수업 보강 판단을 돕습니다.</p>
+        <section class="page-view report-page report-page-v2" id="faculty-report" data-page="faculty-report">
+          <section class="report-summary-card" id="report">
+            <div class="report-title-block">
+              <p class="section-label">Performance Analysis</p>
+              <h2>2026 1차 임종평 1교시 학습성과</h2>
+              <p>문항별 정답률과 풀이 시간을 분과, 세부 주제, 평가 항목으로 다시 묶어 다음 수업의 보강 우선순위를 정합니다.</p>
             </div>
-            <span class="report-score">43%</span>
+            <div class="report-objective-card">
+              <span>Class EPC</span>
+              <strong>68%</strong>
+              <small>평균 64.2 · SD 9.8</small>
+            </div>
           </section>
 
-          <section class="report-grid">
-            <article class="card">
-              <div class="card-head compact">
-                <div>
-                  <p class="section-label">Weak Area</p>
-                  <h2>평가 항목별 정답률</h2>
-                </div>
-                <span class="badge light">예시 데이터</span>
-              </div>
-              <div class="bar-list">
-                <span style="--w: 76%">진단 기준 <b>76%</b></span>
-                <span style="--w: 52%">검사 해석 <b>52%</b></span>
-                <span style="--w: 43%">초기 처치 <b>43%</b></span>
-                <span style="--w: 68%">위험 인자 <b>68%</b></span>
-              </div>
+          <nav class="analysis-tabs" aria-label="리포트 분석 탭">
+            <button type="button" class="active">Study Summary</button>
+            <button type="button">Performance</button>
+            <button type="button">Session Analysis</button>
+            <button type="button">Recommendations</button>
+          </nav>
+
+          <section class="report-kpi-grid">
+            <article>
+              <span>Completed</span>
+              <strong>80</strong>
+              <small>문항 응시 완료</small>
             </article>
-            <article class="card">
-              <div class="card-head compact">
-                <div>
-                  <p class="section-label">Question Quality</p>
-                  <h2>문항 품질 신호</h2>
-                </div>
-                <span class="badge light">검수 후보</span>
-              </div>
-              <div class="quality-grid">
-                <span>좋은 변별 문항<b>21</b></span>
-                <span>검토 필요 문항<b>5</b></span>
-                <span>공개 추천 문항<b>34</b></span>
-                <span>사진자료 보강<b>9</b></span>
-              </div>
+            <article>
+              <span>Correct</span>
+              <strong>68%</strong>
+              <small>전체 정답률</small>
+            </article>
+            <article>
+              <span>Avg. Time</span>
+              <strong>92s</strong>
+              <small>문항당 평균 풀이 시간</small>
+            </article>
+            <article>
+              <span>Priority</span>
+              <strong>6</strong>
+              <small>보강 필요 주제</small>
             </article>
           </section>
 
-          <section class="card next-teaching-card">
-            <div>
-              <p class="section-label">수업 보강 제안</p>
-              <h2>호흡기 자료해석형: X-ray/ABGA 해석과 초기 처치를 함께 보강</h2>
-              <p>정답률이 낮고 풀이 시간이 긴 문항군은 단순 암기 문제가 아니라 자료 해석과 처치 우선순위가 동시에 흔들리는 지점으로 표시합니다.</p>
+          <section class="analysis-layout">
+            <article class="card performance-card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">Performance Trend</p>
+                  <h2>최근 세션 성취도</h2>
+                </div>
+                <span class="badge light">최근 4회</span>
+              </div>
+              <div class="trend-plot" aria-label="최근 세션 성취도 그래프">
+                <svg viewBox="0 0 520 220" role="img" aria-label="성취도 추세">
+                  <path class="grid-line" d="M20 44H500M20 106H500M20 168H500" />
+                  <path class="trend-area" d="M30 158 C140 122 180 128 250 102 C320 78 360 96 500 58 L500 200 L30 200 Z" />
+                  <path class="trend-line" d="M30 158 C140 122 180 128 250 102 C320 78 360 96 500 58" />
+                  <circle cx="30" cy="158" r="6" />
+                  <circle cx="250" cy="102" r="6" />
+                  <circle cx="500" cy="58" r="6" />
+                </svg>
+              </div>
+              <div class="trend-legend">
+                <span><b></b>우리 반</span>
+                <span class="muted-dot"><b></b>전체 평균 기준선</span>
+              </div>
+            </article>
+
+            <article class="card recommendation-card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">Study Recommendations</p>
+                  <h2>보강 추천</h2>
+                </div>
+                <span class="badge">3 items</span>
+              </div>
+              <ol class="recommendation-list">
+                <li>
+                  <div><strong>호흡기 · 자료해석형</strong><span>X-ray/ABGA 해석과 초기 처치</span></div>
+                  <button type="button" data-page-link="faculty-studio">문항 만들기</button>
+                </li>
+                <li>
+                  <div><strong>순환기 · ECG 판독</strong><span>리듬 판독 시간 2.1배 지연</span></div>
+                  <button type="button" class="secondary-button">자료 연결</button>
+                </li>
+                <li>
+                  <div><strong>법/윤리 · 신고 의무</strong><span>선지 간 법적 주체 혼동</span></div>
+                  <button type="button" class="secondary-button">개념 보강</button>
+                </li>
+              </ol>
+            </article>
+          </section>
+
+          <section class="card system-performance-card">
+            <div class="card-head compact">
+              <div>
+                <p class="section-label">Performance by Category</p>
+                <h2>분과·평가항목별 성취도</h2>
+              </div>
+              <div class="segmented-filter" aria-label="성취도 분류">
+                <button type="button" class="active">분과</button>
+                <button type="button">세부 주제</button>
+                <button type="button">평가 항목</button>
+                <button type="button">문항</button>
+              </div>
             </div>
-            <button type="button" data-page-link="faculty-studio">보강 문항 만들기</button>
+            <div class="performance-table-wrap">
+              <table class="performance-table">
+                <thead>
+                  <tr>
+                    <th>분류</th>
+                    <th>세부 주제</th>
+                    <th>문항</th>
+                    <th>정답률</th>
+                    <th>평균 시간</th>
+                    <th>다음 액션</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>호흡기</strong></td>
+                    <td>흉부영상, ABGA, 산소치료</td>
+                    <td>12</td>
+                    <td><span class="score-chip low">43%</span></td>
+                    <td>128s</td>
+                    <td>자료해석형 보강</td>
+                  </tr>
+                  <tr>
+                    <td><strong>순환기</strong></td>
+                    <td>ECG, 쇼크, 수혈 전 검사</td>
+                    <td>15</td>
+                    <td><span class="score-chip mid">58%</span></td>
+                    <td>111s</td>
+                    <td>오답 문항 재풀이</td>
+                  </tr>
+                  <tr>
+                    <td><strong>법/윤리</strong></td>
+                    <td>신고의무, 보험급여, 개인정보</td>
+                    <td>18</td>
+                    <td><span class="score-chip mid">61%</span></td>
+                    <td>74s</td>
+                    <td>개념 비교표</td>
+                  </tr>
+                  <tr>
+                    <td><strong>소화기</strong></td>
+                    <td>복통, 간담췌, 위장관 출혈</td>
+                    <td>10</td>
+                    <td><span class="score-chip high">76%</span></td>
+                    <td>68s</td>
+                    <td>유지</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card session-analysis-card">
+            <div class="card-head compact">
+              <div>
+                <p class="section-label">Session Analysis</p>
+                <h2>문항별 분석</h2>
+              </div>
+              <span class="badge light">status · difficulty · time</span>
+            </div>
+            <div class="question-analytics-list">
+              <article>
+                <span class="question-status incorrect">Incorrect</span>
+                <strong>Q47 · 호흡기 자료해석형</strong>
+                <p>X-ray/ABGA 해석 후 초기 처치 선택</p>
+                <dl>
+                  <div><dt>난이도</dt><dd>Hard</dd></div>
+                  <div><dt>정답률</dt><dd>38%</dd></div>
+                  <div><dt>평균 시간</dt><dd>2:18</dd></div>
+                  <div><dt>비교</dt><dd>-17%p</dd></div>
+                </dl>
+              </article>
+              <article>
+                <span class="question-status review-needed">Review</span>
+                <strong>Q63 · ECG 판독</strong>
+                <p>Wide QRS tachycardia 감별</p>
+                <dl>
+                  <div><dt>난이도</dt><dd>Medium</dd></div>
+                  <div><dt>정답률</dt><dd>52%</dd></div>
+                  <div><dt>평균 시간</dt><dd>1:54</dd></div>
+                  <div><dt>비교</dt><dd>-9%p</dd></div>
+                </dl>
+              </article>
+            </div>
           </section>
         </section>
 
