@@ -84,6 +84,7 @@ let courseExamPracticeList = [];
 let currentPracticeExam = null;
 let currentPracticeIndex = 0;
 let currentPracticeAnswers = {};
+let currentPracticeViewed = new Set();
 
 try {
   const restoredMediaIds = JSON.parse(window.sessionStorage?.getItem("axioma.selectedMediaIds") || "[]");
@@ -438,7 +439,7 @@ function renderStudentExamOptions() {
     studentExamSelect.value = playableExams[0].exam_id;
   }
   if (studentPracticeStatus) {
-    studentPracticeStatus.textContent = `${playableExams.length}개 풀이 가능 세트를 불러왔습니다. 세트를 선택해 문제 풀이를 시작할 수 있습니다.`;
+    studentPracticeStatus.textContent = `${playableExams.length}개 문항 세트를 불러왔습니다. 세트를 열고 원하는 문항부터 선택할 수 있습니다.`;
   }
 }
 
@@ -475,11 +476,12 @@ function renderPracticeQuestionStrip(questions) {
         const index = start + offset;
         const key = item.question_id || String(item.question_number || index);
         const answered = currentPracticeAnswers[key];
+        const viewed = currentPracticeViewed.has(key);
         const active = index === currentPracticeIndex;
         return `
           <button
             type="button"
-            class="${active ? "active" : ""} ${answered ? "answered" : ""}"
+            class="${active ? "active" : ""} ${answered ? "answered" : ""} ${viewed ? "viewed" : ""}"
             data-practice-jump="${escapeHtml(index)}"
             aria-label="${escapeHtml(index + 1)}번 문항으로 이동"
           >
@@ -488,6 +490,41 @@ function renderPracticeQuestionStrip(questions) {
         `;
       }).join("")}
     </div>
+  `;
+}
+
+function renderPracticeQuestionPicker(questions) {
+  if (!questions.length) return "";
+  const answeredCount = Object.keys(currentPracticeAnswers).length;
+  const viewedCount = currentPracticeViewed.size;
+  return `
+    <details class="practice-picker">
+      <summary>
+        <span>문항 선택</span>
+        <strong>원하는 문제부터 풀기</strong>
+        <em>${escapeHtml(viewedCount)}개 열람 · ${escapeHtml(answeredCount)}개 풀이</em>
+      </summary>
+      <div class="practice-picker-grid">
+        ${questions.map((item, index) => {
+          const key = item.question_id || String(item.question_number || index);
+          const labels = item.labels || {};
+          const answered = currentPracticeAnswers[key];
+          const viewed = currentPracticeViewed.has(key);
+          const active = index === currentPracticeIndex;
+          return `
+            <button
+              type="button"
+              class="${active ? "active" : ""} ${answered ? "answered" : ""} ${viewed ? "viewed" : ""}"
+              data-practice-jump="${escapeHtml(index)}"
+            >
+              <span>Q${escapeHtml(item.question_number || index + 1)}</span>
+              <strong>${escapeHtml(labels.question_type || labels.cognitive_level || "문항")}</strong>
+              <small>${escapeHtml(item.stem || "문항 지문 미추출").slice(0, 46)}</small>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </details>
   `;
 }
 
@@ -530,6 +567,7 @@ function renderStudentPracticeQuestion() {
   }
 
   const questionKey = question.question_id || String(question.question_number || currentPracticeIndex);
+  currentPracticeViewed.add(questionKey);
   const selectedAnswer = currentPracticeAnswers[questionKey];
   const answer = String(question.answer || "");
   const revealAnswer = Boolean(selectedAnswer) && (studentPracticeMode?.value || "study") === "study";
@@ -538,7 +576,8 @@ function renderStudentPracticeQuestion() {
     return currentPracticeAnswers[key] && String(item.answer || "") === currentPracticeAnswers[key];
   }).length;
   const answeredCount = Object.keys(currentPracticeAnswers).length;
-  const progressPercent = questions.length ? Math.round(((currentPracticeIndex + 1) / questions.length) * 100) : 0;
+  const viewedCount = currentPracticeViewed.size;
+  const progressPercent = questions.length ? Math.round((viewedCount / questions.length) * 100) : 0;
   const choices = practiceChoiceEntries(question)
     .map(([key, text]) => {
       const normalizedKey = String(key);
@@ -596,17 +635,18 @@ function renderStudentPracticeQuestion() {
           <strong>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</strong>
         </div>
         <div class="uworld-progress">
-          <span>${escapeHtml(currentPracticeIndex + 1)} / ${escapeHtml(questions.length)}</span>
+          <span>${escapeHtml(viewedCount)} viewed · ${escapeHtml(questions.length)} total</span>
           <div aria-hidden="true"><b style="width: ${escapeHtml(progressPercent)}%"></b></div>
         </div>
         <div class="uworld-session-stats">
-          <span>${escapeHtml(studentPracticeMode?.value === "exam" ? "Exam Mode" : "Tutor Mode")}</span>
-          <strong>${escapeHtml(answeredCount)} answered</strong>
+          <span>${escapeHtml(studentPracticeMode?.value === "exam" ? "Exam Mode" : "Browse Mode")}</span>
+          <strong>${escapeHtml(answeredCount)} solved</strong>
           <button type="button" data-practice-reset>세트 변경</button>
         </div>
       </header>
 
       ${renderPracticeQuestionStrip(questions)}
+      ${renderPracticeQuestionPicker(questions)}
 
       <div class="uworld-workspace">
         <article class="practice-question uworld-question-panel">
@@ -669,6 +709,7 @@ async function startStudentPractice() {
     currentPracticeExam = payload;
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
+    currentPracticeViewed = new Set();
     studentPracticePage?.classList.add("practice-active");
     if (studentPracticeStatus) {
       const summary = payload.summary || {};
@@ -1804,21 +1845,22 @@ studentPracticeStage?.addEventListener("click", (event) => {
     currentPracticeExam = null;
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
+    currentPracticeViewed = new Set();
     studentPracticePage?.classList.remove("practice-active");
     studentPracticeStage.className = "practice-layout";
     studentPracticeStage.innerHTML = `
       <article class="practice-question empty-practice">
-        <p>기출/과정시험 세트를 선택하면 UWorld식 문제풀이 화면으로 열립니다.</p>
+        <p>기출/과정시험 세트를 선택하면 문항 목록이 열리고, 원하는 문제부터 풀 수 있습니다.</p>
       </article>
       <aside class="practice-helper">
         <h3>학습 모드 도구</h3>
         <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
         <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-        <p>세트 선택 후 문제를 풀면 정답/해설, 관련 개념, 복습 카드가 같은 흐름으로 이어집니다.</p>
+        <p>끝까지 풀지 않아도 문항별 정답/해설, 관련 개념, 복습 카드를 바로 확인할 수 있습니다.</p>
       </aside>
     `;
     if (studentPracticeStatus) {
-      studentPracticeStatus.textContent = `${studentExamSelect?.options?.length || 0}개 풀이 가능 세트를 불러왔습니다. 세트를 선택해 문제 풀이를 시작할 수 있습니다.`;
+      studentPracticeStatus.textContent = `${studentExamSelect?.options?.length || 0}개 문항 세트를 불러왔습니다. 세트를 열고 원하는 문항부터 선택할 수 있습니다.`;
     }
     return;
   }

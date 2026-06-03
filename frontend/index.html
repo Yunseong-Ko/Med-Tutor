@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>P:accine Learning OS</title>
-    <link rel="stylesheet" href="/styles.css?v=20260603-gemini-ui-2" />
+    <link rel="stylesheet" href="/styles.css?v=20260603-pick-practice-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -1002,18 +1002,18 @@
                 <option value="exam">시험 모드 · 해설 숨김</option>
               </select>
             </label>
-            <button type="button" id="startStudentPractice">선택한 세트 풀기</button>
+            <button type="button" id="startStudentPractice">문항 목록 열기</button>
           </div>
           <p class="practice-status" id="studentPracticeStatus">저장된 구조화 문항 세트를 확인하고 있습니다.</p>
           <div class="practice-layout" id="studentPracticeStage">
             <article class="practice-question empty-practice">
-              <p>교수 화면에서 구조화한 HWP/PDF 시험지를 선택하면 학생 풀이 화면으로 열립니다.</p>
+              <p>구조화한 HWP/PDF 시험지를 선택하면 문항 목록이 열리고, 원하는 문제부터 풀 수 있습니다.</p>
             </article>
             <aside class="practice-helper">
               <h3>학습 모드 도구</h3>
               <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
               <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-              <p>현재는 로컬 DB에 저장된 문항을 풀이 화면에 연결하는 단계입니다. 이후 정답률, 오답 태그, 복습 카드로 이어집니다.</p>
+              <p>문항을 끝까지 순서대로 풀 필요 없이, 필요한 번호와 개념을 골라 정답/해설/출처를 확인할 수 있습니다.</p>
             </aside>
           </div>
         </section>
@@ -1089,6 +1089,6 @@
       <p id="lightboxCaption"></p>
     </dialog>
 
-    <script src="/app.js?v=20260603-gemini-ui-2"></script>
+    <script src="/app.js?v=20260603-pick-practice-1"></script>
   </body>
 </html>

@@ -2161,6 +2161,118 @@ textarea {
   background: #eaf8f4;
 }
 
+.practice-question-strip button.viewed:not(.active):not(.answered) {
+  color: #475569;
+  border-color: #d8e2ee;
+  background: #f1f5f9;
+}
+
+.practice-picker {
+  border-bottom: 1px solid #e3e9f1;
+  background: #ffffff;
+}
+
+.practice-picker summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 13px 18px;
+  color: #334155;
+  cursor: pointer;
+  list-style: none;
+}
+
+.practice-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.practice-picker summary span {
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--pnu-blue);
+  background: #e8f1fb;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.practice-picker summary strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.practice-picker summary em {
+  color: var(--cool-gray-500);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.practice-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0 18px 16px;
+}
+
+.practice-picker-grid button {
+  display: grid;
+  gap: 4px;
+  min-height: 92px;
+  padding: 11px;
+  border: 1px solid #d8e2ee;
+  border-radius: 12px;
+  color: #334155;
+  background: #ffffff;
+  text-align: left;
+  box-shadow: none;
+}
+
+.practice-picker-grid button:hover {
+  border-color: #a9bfd7;
+  background: #f8fbff;
+}
+
+.practice-picker-grid button.active {
+  color: #ffffff;
+  border-color: var(--pnu-blue);
+  background: var(--pnu-blue);
+}
+
+.practice-picker-grid button.answered:not(.active) {
+  border-color: #a8ded1;
+  background: #eaf8f4;
+}
+
+.practice-picker-grid button.viewed:not(.active):not(.answered) {
+  background: #f8fafc;
+}
+
+.practice-picker-grid span,
+.practice-picker-grid strong,
+.practice-picker-grid small {
+  display: block;
+}
+
+.practice-picker-grid span {
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.practice-picker-grid strong {
+  font-size: 0.84rem;
+}
+
+.practice-picker-grid small {
+  color: inherit;
+  opacity: 0.72;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
 .uworld-workspace {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
