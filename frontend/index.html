@@ -28,6 +28,7 @@
           <a href="#faculty-review" data-page-link="faculty-review">문항 검토 <span class="nav-badge" id="navReviewBadge">0</span></a>
           <a href="#faculty-archive" data-page-link="faculty-archive">아카이브/내보내기</a>
           <a href="#faculty-report" data-page-link="faculty-report">수업 리포트</a>
+          <a href="#faculty-ops" data-page-link="faculty-ops">운영 보드</a>
           <a href="#faculty-medlegal" data-page-link="faculty-medlegal">EMR/CPX 훈련</a>
         </nav>
 
@@ -100,6 +101,42 @@
               <span>03</span>
               <strong>제시자료 연결</strong>
               <p>환자 사진, 영상, 병리 자료를 선택합니다.</p>
+            </article>
+            <article class="work-card" data-page-link="faculty-ops">
+              <span>04</span>
+              <strong>팀 작업 배분</strong>
+              <p>문항 구조화, 이미지 라벨링, 태그 QA를 나눕니다.</p>
+            </article>
+          </section>
+
+          <section class="dashboard-split">
+            <article class="card insight-card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">이번 주 운영 포커스</p>
+                  <h2>PMA/임종평 문항 DB 1차 구축</h2>
+                </div>
+                <span class="badge light">6주 파일럿</span>
+              </div>
+              <ol class="focus-list">
+                <li><strong>원문 구조화</strong><span>문항번호, 지문, 선지, 정답, 해설을 Markdown/JSON으로 분리</span></li>
+                <li><strong>사진자료 연결</strong><span>사진 N-m 규칙으로 X-ray, CT, ECG, 병리 자료를 문항과 매핑</span></li>
+                <li><strong>교육 태그</strong><span>대분과, 세부 주제, 평가 항목, 오답 포인트를 검수 가능하게 라벨링</span></li>
+              </ol>
+            </article>
+            <article class="card insight-card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">AI 개입 지점</p>
+                  <h2>룰 기반 추출 + AI 라벨 초안</h2>
+                </div>
+                <span class="badge">human-in-loop</span>
+              </div>
+              <div class="ai-layer-grid">
+                <span>룰 기반<br /><b>번호·선지·정답</b></span>
+                <span>AI 보조<br /><b>분과·평가항목</b></span>
+                <span>사람 검토<br /><b>사진·공개여부</b></span>
+              </div>
             </article>
           </section>
 
@@ -501,17 +538,124 @@
           </div>
         </section>
 
-        <section class="bottom-grid page-view" id="faculty-report" data-page="faculty-report">
-          <article class="card mini-card">
-            <p class="section-label">Export</p>
-            <h2>내보내기 세트</h2>
-            <p>승인 완료 세트는 JSON, DOCX/PDF 문제지, XLSX 문항은행, Anki/학생 배포용 포맷으로 확장할 예정입니다.</p>
-          </article>
-          <article class="card mini-card" id="report">
-            <p class="section-label">Report</p>
-            <h2>수업 리포트</h2>
-            <p>단원별 정답률, 오답 집중 개념, 문항 채택률을 집계합니다.</p>
-          </article>
+        <section class="page-view report-page" id="faculty-report" data-page="faculty-report">
+          <section class="card report-brief" id="report">
+            <div>
+              <p class="section-label">Teaching Insight</p>
+              <h2>다음 수업에서 보강할 항목을 먼저 보여줍니다</h2>
+              <p>평균과 표준편차만 보던 시험 결과를 분과, 세부 주제, 평가 항목 단위로 다시 묶어 교수자의 수업 보강 판단을 돕습니다.</p>
+            </div>
+            <span class="report-score">43%</span>
+          </section>
+
+          <section class="report-grid">
+            <article class="card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">Weak Area</p>
+                  <h2>평가 항목별 정답률</h2>
+                </div>
+                <span class="badge light">예시 데이터</span>
+              </div>
+              <div class="bar-list">
+                <span style="--w: 76%">진단 기준 <b>76%</b></span>
+                <span style="--w: 52%">검사 해석 <b>52%</b></span>
+                <span style="--w: 43%">초기 처치 <b>43%</b></span>
+                <span style="--w: 68%">위험 인자 <b>68%</b></span>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-head compact">
+                <div>
+                  <p class="section-label">Question Quality</p>
+                  <h2>문항 품질 신호</h2>
+                </div>
+                <span class="badge light">검수 후보</span>
+              </div>
+              <div class="quality-grid">
+                <span>좋은 변별 문항<b>21</b></span>
+                <span>검토 필요 문항<b>5</b></span>
+                <span>공개 추천 문항<b>34</b></span>
+                <span>사진자료 보강<b>9</b></span>
+              </div>
+            </article>
+          </section>
+
+          <section class="card next-teaching-card">
+            <div>
+              <p class="section-label">수업 보강 제안</p>
+              <h2>호흡기 자료해석형: X-ray/ABGA 해석과 초기 처치를 함께 보강</h2>
+              <p>정답률이 낮고 풀이 시간이 긴 문항군은 단순 암기 문제가 아니라 자료 해석과 처치 우선순위가 동시에 흔들리는 지점으로 표시합니다.</p>
+            </div>
+            <button type="button" data-page-link="faculty-studio">보강 문항 만들기</button>
+          </section>
+        </section>
+
+        <section class="page-view ops-page" id="faculty-ops" data-page="faculty-ops">
+          <section class="hero-panel ops-hero">
+            <div>
+              <p class="section-label">Team Operating Board</p>
+              <h2>사람이 정리해야 할 일을 6개 작업 레인으로 나눕니다</h2>
+              <p>AI가 전부 자동화하기 어려운 원문 확인, 이미지 매핑, 교육 태그 검수는 팀원별 작업 단위로 분리합니다.</p>
+            </div>
+            <span class="badge light">금요일 미팅용</span>
+          </section>
+
+          <section class="ops-lanes">
+            <article class="ops-lane">
+              <span>팀원 1</span>
+              <h3>시험지 원문 정리</h3>
+              <p>HWP/PDF 파일명 표준화, 과목·시험일·교시 메타데이터 입력</p>
+              <strong>산출물: source manifest</strong>
+            </article>
+            <article class="ops-lane">
+              <span>팀원 2</span>
+              <h3>문항 구조 QA</h3>
+              <p>문항번호, 지문, 선지, 정답, 해설 분리 오류 확인</p>
+              <strong>산출물: question QA log</strong>
+            </article>
+            <article class="ops-lane">
+              <span>팀원 3</span>
+              <h3>사진자료 매핑</h3>
+              <p>사진 N-m, modality, 진단/주제, 핵심 소견 라벨링</p>
+              <strong>산출물: media_asset DB</strong>
+            </article>
+            <article class="ops-lane">
+              <span>팀원 4</span>
+              <h3>교육 태그 체계</h3>
+              <p>대분과, 세부 주제, 평가 항목, 인지 수준 taxonomy 정리</p>
+              <strong>산출물: tag dictionary</strong>
+            </article>
+            <article class="ops-lane">
+              <span>팀원 5</span>
+              <h3>학생 풀이 UX</h3>
+              <p>기출 풀이 흐름, 힌트, 오답 피드백, Anki export 검증</p>
+              <strong>산출물: student test script</strong>
+            </article>
+            <article class="ops-lane">
+              <span>팀원 6</span>
+              <h3>교수 검토 UX</h3>
+              <p>문항 검토 기준, 수업 리포트 항목, 인터뷰 질문 정리</p>
+              <strong>산출물: faculty review checklist</strong>
+            </article>
+          </section>
+
+          <section class="card ops-checklist">
+            <div class="card-head compact">
+              <div>
+                <p class="section-label">이번 주 체크포인트</p>
+                <h2>금요일 미팅 전 준비물</h2>
+              </div>
+              <span class="badge">D-3</span>
+            </div>
+            <ul>
+              <li>임종평/PMA 예시 파일 1세트 구조화 결과 캡처</li>
+              <li>사진자료 PDF에서 사진 N-m 매핑 예시 5개</li>
+              <li>대분과-세부주제-평가항목 taxonomy 초안</li>
+              <li>교수자에게 보여줄 수업 리포트 예시 화면</li>
+              <li>학생에게 보여줄 문제 풀이/오답 피드백 예시 화면</li>
+            </ul>
+          </section>
         </section>
 
         <section class="page-view medlegal-page" id="faculty-medlegal" data-page="faculty-medlegal">
@@ -640,8 +784,29 @@
             </div>
             <span class="badge light">승인 문항 세트</span>
           </div>
-          <div class="student-empty">
-            배포된 문항 세트가 여기에 표시됩니다. 모르는 용어는 개념 노트와 바로 연결됩니다.
+          <div class="practice-layout">
+            <article class="practice-question">
+              <div class="practice-meta">
+                <span>Q47 · 호흡기 · 자료해석형</span>
+                <strong>02:18</strong>
+              </div>
+              <p>68세 남자가 4시간 전부터 숨이 차고 식은땀을 흘리며 응급실에 왔다. 산소포화도는 86%이다. 다음 조치로 가장 적절한 것은?</p>
+              <div class="practice-visual" aria-label="흉부 X-ray 예시"></div>
+              <ol class="practice-choices">
+                <li>산소 투여</li>
+                <li>항응고제 투여</li>
+                <li>기관삽관</li>
+                <li>이뇨제 투여</li>
+                <li>혈전용해제 투여</li>
+              </ol>
+            </article>
+            <aside class="practice-helper">
+              <h3>학습 모드 도구</h3>
+              <button type="button" class="secondary-button">힌트 1: 핵심 단서</button>
+              <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
+              <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
+              <p>시험 모드에서는 힌트와 개념 연결을 숨기고, 풀이 후 개인 피드백으로 전환합니다.</p>
+            </aside>
           </div>
         </section>
 
@@ -689,8 +854,22 @@
             </div>
             <span class="badge light">Anki 연동</span>
           </div>
-          <div class="student-empty">
-            오답, 북마크, 교수 추천 개념을 플래시카드로 모아 복습합니다.
+          <div class="review-card-grid">
+            <article>
+              <span>오늘 생성</span>
+              <strong>12 cards</strong>
+              <p>ABGA, 산소치료, X-ray 판독 핵심 개념</p>
+            </article>
+            <article>
+              <span>오답 기반</span>
+              <strong>8 cards</strong>
+              <p>반복 오답 문항에서 자동 추출한 카드</p>
+            </article>
+            <article>
+              <span>내보내기</span>
+              <strong>Anki</strong>
+              <p>문항-해설-핵심 소견을 카드 앞뒤면으로 저장</p>
+            </article>
           </div>
         </section>
       </main>
