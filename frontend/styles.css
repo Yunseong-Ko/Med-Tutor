@@ -2471,13 +2471,19 @@ textarea {
 }
 
 body.practice-session-active {
+  width: 100vw;
+  height: 100vh;
+  padding-top: 0 !important;
   overflow: hidden;
   background: #e9f0f4;
 }
 
 body.practice-session-active .app-shell {
   display: block;
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 body.practice-session-active .sidebar,
@@ -2486,12 +2492,24 @@ body.practice-session-active .topbar {
 }
 
 body.practice-session-active .main {
+  display: block;
+  width: 100vw;
+  height: 100vh;
   max-width: none;
   min-height: 100vh;
   padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+body.practice-session-active .page-view.active {
+  width: 100vw;
+  height: 100vh;
 }
 
 body.practice-session-active #student-practice {
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -2499,6 +2517,13 @@ body.practice-session-active #student-practice {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+body.practice-session-active #studentPracticeStage {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
 body.practice-session-active #student-practice > .card-head,
@@ -2514,8 +2539,10 @@ body.practice-session-active #student-practice > .practice-status {
 }
 
 .amboss-practice-shell {
+  position: relative;
   display: grid;
   grid-template-rows: 74px minmax(0, 1fr) 56px;
+  width: 100vw;
   height: 100vh;
   min-height: 100vh;
   max-height: 100vh;
@@ -2526,7 +2553,7 @@ body.practice-session-active #student-practice > .practice-status {
 
 .amboss-topbar {
   display: grid;
-  grid-template-columns: 76px minmax(280px, 620px) auto;
+  grid-template-columns: 104px minmax(280px, 620px) auto;
   gap: 16px;
   align-items: center;
   padding: 0 24px;
@@ -2538,7 +2565,7 @@ body.practice-session-active #student-practice > .practice-status {
 }
 
 .amboss-menu-button {
-  width: 64px;
+  width: 96px;
   height: 38px;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -2548,6 +2575,24 @@ body.practice-session-active #student-practice > .practice-status {
   box-shadow: none;
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.amboss-sidebar-rail {
+  position: absolute;
+  top: 94px;
+  left: 14px;
+  z-index: 15;
+  display: none;
+  width: 46px;
+  min-height: 132px;
+  padding: 12px 8px;
+  border: 1px solid #cbd9e6;
+  border-radius: 16px;
+  color: #003366;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 .amboss-search {
@@ -2764,9 +2809,9 @@ body.practice-session-active #student-practice > .practice-status {
   overflow-y: auto;
   min-height: 0;
   height: 100%;
-  max-width: 980px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   border-left: 1px solid #dce5ed;
   border-right: 1px solid #dce5ed;
   background: #ffffff;
@@ -2859,6 +2904,69 @@ body.practice-session-active #student-practice > .practice-status {
   min-height: 110px;
   padding: 22px 34px;
   border-bottom: 1px solid #dce5ed;
+}
+
+.practice-tool-panel {
+  display: grid;
+  gap: 14px;
+  min-height: 130px;
+  padding: 24px 34px;
+  border-bottom: 1px solid #dce5ed;
+  background: #ffffff;
+}
+
+.practice-tool-panel h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 1.06rem;
+  letter-spacing: -0.02em;
+}
+
+.practice-tool-panel p {
+  margin: 0;
+  color: #465668;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+.tool-panel-kicker {
+  color: #0d7b62;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.practice-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.practice-insight-grid article,
+.anki-preview-card {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid #dce5ed;
+  border-radius: 14px;
+  background: #f8fbfd;
+}
+
+.practice-insight-grid span,
+.anki-preview-card span {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.practice-insight-grid strong {
+  color: #003366;
+  font-size: 1rem;
+}
+
+.compact-action {
+  width: fit-content;
 }
 
 .amboss-avatar {
@@ -3046,6 +3154,10 @@ body.practice-session-active #student-practice > .practice-status {
   overflow: hidden;
   width: 0;
   border-right: 0;
+}
+
+.amboss-practice-shell.sidebar-collapsed .amboss-sidebar-rail {
+  display: block;
 }
 
 .uworld-side-actions {

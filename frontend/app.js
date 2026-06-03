@@ -85,6 +85,8 @@ let currentPracticeExam = null;
 let currentPracticeIndex = 0;
 let currentPracticeAnswers = {};
 let currentPracticeViewed = new Set();
+let currentPracticeTab = "key";
+let currentPracticeSidebarCollapsed = false;
 
 try {
   const restoredMediaIds = JSON.parse(window.sessionStorage?.getItem("axioma.selectedMediaIds") || "[]");
@@ -654,6 +656,135 @@ function renderPracticeMedia(mediaRefs) {
   `;
 }
 
+function renderPracticeToolTabs(activeTab) {
+  const tabs = [
+    ["key", "핵심 정보"],
+    ["point", "출제 포인트"],
+    ["media", "검사/자료"],
+    ["note", "개념 노트"],
+    ["anki", "Anki 카드"],
+  ];
+  return tabs
+    .map(([key, label]) => `
+      <button
+        type="button"
+        class="${activeTab === key ? "active" : ""}"
+        data-practice-tab="${escapeHtml(key)}"
+      >
+        ${escapeHtml(label)}
+      </button>
+    `)
+    .join("");
+}
+
+function renderPracticeTabPanel(context) {
+  const {
+    answer,
+    answerPanel,
+    conceptTags,
+    explanationInfo,
+    helperStatus,
+    keyInfo,
+    labels,
+    question,
+    revealAnswer,
+    selectedAnswer,
+    sourceTags,
+  } = context;
+  const conceptLabel = practiceLabelText(conceptTags[0] || labels.cognitive_level || labels.question_type) || "개념 매핑 필요";
+  const correctChoice = question?.choices?.[answer] || "정답 선지";
+  const mediaCount = (question?.media_refs || []).filter((item) => item.url).length;
+  const stimulus = String(question?.stimulus || "").trim();
+  const sourceBlock = sourceTags || '<span class="provenance-chip">출처 확인 필요</span>';
+
+  if (currentPracticeTab === "point") {
+    return `
+      <section class="practice-tool-panel point-panel">
+        <div class="tool-panel-kicker">출제 포인트</div>
+        <h3>${escapeHtml(conceptLabel)}</h3>
+        <div class="practice-insight-grid">
+          <article>
+            <span>묻는 능력</span>
+            <strong>${escapeHtml(practiceLabelText(labels.question_type || labels.cognitive_level) || "문항 유형")}</strong>
+            <p>지문에서 핵심 단서를 찾아 정답 선지와 연결하는 능력을 확인합니다.</p>
+          </article>
+          <article>
+            <span>정답 기준</span>
+            <strong>${escapeHtml(answer || "미확인")}번</strong>
+            <p>${escapeHtml(correctChoice)}</p>
+          </article>
+          <article>
+            <span>검토 필요</span>
+            <strong>${explanationInfo.supplemental ? "해설 보강" : "원해설 있음"}</strong>
+            <p>${explanationInfo.supplemental ? "원문 해설이 짧아 강의록 근거 확인이 필요합니다." : "저장된 해설을 기준으로 복습할 수 있습니다."}</p>
+          </article>
+        </div>
+      </section>
+    `;
+  }
+
+  if (currentPracticeTab === "media") {
+    return `
+      <section class="practice-tool-panel media-panel">
+        <div class="tool-panel-kicker">검사/자료</div>
+        <h3>제시자료 ${escapeHtml(mediaCount)}개 · 추가 지문 ${stimulus ? "있음" : "없음"}</h3>
+        ${stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(stimulus)}</blockquote>` : '<p class="muted">이 문항에는 별도 제시문이 저장되어 있지 않습니다.</p>'}
+        ${renderPracticeMedia(question.media_refs || []) || '<p class="muted">연결된 이미지/검사자료가 없습니다. 추후 자료 DB와 매핑하면 이 영역에 X-ray, CT, ECG, 병리 이미지가 표시됩니다.</p>'}
+        <div class="source-stack"><span>문항 출처</span><div>${sourceBlock}</div></div>
+      </section>
+    `;
+  }
+
+  if (currentPracticeTab === "note") {
+    const conceptChips = (conceptTags.length ? conceptTags : [conceptLabel])
+      .map((tag) => `<span class="provenance-chip">${escapeHtml(practiceLabelText(tag))}</span>`)
+      .join("");
+    return `
+      <section class="practice-tool-panel note-panel">
+        <div class="tool-panel-kicker">개념 노트</div>
+        <h3>${escapeHtml(conceptLabel)}</h3>
+        <p>이 문항은 향후 학교 강의록 요약, 관련 기출, 오답률 데이터를 같은 개념 노드로 묶는 기준점이 됩니다.</p>
+        <div class="source-stack"><span>연결 태그</span><div>${conceptChips}</div></div>
+        <div class="source-stack"><span>근거 자료</span><div>${sourceBlock}</div></div>
+        <button type="button" class="secondary-button compact-action" data-page-link="student-concepts">개념 그래프 열기</button>
+      </section>
+    `;
+  }
+
+  if (currentPracticeTab === "anki") {
+    return `
+      <section class="practice-tool-panel anki-panel">
+        <div class="tool-panel-kicker">Anki 카드</div>
+        <h3>복습 카드 초안</h3>
+        <div class="anki-preview-card">
+          <span>Front</span>
+          <p>${escapeHtml(conceptLabel)}에서 이 문항의 정답 기준은?</p>
+        </div>
+        <div class="anki-preview-card">
+          <span>Back</span>
+          <p>${escapeHtml(answer || "미확인")}번 · ${escapeHtml(correctChoice)}</p>
+        </div>
+        <div class="anki-preview-card">
+          <span>Extra</span>
+          <p>${escapeHtml(explanationInfo.text)}</p>
+        </div>
+        <button type="button" class="secondary-button compact-action" data-page-link="student-review">오답/Anki 관리로 이동</button>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="amboss-key-info">
+      <span class="amboss-avatar">P</span>
+      <div>
+        <small>${escapeHtml(helperStatus)}</small>
+        <p>${escapeHtml(keyInfo)}</p>
+      </div>
+    </section>
+    ${selectedAnswer && revealAnswer ? answerPanel : ""}
+  `;
+}
+
 function renderStudentPracticeQuestion() {
   if (!studentPracticeStage) return;
   studentPracticeStage.className = "practice-layout amboss-layout";
@@ -746,15 +877,24 @@ function renderStudentPracticeQuestion() {
     .join("");
 
   studentPracticeStage.innerHTML = `
-    <section class="amboss-practice-shell">
+    <section class="amboss-practice-shell ${currentPracticeSidebarCollapsed ? "sidebar-collapsed" : ""}">
       <header class="amboss-topbar">
-        <button type="button" class="amboss-menu-button" data-practice-sidebar-toggle aria-label="문항 목록 열기">목록</button>
+        <button
+          type="button"
+          class="amboss-menu-button"
+          data-practice-sidebar-toggle
+          aria-expanded="${currentPracticeSidebarCollapsed ? "false" : "true"}"
+          aria-label="${currentPracticeSidebarCollapsed ? "문항 목록 열기" : "문항 목록 닫기"}"
+        >
+          ${currentPracticeSidebarCollapsed ? "문항 열기" : "문항 닫기"}
+        </button>
         <div class="amboss-search">P:accine Library 검색 <kbd>⌘K</kbd></div>
         <div class="amboss-user">
           <span>Y</span>
           <div><strong>Yunseong</strong><small>PNU Medicine</small></div>
         </div>
       </header>
+      <button type="button" class="amboss-sidebar-rail" data-practice-sidebar-toggle>문항 목록 열기</button>
 
       <div class="amboss-session-body">
         ${renderPracticeSessionSidebar(questions)}
@@ -773,20 +913,22 @@ function renderStudentPracticeQuestion() {
           </article>
 
           <nav class="amboss-info-tabs" aria-label="문항 학습 도구">
-            <button type="button" class="active">핵심 정보</button>
-            <button type="button">출제 포인트</button>
-            <button type="button">검사/자료</button>
-            <button type="button" data-page-link="student-concepts">개념 노트</button>
-            <button type="button" data-page-link="student-review">Anki 카드</button>
+            ${renderPracticeToolTabs(currentPracticeTab)}
           </nav>
 
-          <section class="amboss-key-info">
-            <span class="amboss-avatar">P</span>
-            <div>
-              <small>${escapeHtml(helperStatus)}</small>
-              <p>${escapeHtml(keyInfo)}</p>
-            </div>
-          </section>
+          ${renderPracticeTabPanel({
+            answer,
+            answerPanel,
+            conceptTags,
+            explanationInfo,
+            helperStatus,
+            keyInfo,
+            labels,
+            question,
+            revealAnswer,
+            selectedAnswer,
+            sourceTags,
+          })}
 
           <div class="amboss-choice-list">${choiceRows}</div>
 
@@ -796,7 +938,6 @@ function renderStudentPracticeQuestion() {
               <strong>${escapeHtml(practiceLabelText(conceptTags[0] || labels.cognitive_level) || "개념 매핑 필요")}</strong>
               <p>학교 강의록, 문항 해설, 제시자료를 같은 개념 노드로 연결합니다.</p>
             </div>
-            ${answerPanel}
           </section>
         </main>
       </div>
@@ -827,6 +968,8 @@ async function startStudentPractice() {
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
     currentPracticeViewed = new Set();
+    currentPracticeTab = "key";
+    currentPracticeSidebarCollapsed = false;
     document.body.classList.add("practice-session-active");
     studentPracticePage?.classList.add("practice-active");
     if (studentPracticeStatus) {
@@ -1950,7 +2093,21 @@ studentPracticeStage?.addEventListener("click", (event) => {
 
   const sidebarToggle = event.target.closest("[data-practice-sidebar-toggle]");
   if (sidebarToggle) {
-    studentPracticeStage.querySelector(".amboss-practice-shell")?.classList.toggle("sidebar-collapsed");
+    currentPracticeSidebarCollapsed = !currentPracticeSidebarCollapsed;
+    renderStudentPracticeQuestion();
+    return;
+  }
+
+  const tabButton = event.target.closest("[data-practice-tab]");
+  if (tabButton) {
+    currentPracticeTab = tabButton.dataset.practiceTab || "key";
+    renderStudentPracticeQuestion();
+    return;
+  }
+
+  const pageLinkButton = event.target.closest("[data-page-link]");
+  if (pageLinkButton) {
+    showPage(pageLinkButton.dataset.pageLink);
     return;
   }
 
@@ -1970,6 +2127,8 @@ studentPracticeStage?.addEventListener("click", (event) => {
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
     currentPracticeViewed = new Set();
+    currentPracticeTab = "key";
+    currentPracticeSidebarCollapsed = false;
     document.body.classList.remove("practice-session-active");
     studentPracticePage?.classList.remove("practice-active");
     studentPracticeStage.className = "practice-layout";
