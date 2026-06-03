@@ -12,6 +12,18 @@ venv/
 # Local data
 questions.json
 exam_history.json
+data_private/
+.cc-session.env
+.claude/handoffs/
+users/
+auth_users.json
+audit_log.jsonl
+outputs/
+release_assets/
+build_backup_*/
+dist_backup_*/
+tmp_pdf_text.txt
+test.pdf
 
 # Secrets
 Gemini_API_Key.md
