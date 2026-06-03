@@ -287,6 +287,9 @@ function setRole(role) {
 
 function showPage(pageId, options = {}) {
   const safePage = pageMeta[pageId] ? pageId : "faculty-dashboard";
+  if (safePage !== "student-practice") {
+    document.body.classList.remove("practice-session-active");
+  }
   const nextRole = roleForPage(safePage);
   setRole(nextRole);
   pageViews.forEach((view) => {
@@ -528,6 +531,52 @@ function renderPracticeQuestionPicker(questions) {
   `;
 }
 
+function renderPracticeSessionSidebar(questions) {
+  const summary = currentPracticeExam?.summary || {};
+  const answeredCount = Object.keys(currentPracticeAnswers).length;
+  const viewedCount = currentPracticeViewed.size;
+  return `
+    <aside class="amboss-session-sidebar">
+      <div class="amboss-session-summary">
+        <span>Review</span>
+        <strong>${escapeHtml(examTitle(summary) || "문항 세트")}</strong>
+        <p>${escapeHtml(viewedCount)} / ${escapeHtml(questions.length)} 열람 · ${escapeHtml(answeredCount)}개 풀이</p>
+      </div>
+      <div class="amboss-question-list" aria-label="문항 선택 목록">
+        ${questions.map((item, index) => {
+          const key = item.question_id || String(item.question_number || index);
+          const selected = currentPracticeAnswers[key];
+          const answer = String(item.answer || "");
+          const isCorrect = selected && answer && selected === answer;
+          const isWrong = selected && answer && selected !== answer;
+          const viewed = currentPracticeViewed.has(key);
+          const active = index === currentPracticeIndex;
+          const labels = item.labels || {};
+          return `
+            <button
+              type="button"
+              class="${active ? "active" : ""} ${viewed ? "viewed" : ""} ${selected ? "answered" : ""}"
+              data-practice-jump="${escapeHtml(index)}"
+            >
+              <span class="amboss-status ${isCorrect ? "correct" : isWrong ? "wrong" : viewed ? "viewed" : ""}">
+                ${isCorrect ? "✓" : isWrong ? "×" : viewed ? "•" : ""}
+              </span>
+              <em>${escapeHtml(index + 1)}</em>
+              <strong>${escapeHtml(item.stem || "문항 지문 미추출").slice(0, 36)}</strong>
+              <small>${escapeHtml(labels.question_type || labels.cognitive_level || "course exam")}</small>
+            </button>
+          `;
+        }).join("")}
+      </div>
+      <div class="amboss-session-footer">
+        <div><strong>${escapeHtml(viewedCount)}</strong><span>Viewed</span></div>
+        <div><strong>${escapeHtml(answeredCount)}</strong><span>Solved</span></div>
+        <button type="button" data-practice-reset>Exit session</button>
+      </div>
+    </aside>
+  `;
+}
+
 function renderPracticeMedia(mediaRefs) {
   const media = (mediaRefs || []).filter((item) => item.url);
   if (!media.length) return "";
@@ -550,7 +599,7 @@ function renderPracticeMedia(mediaRefs) {
 
 function renderStudentPracticeQuestion() {
   if (!studentPracticeStage) return;
-  studentPracticeStage.className = "practice-layout uworld-layout";
+  studentPracticeStage.className = "practice-layout amboss-layout";
   const questions = currentPracticeExam?.questions || [];
   const question = questions[currentPracticeIndex];
   if (!question) {
@@ -626,69 +675,92 @@ function renderStudentPracticeQuestion() {
         <p>오른쪽 패널은 UWorld식 학습 모드처럼 정답, 해설, 관련 개념, 복습 버튼을 모아두는 영역입니다.</p>
       </section>
     `;
+  const keyInfo = question.explanation || "선지를 선택하면 저장된 정답과 해설이 이 영역에 표시됩니다.";
+  const choiceRows = practiceChoiceEntries(question)
+    .map(([key, text]) => {
+      const normalizedKey = String(key);
+      const isSelected = selectedAnswer === normalizedKey;
+      const isCorrect = revealAnswer && answer === normalizedKey;
+      const isWrong = revealAnswer && isSelected && answer && answer !== normalizedKey;
+      const className = [
+        isSelected ? "selected" : "",
+        isCorrect ? "correct" : "",
+        isWrong ? "incorrect" : "",
+      ].filter(Boolean).join(" ");
+      return `
+        <button type="button" class="amboss-choice ${className}" data-practice-choice="${escapeHtml(normalizedKey)}">
+          <span>${escapeHtml(normalizedKey)}</span>
+          <strong>${escapeHtml(text)}</strong>
+          <em>${isCorrect ? "정답" : isWrong ? "오답" : ""}</em>
+        </button>
+        ${isCorrect && question.explanation ? `
+          <div class="amboss-choice-explanation">
+            <p>${escapeHtml(question.explanation)}</p>
+            <div class="source-stack"><span>출처</span><div>${sourceTags || '<span class="provenance-chip">출처 확인 필요</span>'}</div></div>
+          </div>
+        ` : ""}
+      `;
+    })
+    .join("");
 
   studentPracticeStage.innerHTML = `
-    <section class="uworld-practice-shell">
-      <header class="uworld-testbar">
-        <div>
-          <span>Block 1</span>
-          <strong>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</strong>
-        </div>
-        <div class="uworld-progress">
-          <span>${escapeHtml(viewedCount)} viewed · ${escapeHtml(questions.length)} total</span>
-          <div aria-hidden="true"><b style="width: ${escapeHtml(progressPercent)}%"></b></div>
-        </div>
-        <div class="uworld-session-stats">
-          <span>${escapeHtml(studentPracticeMode?.value === "exam" ? "Exam Mode" : "Browse Mode")}</span>
-          <strong>${escapeHtml(answeredCount)} solved</strong>
-          <button type="button" data-practice-reset>세트 변경</button>
+    <section class="amboss-practice-shell">
+      <header class="amboss-topbar">
+        <button type="button" class="amboss-menu-button" data-practice-sidebar-toggle aria-label="문항 목록 열기">☰</button>
+        <div class="amboss-search">Find P:accine content <kbd>⌘K</kbd></div>
+        <div class="amboss-user">
+          <span>Y</span>
+          <div><strong>Yunseong</strong><small>Medical Student</small></div>
         </div>
       </header>
 
-      ${renderPracticeQuestionStrip(questions)}
-      ${renderPracticeQuestionPicker(questions)}
+      <div class="amboss-session-body">
+        ${renderPracticeSessionSidebar(questions)}
+        <main class="amboss-question-pane">
+          <div class="amboss-reader-toolbar">
+            <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</span>
+            <strong>${escapeHtml(viewedCount)} viewed · ${escapeHtml(answeredCount)} solved</strong>
+            <button type="button" class="secondary-button" data-practice-reset>세트 변경</button>
+          </div>
 
-      <div class="uworld-workspace">
-        <article class="practice-question uworld-question-panel">
-          <div class="uworld-question-head">
-            <span>Question</span>
-            <strong>${escapeHtml(currentPracticeIndex + 1)} of ${escapeHtml(questions.length)}</strong>
-          </div>
-          <div class="question-source-row">${sourceTags}</div>
-          <p class="uworld-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
-          ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
-          ${renderPracticeMedia(question.media_refs || [])}
-          <div class="practice-choices interactive uworld-choice-list">${choices}</div>
-          <div class="practice-nav-actions uworld-bottom-actions">
-            <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>이전</button>
-            <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>다음</button>
-          </div>
-        </article>
+          <article class="amboss-vignette-card">
+            <div class="question-source-row">${sourceTags}</div>
+            <p class="amboss-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
+            ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
+            ${renderPracticeMedia(question.media_refs || [])}
+          </article>
 
-        <aside class="practice-helper uworld-side-panel">
-          <h3>해설 · 복습</h3>
-          <div class="practice-helper-status">${escapeHtml(helperStatus)}</div>
-          ${answerPanel}
-          <section class="concept-summary-card">
-            <span>Concept Map</span>
-            <strong>${escapeHtml(conceptTags[0] || labels.cognitive_level || "개념 매핑 필요")}</strong>
-            <p>학교 강의록, 문항 해설, 제시자료를 같은 개념 노드로 연결합니다.</p>
+          <nav class="amboss-info-tabs" aria-label="문항 학습 도구">
+            <button type="button" class="active">Key info</button>
+            <button type="button">Attending tip</button>
+            <button type="button">Labs</button>
+            <button type="button" data-page-link="student-concepts">Add notes</button>
+            <button type="button" data-page-link="student-review">Get Anki cards</button>
+          </nav>
+
+          <section class="amboss-key-info">
+            <span class="amboss-avatar">Dr</span>
+            <p>${escapeHtml(keyInfo)}</p>
           </section>
-          <section class="source-stack">
-            <span>출처</span>
-            <div>${sourceTags || '<span class="provenance-chip">출처 확인 필요</span>'}</div>
+
+          <div class="amboss-choice-list">${choiceRows}</div>
+
+          <section class="amboss-study-footer">
+            <div>
+              <span>Concept map</span>
+              <strong>${escapeHtml(conceptTags[0] || labels.cognitive_level || "개념 매핑 필요")}</strong>
+              <p>학교 강의록, 문항 해설, 제시자료를 같은 개념 노드로 연결합니다.</p>
+            </div>
+            ${answerPanel}
           </section>
-          <dl class="practice-mini-metrics">
-            <div><dt>풀이</dt><dd>${escapeHtml(answeredCount)}문항</dd></div>
-            <div><dt>정답</dt><dd>${escapeHtml(correctCount)}문항</dd></div>
-            <div><dt>태그</dt><dd>${escapeHtml(conceptTags.slice(0, 3).join(", ") || labels.cognitive_level || "라벨 필요")}</dd></div>
-          </dl>
-          <div class="uworld-side-actions">
-            <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념</button>
-            <button type="button" class="secondary-button" data-page-link="student-review">Anki 내보내기</button>
-          </div>
-        </aside>
+        </main>
       </div>
+
+      <footer class="amboss-bottom-nav">
+        <button type="button" class="secondary-button" data-practice-reset>Exit session</button>
+        <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>‹ Previous</button>
+        <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>Next ›</button>
+      </footer>
     </section>
   `;
 }
@@ -710,6 +782,7 @@ async function startStudentPractice() {
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
     currentPracticeViewed = new Set();
+    document.body.classList.add("practice-session-active");
     studentPracticePage?.classList.add("practice-active");
     if (studentPracticeStatus) {
       const summary = payload.summary || {};
@@ -1830,6 +1903,12 @@ studentPracticeStage?.addEventListener("click", (event) => {
     return;
   }
 
+  const sidebarToggle = event.target.closest("[data-practice-sidebar-toggle]");
+  if (sidebarToggle) {
+    studentPracticeStage.querySelector(".amboss-practice-shell")?.classList.toggle("sidebar-collapsed");
+    return;
+  }
+
   const choiceButton = event.target.closest("[data-practice-choice]");
   if (choiceButton) {
     const question = currentPracticeExam?.questions?.[currentPracticeIndex];
@@ -1846,6 +1925,7 @@ studentPracticeStage?.addEventListener("click", (event) => {
     currentPracticeIndex = 0;
     currentPracticeAnswers = {};
     currentPracticeViewed = new Set();
+    document.body.classList.remove("practice-session-active");
     studentPracticePage?.classList.remove("practice-active");
     studentPracticeStage.className = "practice-layout";
     studentPracticeStage.innerHTML = `
