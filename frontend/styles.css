@@ -2509,13 +2509,17 @@ body.practice-session-active #student-practice > .practice-status {
 
 .amboss-layout {
   display: block;
+  height: 100vh;
   min-height: 100vh;
 }
 
 .amboss-practice-shell {
   display: grid;
   grid-template-rows: 74px minmax(0, 1fr) 56px;
+  height: 100vh;
   min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   color: #24313f;
   background: #e9f0f4;
 }
@@ -2601,12 +2605,14 @@ body.practice-session-active #student-practice > .practice-status {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .amboss-session-sidebar {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
+  overflow: hidden;
   border-right: 1px solid #d5dde6;
   background: #ffffff;
 }
@@ -2645,6 +2651,7 @@ body.practice-session-active #student-practice > .practice-status {
   overflow-y: auto;
   min-height: 0;
   padding: 8px 0;
+  overscroll-behavior: contain;
 }
 
 .amboss-question-list button {
@@ -2756,12 +2763,15 @@ body.practice-session-active #student-practice > .practice-status {
 .amboss-question-pane {
   overflow-y: auto;
   min-height: 0;
+  height: 100%;
   max-width: 980px;
   width: 100%;
   margin: 0 auto;
   border-left: 1px solid #dce5ed;
   border-right: 1px solid #dce5ed;
   background: #ffffff;
+  overscroll-behavior: contain;
+  scroll-padding-bottom: 96px;
 }
 
 .amboss-reader-toolbar {
