@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +54,7 @@ COURSE_EXAM_EXTRACTED_DIR = COURSE_EXAM_ROOT / "extracted"
 COURSE_EXAM_MARKDOWN_DIR = COURSE_EXAM_ROOT / "markdown"
 COURSE_EXAM_MEDIA_DIR = COURSE_EXAM_ROOT / "media"
 COURSE_EXAM_PREVIEW_DIR = COURSE_EXAM_ROOT / "previews"
+VIEWABLE_COURSE_MEDIA_EXTS = {".bmp", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 app = FastAPI(
     title="Axioma Studio API",
@@ -115,6 +117,69 @@ def course_exam_summary(record: dict) -> dict:
     }
 
 
+def load_course_exam_record(exam_id: str) -> tuple[Path, dict]:
+    safe_name = Path(exam_id).name
+    if not safe_name.endswith(".json"):
+        safe_name = f"{safe_name}.json"
+    record_path = (COURSE_EXAM_EXTRACTED_DIR / safe_name).resolve()
+    extracted_root = COURSE_EXAM_EXTRACTED_DIR.resolve()
+    if extracted_root not in record_path.parents or not record_path.exists():
+        raise FileNotFoundError(exam_id)
+    return record_path, json.loads(record_path.read_text(encoding="utf-8"))
+
+
+def course_exam_media_url(asset: dict) -> str | None:
+    file_path_value = asset.get("file_path")
+    if not file_path_value:
+        return None
+    file_path = Path(file_path_value)
+    if not file_path.is_absolute():
+        file_path = (ROOT / file_path).resolve()
+    if file_path.suffix.lower() not in VIEWABLE_COURSE_MEDIA_EXTS or not file_path.exists():
+        return None
+
+    relative_path = asset.get("relative_path")
+    if relative_path:
+        relative = Path(relative_path)
+    else:
+        try:
+            relative = file_path.relative_to(COURSE_EXAM_MEDIA_DIR.resolve())
+        except ValueError:
+            return None
+    source_dir = Path(relative).parent.name
+    filename = Path(relative).name
+    return f"/api/course-exams/media/{quote(source_dir)}/{quote(filename)}"
+
+
+def course_exam_practice_question(question: dict, media_by_id: dict[str, dict]) -> dict:
+    media_refs = []
+    for ref in question.get("media", {}).get("media_refs") or []:
+        asset = media_by_id.get(ref.get("media_id"), {})
+        media_refs.append(
+            {
+                **ref,
+                "url": course_exam_media_url(asset),
+                "filename": Path(asset.get("file_path") or "").name,
+                "caption": asset.get("caption"),
+                "modality": asset.get("modality"),
+                "needs_review": ref.get("needs_review", asset.get("needs_review", True)),
+            }
+        )
+    return {
+        "question_id": question.get("question_id"),
+        "question_number": question.get("question_number"),
+        "stem": question.get("stem"),
+        "stimulus": question.get("stimulus"),
+        "choices": question.get("choices") or {},
+        "answer": question.get("answer"),
+        "explanation": question.get("explanation"),
+        "labels": question.get("labels") or {},
+        "needs_review": question.get("needs_review", True),
+        "review_reasons": question.get("review_reasons") or [],
+        "media_refs": media_refs,
+    }
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "app": "axioma-studio"}
@@ -156,6 +221,63 @@ def remove_media_asset(asset_id: str) -> dict:
         return {"deleted": delete_media_asset(asset_id)}
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="제시자료를 찾을 수 없습니다.") from None
+
+
+@app.get("/api/course-exams")
+def course_exam_list(limit: int = 50) -> dict:
+    ensure_course_exam_dirs()
+    exams = []
+    for record_path in sorted(
+        COURSE_EXAM_EXTRACTED_DIR.glob("*.json"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )[:limit]:
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        summary = course_exam_summary(record)
+        questions = record.get("questions", [])
+        summary.update(
+            {
+                "exam_id": record_path.stem,
+                "updated_at": datetime.fromtimestamp(record_path.stat().st_mtime).isoformat(timespec="seconds"),
+                "practice_ready_count": sum(
+                    1
+                    for question in questions
+                    if question.get("stem") and question.get("choices") and question.get("answer")
+                ),
+            }
+        )
+        exams.append(summary)
+    return {"exams": exams}
+
+
+@app.get("/api/course-exams/extracted/{exam_id}")
+def course_exam_detail(exam_id: str, limit: int | None = None) -> dict:
+    try:
+        record_path, record = load_course_exam_record(exam_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="구조화된 시험지를 찾을 수 없습니다.") from None
+
+    media_by_id = {
+        asset.get("media_id"): asset
+        for asset in record.get("media_assets", [])
+        if asset.get("media_id")
+    }
+    questions = [
+        course_exam_practice_question(question, media_by_id)
+        for question in record.get("questions", [])
+        if question.get("stem") and question.get("choices") and question.get("answer")
+    ]
+    if limit and limit > 0:
+        questions = questions[:limit]
+    return {
+        "exam_id": record_path.stem,
+        "exam": record.get("exam", {}),
+        "summary": course_exam_summary(record),
+        "questions": questions,
+    }
 
 
 @app.get("/api/course-exams/previews/{filename}")

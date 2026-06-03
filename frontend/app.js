@@ -63,6 +63,11 @@ const answerKeyFile = document.querySelector("#answerKeyFile");
 const answerKeyFileLabel = document.querySelector("#answerKeyFileLabel");
 const courseExamButton = document.querySelector("#courseExamButton");
 const courseExamImportResult = document.querySelector("#courseExamImportResult");
+const studentExamSelect = document.querySelector("#studentExamSelect");
+const studentPracticeMode = document.querySelector("#studentPracticeMode");
+const startStudentPracticeButton = document.querySelector("#startStudentPractice");
+const studentPracticeStatus = document.querySelector("#studentPracticeStatus");
+const studentPracticeStage = document.querySelector("#studentPracticeStage");
 
 let modelCatalog = null;
 let progressTimer = null;
@@ -74,6 +79,10 @@ let currentRole = "faculty";
 let latestReviewLoadPromise = null;
 let medlegalCases = [];
 let currentMedlegalCase = null;
+let courseExamPracticeList = [];
+let currentPracticeExam = null;
+let currentPracticeIndex = 0;
+let currentPracticeAnswers = {};
 
 try {
   const restoredMediaIds = JSON.parse(window.sessionStorage?.getItem("axioma.selectedMediaIds") || "[]");
@@ -100,21 +109,22 @@ const pageMeta = {
 };
 
 const departmentCategories = [
-  { key: "cardiology", title: "순환기", icon: "심", tone: "blue", desc: "심전도, 심부전, 허혈성 심질환" },
-  { key: "pulmonology", title: "호흡기", icon: "폐", tone: "teal", desc: "폐렴, 천식/COPD, 흉부영상" },
-  { key: "gastro", title: "소화기", icon: "위", tone: "amber", desc: "복통, 간담췌, 위장관 출혈" },
-  { key: "nephro", title: "신장", icon: "신", tone: "blue", desc: "전해질, 산염기, AKI/CKD" },
-  { key: "neuro", title: "신경과", icon: "뇌", tone: "teal", desc: "뇌졸중, 두통, 발작, 신경영상" },
-  { key: "rheum", title: "류마티스", icon: "류", tone: "amber", desc: "관절염, 자가면역, 혈관염" },
-  { key: "allergy", title: "알레르기", icon: "알", tone: "teal", desc: "아나필락시스, 면역반응" },
-  { key: "infectious", title: "감염", icon: "균", tone: "green", desc: "항생제, 발열, 감염관리" },
-  { key: "heme", title: "혈액", icon: "혈", tone: "red", desc: "빈혈, 응고, 혈액종양" },
-  { key: "oncology", title: "종양", icon: "종", tone: "red", desc: "암 진단, 항암치료, 완화의료" },
-  { key: "surgery", title: "외과총론", icon: "외", tone: "blue", desc: "외상, 쇼크, 수술 전후 관리" },
-  { key: "obgyn", title: "산부인과", icon: "산", tone: "rose", desc: "임신, 분만, 부인종양" },
-  { key: "pediatrics", title: "소아청소년과", icon: "소", tone: "amber", desc: "성장발달, 신생아, 소아감염" },
-  { key: "psychiatry", title: "정신건강의학과", icon: "정", tone: "teal", desc: "기분장애, 정신병, 약물치료" },
-  { key: "minor", title: "마이너", icon: "마", tone: "blue", desc: "안이비피부비뇨 등 통합 복습" },
+  { key: "infectious_diseases", title: "감염학", icon: "감", tone: "green", desc: "감염질환, 항생제, 감염관리" },
+  { key: "musculoskeletal", title: "근골격학", icon: "근", tone: "blue", desc: "관절, 근육, 외상, 류마티스" },
+  { key: "endocrinology", title: "내분비학", icon: "내", tone: "amber", desc: "당뇨, 갑상샘, 부신, 대사" },
+  { key: "immunology_dermatology", title: "면역및피부질환", icon: "면", tone: "teal", desc: "면역, 알레르기, 피부질환" },
+  { key: "reproductive_medicine", title: "생식계의학", icon: "생", tone: "rose", desc: "산부인과, 생식, 임신과 분만" },
+  { key: "growth_development_aging", title: "성장발달노화", icon: "성", tone: "amber", desc: "소아 성장, 발달, 노화" },
+  { key: "gastroenterology_nutrition", title: "소화기및영양학", icon: "소", tone: "amber", desc: "위장관, 간담췌, 영양" },
+  { key: "cardiology", title: "순환기학", icon: "순", tone: "blue", desc: "심전도, 심부전, 허혈성 심질환" },
+  { key: "neuro_special_senses", title: "신경및특수감각기학", icon: "신", tone: "teal", desc: "신경계, 감각기, 뇌영상" },
+  { key: "renal_urology", title: "신장비뇨기학", icon: "뇨", tone: "blue", desc: "신장, 전해질, 비뇨기" },
+  { key: "human_society_medicine_1", title: "인간·사회·의료(I)", icon: "사", tone: "green", desc: "의료사회, 윤리, 예방의학 기초" },
+  { key: "human_society_medicine_2", title: "인간·사회·의료(II)", icon: "의", tone: "green", desc: "법규, 직업환경, 의료관리" },
+  { key: "psychiatry", title: "정신의학", icon: "정", tone: "teal", desc: "정신질환, 면담, 약물치료" },
+  { key: "disease_pharmacology", title: "질병의이해와약물요법", icon: "약", tone: "red", desc: "병태생리, 약리, 치료 원칙" },
+  { key: "hematology_oncology", title: "혈액및종양학", icon: "혈", tone: "red", desc: "빈혈, 혈액종양, 고형암" },
+  { key: "pulmonology", title: "호흡기학", icon: "호", tone: "teal", desc: "폐렴, 천식/COPD, 흉부영상" },
 ];
 
 function bindChange(element, handler) {
@@ -270,6 +280,9 @@ function showPage(pageId, options = {}) {
   if (safePage === "faculty-medlegal" && !medlegalCases.length) {
     loadMedlegalCases();
   }
+  if (safePage === "student-practice" && !courseExamPracticeList.length) {
+    loadStudentCourseExams();
+  }
   if (options.updateHash !== false && window.location.hash !== `#${safePage}`) {
     window.history.pushState(null, "", `#${safePage}`);
   }
@@ -358,6 +371,198 @@ function escapeCssValue(value) {
     return CSS.escape(String(value ?? ""));
   }
   return String(value ?? "").replaceAll('"', '\\"');
+}
+
+function examTitle(summary) {
+  return [
+    summary.course_name || "미분류 시험",
+    summary.round_label,
+    summary.question_count ? `${summary.question_count}문항` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function renderStudentExamOptions() {
+  if (!studentExamSelect) return;
+  const playableExams = courseExamPracticeList.filter((item) => Number(item.practice_ready_count || 0) > 0);
+  if (!playableExams.length) {
+    studentExamSelect.innerHTML = '<option value="">구조화된 문항 세트가 없습니다</option>';
+    studentExamSelect.disabled = true;
+    if (studentPracticeStatus) {
+      studentPracticeStatus.textContent = "교수 화면에서 HWP/PDF 시험지를 먼저 구조화하면 여기에 표시됩니다.";
+    }
+    return;
+  }
+  studentExamSelect.disabled = false;
+  studentExamSelect.innerHTML = playableExams
+    .map((item) => {
+      const ready = item.practice_ready_count || 0;
+      const label = `${examTitle(item)} · 풀이 가능 ${ready}문항`;
+      return `<option value="${escapeHtml(item.exam_id)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+  if (!studentExamSelect.value && playableExams[0]?.exam_id) {
+    studentExamSelect.value = playableExams[0].exam_id;
+  }
+  if (studentPracticeStatus) {
+    studentPracticeStatus.textContent = `${playableExams.length}개 풀이 가능 세트를 불러왔습니다. 세트를 선택해 문제 풀이를 시작할 수 있습니다.`;
+  }
+}
+
+async function loadStudentCourseExams() {
+  if (!studentExamSelect && !studentPracticeStage) return;
+  try {
+    const response = await fetch("/api/course-exams?limit=50");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "구조화 문항 목록 로드 실패");
+    }
+    courseExamPracticeList = payload.exams || [];
+    renderStudentExamOptions();
+  } catch (error) {
+    if (studentPracticeStatus) {
+      studentPracticeStatus.textContent = `구조화 문항 목록을 불러오지 못했습니다: ${error.message}`;
+    }
+  }
+}
+
+function practiceChoiceEntries(question) {
+  return Object.entries(question?.choices || {})
+    .sort(([left], [right]) => Number(left) - Number(right));
+}
+
+function renderPracticeMedia(mediaRefs) {
+  const media = (mediaRefs || []).filter((item) => item.url);
+  if (!media.length) return "";
+  return `
+    <div class="practice-media-grid">
+      ${media.map((item) => `
+        <figure class="practice-media-card">
+          <img
+            src="${escapeHtml(item.url)}"
+            alt="${escapeHtml(item.caption || item.media_id || "문항 제시자료")}"
+            data-lightbox-src="${escapeHtml(item.url)}"
+            data-lightbox-caption="${escapeHtml(item.caption || item.media_id || "문항 제시자료")}"
+          />
+          <figcaption>${escapeHtml(item.modality || item.filename || "제시자료")} · match ${escapeHtml(item.match_confidence ?? "-")}</figcaption>
+        </figure>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderStudentPracticeQuestion() {
+  if (!studentPracticeStage) return;
+  const questions = currentPracticeExam?.questions || [];
+  const question = questions[currentPracticeIndex];
+  if (!question) {
+    studentPracticeStage.innerHTML = `
+      <article class="practice-question empty-practice">
+        <p>선택한 세트에서 풀이 가능한 문항을 찾지 못했습니다.</p>
+      </article>
+      <aside class="practice-helper">
+        <h3>확인 필요</h3>
+        <p>문항 지문이나 선지 추출이 누락된 경우 교수 검토 화면에서 구조를 먼저 확인해야 합니다.</p>
+      </aside>
+    `;
+    return;
+  }
+
+  const questionKey = question.question_id || String(question.question_number || currentPracticeIndex);
+  const selectedAnswer = currentPracticeAnswers[questionKey];
+  const answer = String(question.answer || "");
+  const revealAnswer = Boolean(selectedAnswer) && (studentPracticeMode?.value || "study") === "study";
+  const choices = practiceChoiceEntries(question)
+    .map(([key, text]) => {
+      const normalizedKey = String(key);
+      const isSelected = selectedAnswer === normalizedKey;
+      const isCorrect = revealAnswer && answer === normalizedKey;
+      const isWrong = revealAnswer && isSelected && answer && answer !== normalizedKey;
+      const className = [
+        isSelected ? "selected" : "",
+        isCorrect ? "correct" : "",
+        isWrong ? "incorrect" : "",
+      ].filter(Boolean).join(" ");
+      return `
+        <button type="button" class="${className}" data-practice-choice="${escapeHtml(normalizedKey)}">
+          <span>${escapeHtml(normalizedKey)}</span>
+          ${escapeHtml(text)}
+        </button>
+      `;
+    })
+    .join("");
+
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  const helperStatus = selectedAnswer
+    ? revealAnswer
+      ? answer === selectedAnswer ? "정답입니다." : `오답입니다. 정답은 ${answer || "미확인"}번입니다.`
+      : "선택이 저장됐습니다. 시험 모드에서는 마지막에 해설을 확인합니다."
+    : "선지를 선택하면 학습 모드에서는 정답과 해설이 바로 표시됩니다.";
+
+  studentPracticeStage.innerHTML = `
+    <article class="practice-question">
+      <div class="practice-meta">
+        <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(labels.question_type || "course exam")}</span>
+        <strong>${escapeHtml(currentPracticeIndex + 1)} / ${escapeHtml(questions.length)}</strong>
+      </div>
+      <p>${escapeHtml(question.stem || "문항 지문 미추출")}</p>
+      ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
+      ${renderPracticeMedia(question.media_refs || [])}
+      <div class="practice-choices interactive">${choices}</div>
+      ${revealAnswer ? `
+        <div class="practice-feedback ${answer === selectedAnswer ? "correct" : "incorrect"}">
+          <strong>${answer === selectedAnswer ? "정답" : "해설 확인"}</strong>
+          <p>정답: ${escapeHtml(answer || "미확인")}번</p>
+          ${question.explanation ? `<p>${escapeHtml(question.explanation)}</p>` : "<p>저장된 해설이 없습니다. 교수 검토 단계에서 해설 보강이 필요합니다.</p>"}
+        </div>
+      ` : ""}
+      <div class="practice-nav-actions">
+        <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>이전</button>
+        <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>다음</button>
+      </div>
+    </article>
+    <aside class="practice-helper">
+      <h3>학습 모드 도구</h3>
+      <div class="practice-helper-status">${escapeHtml(helperStatus)}</div>
+      <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
+      <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
+      <dl class="practice-mini-metrics">
+        <div><dt>풀이</dt><dd>${escapeHtml(Object.keys(currentPracticeAnswers).length)}문항</dd></div>
+        <div><dt>정답</dt><dd>${escapeHtml(answer || "미확인")}</dd></div>
+        <div><dt>태그</dt><dd>${escapeHtml(conceptTags.slice(0, 3).join(", ") || labels.cognitive_level || "라벨 필요")}</dd></div>
+      </dl>
+    </aside>
+  `;
+}
+
+async function startStudentPractice() {
+  const examId = studentExamSelect?.value;
+  if (!examId) return;
+  if (startStudentPracticeButton) startStudentPracticeButton.disabled = true;
+  if (studentPracticeStatus) {
+    studentPracticeStatus.textContent = "선택한 문항 세트를 불러오는 중입니다.";
+  }
+  try {
+    const response = await fetch(`/api/course-exams/extracted/${encodeURIComponent(examId)}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "문항 세트 로드 실패");
+    }
+    currentPracticeExam = payload;
+    currentPracticeIndex = 0;
+    currentPracticeAnswers = {};
+    if (studentPracticeStatus) {
+      const summary = payload.summary || {};
+      studentPracticeStatus.textContent = `${examTitle(summary)} 세트를 열었습니다. ${payload.questions?.length || 0}문항을 풀 수 있습니다.`;
+    }
+    renderStudentPracticeQuestion();
+  } catch (error) {
+    if (studentPracticeStatus) {
+      studentPracticeStatus.textContent = `문항 세트 로드 실패: ${error.message}`;
+    }
+  } finally {
+    if (startStudentPracticeButton) startStudentPracticeButton.disabled = false;
+  }
 }
 
 function mediaMaterialText(asset) {
@@ -1442,6 +1647,39 @@ if (results) {
   });
 }
 
+startStudentPracticeButton?.addEventListener("click", startStudentPractice);
+
+studentPracticeStage?.addEventListener("click", (event) => {
+  const image = event.target.closest("[data-lightbox-src]");
+  if (image && imageLightbox && lightboxImage) {
+    lightboxImage.src = image.dataset.lightboxSrc;
+    lightboxImage.alt = image.alt || "확대 이미지";
+    if (lightboxCaption) lightboxCaption.textContent = image.dataset.lightboxCaption || "";
+    imageLightbox.showModal();
+    return;
+  }
+
+  const choiceButton = event.target.closest("[data-practice-choice]");
+  if (choiceButton) {
+    const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+    if (!question) return;
+    const questionKey = question.question_id || String(question.question_number || currentPracticeIndex);
+    currentPracticeAnswers[questionKey] = choiceButton.dataset.practiceChoice;
+    renderStudentPracticeQuestion();
+    return;
+  }
+
+  const navButton = event.target.closest("[data-practice-nav]");
+  if (!navButton) return;
+  if (navButton.dataset.practiceNav === "prev") {
+    currentPracticeIndex = Math.max(0, currentPracticeIndex - 1);
+  } else {
+    const lastIndex = Math.max(0, (currentPracticeExam?.questions || []).length - 1);
+    currentPracticeIndex = Math.min(lastIndex, currentPracticeIndex + 1);
+  }
+  renderStudentPracticeQuestion();
+});
+
 lightboxClose?.addEventListener("click", () => {
   imageLightbox?.close();
 });
@@ -1481,6 +1719,7 @@ if (courseExamForm) {
         throw new Error(data.detail || "시험지 구조화 실패");
       }
       renderCourseExamImportResult(data);
+      await loadStudentCourseExams();
       setStatus("시험지 구조화 완료", "muted");
     } catch (error) {
       setStatus("시험지 구조화 오류");
@@ -1575,6 +1814,7 @@ renderCategoryGrid(studentCategoryGrid, "student");
 loadModels();
 loadMediaAssets();
 loadArchiveSets();
+loadStudentCourseExams();
 updateImagePolicyState();
 showPage(window.location.hash.replace("#", "") || "faculty-dashboard", {
   updateHash: false,

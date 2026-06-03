@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Axioma Studio</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=20260603-course-practice-2" />
   </head>
   <body>
     <div class="app-shell">
@@ -954,30 +954,34 @@
               <p class="section-label">Practice</p>
               <h2>문제 풀기</h2>
             </div>
-            <span class="badge light">승인 문항 세트</span>
+            <span class="badge light">구조화 문항 세트</span>
           </div>
-          <div class="practice-layout">
-            <article class="practice-question">
-              <div class="practice-meta">
-                <span>Q47 · 호흡기 · 자료해석형</span>
-                <strong>02:18</strong>
-              </div>
-              <p>68세 남자가 4시간 전부터 숨이 차고 식은땀을 흘리며 응급실에 왔다. 산소포화도는 86%이다. 다음 조치로 가장 적절한 것은?</p>
-              <div class="practice-visual" aria-label="흉부 X-ray 예시"></div>
-              <ol class="practice-choices">
-                <li>산소 투여</li>
-                <li>항응고제 투여</li>
-                <li>기관삽관</li>
-                <li>이뇨제 투여</li>
-                <li>혈전용해제 투여</li>
-              </ol>
+          <div class="student-practice-toolbar">
+            <label>
+              기출/과정시험 세트
+              <select id="studentExamSelect">
+                <option value="">구조화된 문항을 불러오는 중입니다</option>
+              </select>
+            </label>
+            <label>
+              풀이 방식
+              <select id="studentPracticeMode">
+                <option value="study">학습 모드 · 정답/해설 즉시 확인</option>
+                <option value="exam">시험 모드 · 해설 숨김</option>
+              </select>
+            </label>
+            <button type="button" id="startStudentPractice">선택한 세트 풀기</button>
+          </div>
+          <p class="practice-status" id="studentPracticeStatus">저장된 구조화 문항 세트를 확인하고 있습니다.</p>
+          <div class="practice-layout" id="studentPracticeStage">
+            <article class="practice-question empty-practice">
+              <p>교수 화면에서 구조화한 HWP/PDF 시험지를 선택하면 학생 풀이 화면으로 열립니다.</p>
             </article>
             <aside class="practice-helper">
               <h3>학습 모드 도구</h3>
-              <button type="button" class="secondary-button">힌트 1: 핵심 단서</button>
               <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
               <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-              <p>시험 모드에서는 힌트와 개념 연결을 숨기고, 풀이 후 개인 피드백으로 전환합니다.</p>
+              <p>현재는 로컬 DB에 저장된 문항을 풀이 화면에 연결하는 단계입니다. 이후 정답률, 오답 태그, 복습 카드로 이어집니다.</p>
             </aside>
           </div>
         </section>
@@ -1053,6 +1057,6 @@
       <p id="lightboxCaption"></p>
     </dialog>
 
-    <script src="/app.js"></script>
+    <script src="/app.js?v=20260603-course-practice-2"></script>
   </body>
 </html>
