@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Axioma Studio</title>
-    <link rel="stylesheet" href="/styles.css?v=20260603-uworld-practice-2" />
+    <title>P:accine Learning OS</title>
+    <link rel="stylesheet" href="/styles.css?v=20260603-gemini-ui-2" />
   </head>
   <body>
     <div class="app-shell">
@@ -77,8 +77,8 @@
           <section class="hero-panel">
             <div>
               <p class="section-label">Faculty</p>
-              <h2>강의자료로 문항 초안 만들기</h2>
-              <p>파일을 올리고 생성 조건을 정하면, 문항 검토용 초안 세트가 만들어집니다.</p>
+              <h2>강의 자료 기반 AI 문항 생성</h2>
+              <p>부산의대 강의록과 기출 데이터를 구조화해 문항 제작, 검토, 보강 제안까지 연결합니다.</p>
             </div>
             <div class="hero-actions">
               <button type="button" data-page-link="faculty-studio">문항 생성 시작</button>
@@ -166,7 +166,7 @@
               <div>
                 <p class="section-label">Exam Import</p>
                 <h3>기출·과정시험 구조화</h3>
-                <p>HWP/PDF 시험지를 올리면 문항 지문, 선지, 정답, 해설, 제시자료 후보를 검수용 DB 초안으로 분리합니다.</p>
+                <p>HWP/PDF 시험지를 올리면 문항 지문, 선지, 정답, 해설, 제시자료 후보를 DB 반영 전 초안으로 분리합니다.</p>
               </div>
               <form id="courseExamForm" class="exam-import-form">
                 <label class="compact-upload">
@@ -182,6 +182,33 @@
                 <button type="submit" id="courseExamButton" class="secondary-button">문항 구조화</button>
               </form>
               <div id="courseExamImportResult" class="exam-import-result" hidden></div>
+            </section>
+
+            <section class="db-workbench">
+              <aside class="db-stepper" aria-label="데이터 구축 단계">
+                <span class="active"><b>01</b>자료 업로드</span>
+                <span><b>02</b>AI 구조화</span>
+                <span><b>03</b>검토 및 승인</span>
+                <span><b>04</b>DB 반영</span>
+              </aside>
+              <div class="db-split-preview">
+                <article>
+                  <p class="section-label">Original Source</p>
+                  <h3>강의록/PDF 프리뷰</h3>
+                  <p>원본 문서의 페이지, 표, 이미지 위치를 유지한 채 문항 후보와 제시자료를 확인합니다.</p>
+                  <span class="provenance-chip">PNU internal source</span>
+                </article>
+                <article>
+                  <p class="section-label">Parsed Markdown</p>
+                  <h3>문항 파싱 및 JSON 변환</h3>
+                  <p>문항 번호, 지문, 선지, 정답, 해설, KMLE 코드, 이미지 N-m 매핑을 검토합니다.</p>
+                  <div class="metadata-row">
+                    <span>대분과</span>
+                    <span>세부 주제</span>
+                    <span>평가 항목</span>
+                  </div>
+                </article>
+              </div>
             </section>
 
             <form id="generateForm" class="studio-form">
@@ -670,23 +697,23 @@
                     <td>48</td>
                     <td><span class="score-chip mid">61%</span></td>
                     <td>82s</td>
-                    <td>경로 도식 보강</td>
+                    <td><button type="button" class="table-action secondary-button">개념 매핑</button></td>
                   </tr>
-                  <tr>
+                  <tr class="weak-row">
                     <td><strong>뇌혈관/운동계</strong></td>
                     <td>뇌졸중, 추체로, 불수의운동</td>
                     <td>62</td>
                     <td><span class="score-chip low">47%</span></td>
                     <td>117s</td>
-                    <td>병변 위치 추론</td>
+                    <td><button type="button" class="table-action" data-page-link="faculty-studio">추천 문항 생성</button></td>
                   </tr>
-                  <tr>
+                  <tr class="weak-row">
                     <td><strong>시각계</strong></td>
                     <td>시야, 안구운동, 동공반사</td>
                     <td>41</td>
                     <td><span class="score-chip low">52%</span></td>
                     <td>103s</td>
-                    <td>시각경로 도식</td>
+                    <td><button type="button" class="table-action secondary-button">개념 매핑</button></td>
                   </tr>
                   <tr>
                     <td><strong>청각·전정</strong></td>
@@ -694,7 +721,7 @@
                     <td>34</td>
                     <td><span class="score-chip mid">58%</span></td>
                     <td>91s</td>
-                    <td>말초/중추 감별</td>
+                    <td><button type="button" class="table-action secondary-button">증례 추가</button></td>
                   </tr>
                   <tr>
                     <td><strong>감각계/통증</strong></td>
@@ -702,7 +729,7 @@
                     <td>39</td>
                     <td><span class="score-chip high">70%</span></td>
                     <td>72s</td>
-                    <td>유지·심화</td>
+                    <td><button type="button" class="table-action secondary-button">심화 문항</button></td>
                   </tr>
                   <tr>
                     <td><strong>고위기능/임상신경</strong></td>
@@ -710,7 +737,7 @@
                     <td>33</td>
                     <td><span class="score-chip mid">64%</span></td>
                     <td>79s</td>
-                    <td>증례형 보강</td>
+                    <td><button type="button" class="table-action secondary-button">증례 추가</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -924,10 +951,15 @@
           <div class="library-hero">
             <div>
               <p class="section-label">PNU Medicine Library</p>
-              <h2>분과별 문제와 개념을 한 곳에 모읍니다</h2>
-              <p>승인된 문항, 강의 노트, 제시자료, 복습 카드를 같은 분과 구조로 찾아볼 수 있습니다.</p>
+              <h2>부산의대 강의록 및 시험 기출 통합 아카이브</h2>
+              <p>승인 문항, 강의 노트, 제시자료, 복습 카드를 같은 분과 구조로 찾아볼 수 있습니다.</p>
             </div>
-            <button type="button" data-page-link="student-practice">오늘의 문제 보기</button>
+            <div class="continue-card">
+              <span>최근 학습</span>
+              <strong>신경 및 특수감각기학</strong>
+              <small>Q42 · 뇌간 병변 위치 추론</small>
+              <button type="button" data-page-link="student-practice">이어 풀기</button>
+            </div>
           </div>
           <div class="library-filter-bar">
             <label>
@@ -1057,6 +1089,6 @@
       <p id="lightboxCaption"></p>
     </dialog>
 
-    <script src="/app.js?v=20260603-uworld-practice-2"></script>
+    <script src="/app.js?v=20260603-gemini-ui-2"></script>
   </body>
 </html>

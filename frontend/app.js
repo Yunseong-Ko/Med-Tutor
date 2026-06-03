@@ -95,15 +95,15 @@ try {
 }
 
 const pageMeta = {
-  "faculty-dashboard": ["교수 홈", "자료 기반 문항 제작"],
-  "faculty-studio": ["문항 생성", "강의자료·기출·제시자료 기반 초안 생성"],
+  "faculty-dashboard": ["교수 홈", "강의록 및 시험 기출 통합 아카이브"],
+  "faculty-studio": ["문항 생성", "문항 파싱 및 JSON 변환"],
   "faculty-review": ["문항 검토", "승인 전 문항 확인"],
   "faculty-archive": ["아카이브/내보내기", "승인 세트 보관과 export"],
   "faculty-report": ["수업 리포트", "신경 및 특수감각기학 통합 성취도 분석"],
   "faculty-ops": ["운영 보드", "팀 작업 배분과 주차별 산출물 관리"],
   "faculty-medlegal": ["EMR/CPX 훈련", "의료법·설명의무·진료기록 교육"],
   "student-dashboard": ["학습 홈", "문제·개념·복습"],
-  "student-library": ["나의 서재", "분과별 강의 노트와 문항 모음"],
+  "student-library": ["나의 서재", "분과별 문제와 개념 아카이브"],
   "student-practice": ["문제 풀기", "승인 문항 기반 학습/시험 모드"],
   "student-concepts": ["개념 노트", "Obsidian식 문항·강의록·레퍼런스 연결"],
   "student-review": ["복습 카드", "오답과 핵심 개념 플래시카드"],
@@ -127,6 +127,25 @@ const departmentCategories = [
   { key: "hematology_oncology", title: "혈액및종양학", icon: "혈", tone: "red", desc: "빈혈, 혈액종양, 고형암" },
   { key: "pulmonology", title: "호흡기학", icon: "호", tone: "teal", desc: "폐렴, 천식/COPD, 흉부영상" },
 ];
+
+const categoryLearningMetrics = {
+  infectious_diseases: { progress: 42, weakness: "항생제 선택" },
+  musculoskeletal: { progress: 28, weakness: "외상 처치" },
+  endocrinology: { progress: 56, weakness: "부신·대사" },
+  immunology_dermatology: { progress: 34, weakness: "피부 병변" },
+  reproductive_medicine: { progress: 49, weakness: "산과 응급" },
+  growth_development_aging: { progress: 31, weakness: "성장곡선" },
+  gastroenterology_nutrition: { progress: 63, weakness: "간담췌" },
+  cardiology: { progress: 71, weakness: "심전도" },
+  neuro_special_senses: { progress: 62, weakness: "병변 위치" },
+  renal_urology: { progress: 38, weakness: "전해질" },
+  human_society_medicine_1: { progress: 44, weakness: "역학 지표" },
+  human_society_medicine_2: { progress: 58, weakness: "법규 적용" },
+  psychiatry: { progress: 46, weakness: "면담·진단" },
+  disease_pharmacology: { progress: 53, weakness: "금기 약물" },
+  hematology_oncology: { progress: 39, weakness: "혈액도말" },
+  pulmonology: { progress: 67, weakness: "흉부영상" },
+};
 
 function bindChange(element, handler) {
   if (element) {
@@ -257,10 +276,10 @@ function setRole(role) {
   if (sidebarNoteTitle && sidebarNoteCopy) {
     if (currentRole === "student") {
       sidebarNoteTitle.textContent = "학습 원칙";
-      sidebarNoteCopy.textContent = "승인 자료와 문항을 기반으로 개념, 문제, 복습 카드를 연결합니다.";
+      sidebarNoteCopy.textContent = "학교 강의록과 승인 문항을 기준으로 문제, 개념, 복습 카드를 연결합니다.";
     } else {
-      sidebarNoteTitle.textContent = "검토 원칙";
-      sidebarNoteCopy.textContent = "AI 생성 문항은 확인 후 학생에게 배포됩니다.";
+      sidebarNoteTitle.textContent = "자료 원칙";
+      sidebarNoteCopy.textContent = "문항과 제시자료는 출처 확인 후 DB에 반영됩니다.";
     }
   }
 }
@@ -382,6 +401,20 @@ function examTitle(summary) {
   ].filter(Boolean).join(" · ");
 }
 
+function practiceSourceTags(question) {
+  const summary = currentPracticeExam?.summary || {};
+  const tags = [
+    question.source_exam || summary.source_file || summary.course_name,
+    question.period || summary.round_label,
+    question.source_page ? `p.${question.source_page}` : "",
+    question.source_file ? "강의록/기출 기반" : "PNU internal source",
+  ].filter(Boolean);
+  const uniqueTags = [...new Set(tags)].slice(0, 4);
+  return uniqueTags
+    .map((tag) => `<span class="provenance-chip">${escapeHtml(tag)}</span>`)
+    .join("");
+}
+
 function renderStudentExamOptions() {
   if (!studentExamSelect) return;
   const playableExams = courseExamPracticeList.filter((item) => Number(item.practice_ready_count || 0) > 0);
@@ -471,7 +504,7 @@ function renderPracticeMedia(mediaRefs) {
             data-lightbox-src="${escapeHtml(item.url)}"
             data-lightbox-caption="${escapeHtml(item.caption || item.media_id || "문항 제시자료")}"
           />
-          <figcaption>${escapeHtml(item.modality || item.filename || "제시자료")} · match ${escapeHtml(item.match_confidence ?? "-")}</figcaption>
+          <figcaption>${escapeHtml(item.modality || item.filename || "제시자료")} · 출처 매칭 ${escapeHtml(item.match_confidence ?? "-")}</figcaption>
         </figure>
       `).join("")}
     </div>
@@ -528,6 +561,7 @@ function renderStudentPracticeQuestion() {
 
   const labels = question.labels || {};
   const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  const sourceTags = practiceSourceTags(question);
   const helperStatus = selectedAnswer
     ? revealAnswer
       ? answer === selectedAnswer ? "정답입니다." : `오답입니다. 정답은 ${answer || "미확인"}번입니다.`
@@ -580,6 +614,7 @@ function renderStudentPracticeQuestion() {
             <span>Question</span>
             <strong>${escapeHtml(currentPracticeIndex + 1)} of ${escapeHtml(questions.length)}</strong>
           </div>
+          <div class="question-source-row">${sourceTags}</div>
           <p class="uworld-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
           ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
           ${renderPracticeMedia(question.media_refs || [])}
@@ -594,6 +629,15 @@ function renderStudentPracticeQuestion() {
           <h3>해설 · 복습</h3>
           <div class="practice-helper-status">${escapeHtml(helperStatus)}</div>
           ${answerPanel}
+          <section class="concept-summary-card">
+            <span>Concept Map</span>
+            <strong>${escapeHtml(conceptTags[0] || labels.cognitive_level || "개념 매핑 필요")}</strong>
+            <p>학교 강의록, 문항 해설, 제시자료를 같은 개념 노드로 연결합니다.</p>
+          </section>
+          <section class="source-stack">
+            <span>출처</span>
+            <div>${sourceTags || '<span class="provenance-chip">출처 확인 필요</span>'}</div>
+          </section>
           <dl class="practice-mini-metrics">
             <div><dt>풀이</dt><dd>${escapeHtml(answeredCount)}문항</dd></div>
             <div><dt>정답</dt><dd>${escapeHtml(correctCount)}문항</dd></div>
@@ -601,7 +645,7 @@ function renderStudentPracticeQuestion() {
           </dl>
           <div class="uworld-side-actions">
             <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념</button>
-            <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드</button>
+            <button type="button" class="secondary-button" data-page-link="student-review">Anki 내보내기</button>
           </div>
         </aside>
       </div>
@@ -786,19 +830,30 @@ function renderArchiveSets(sets) {
 function renderCategoryGrid(container, mode) {
   if (!container) return;
   container.innerHTML = departmentCategories
-    .map((category) => `
-      <button
-        type="button"
-        class="category-card tone-${escapeHtml(category.tone)}"
-        data-category-key="${escapeHtml(category.key)}"
-        data-category-title="${escapeHtml(category.title)}"
-        data-category-mode="${escapeHtml(mode)}"
-      >
-        <span class="category-icon">${escapeHtml(category.icon)}</span>
-        <strong>${escapeHtml(category.title)}</strong>
-        <small>${escapeHtml(category.desc)}</small>
-      </button>
-    `)
+    .map((category) => {
+      const metric = categoryLearningMetrics[category.key] || { progress: 0, weakness: "학습 데이터 없음" };
+      const facultyCopy = mode === "faculty" ? "보강 제안" : "취약 마커";
+      return `
+        <button
+          type="button"
+          class="category-card tone-${escapeHtml(category.tone)}"
+          data-category-key="${escapeHtml(category.key)}"
+          data-category-title="${escapeHtml(category.title)}"
+          data-category-mode="${escapeHtml(mode)}"
+        >
+          <span class="category-icon">${escapeHtml(category.icon)}</span>
+          <strong>${escapeHtml(category.title)}</strong>
+          <small>${escapeHtml(category.desc)}</small>
+          <span class="category-progress" aria-label="${escapeHtml(category.title)} 진행도 ${escapeHtml(metric.progress)}%">
+            <b style="width: ${escapeHtml(metric.progress)}%"></b>
+          </span>
+          <span class="category-foot">
+            <em>${escapeHtml(metric.progress)}%</em>
+            <i>${escapeHtml(facultyCopy)} · ${escapeHtml(metric.weakness)}</i>
+          </span>
+        </button>
+      `;
+    })
     .join("");
 }
 
