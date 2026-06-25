@@ -18,6 +18,10 @@ if not exist ".venv\\Scripts\\python.exe" (
 call ".venv\\Scripts\\activate.bat"
 if errorlevel 1 goto :fail
 
+rem Local double-click runs should work without Supabase secrets.
+rem Set AXIOMA_REQUIRE_SUPABASE=1 explicitly when testing production auth.
+if not defined AXIOMA_REQUIRE_SUPABASE set "AXIOMA_REQUIRE_SUPABASE=0"
+
 if not exist ".venv\\.axioma_qbank_installed" (
   python -m pip install --upgrade pip
   if errorlevel 1 goto :fail

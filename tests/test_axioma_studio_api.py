@@ -1,10 +1,13 @@
 import io
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from api_server import app
+from src.services.choice_explanations import build_choice_explanation_draft
 from src.services.lecture_studio import (
     MEDIA_ASSET_DIR,
     MEDIA_INDEX_PATH,
@@ -13,6 +16,11 @@ from src.services.lecture_studio import (
     archive_question_set,
     attach_visual_refs,
     visual_candidate_priority,
+)
+from src.services.rag_library import (
+    build_rag_index,
+    draft_anki_cards_from_evidence,
+    search_rag_evidence,
 )
 
 
@@ -120,6 +128,139 @@ class AxiomaStudioApiTests(unittest.TestCase):
         response = client.get("/api/question-sets?limit=5")
         self.assertEqual(response.status_code, 200)
         self.assertIn("sets", response.json())
+
+    def test_notebooklm_import_creates_review_set(self):
+        client = TestClient(app)
+        set_id = None
+        try:
+            response = client.post(
+                "/api/notebooklm/import",
+                json={
+                    "source_name": "NotebookLM 혈액종양 샘플",
+                    "subject": "혈액및종양학",
+                    "unit": "빈혈",
+                    "raw_text": json.dumps(
+                        {
+                            "questions": [
+                                {
+                                    "stem": "피로와 운동 시 호흡곤란을 호소하는 환자에서 철결핍빈혈을 시사하는 검사 소견은?",
+                                    "options": ["MCV 증가", "Ferritin 감소", "망상적혈구 증가", "LDH 증가", "직접 Coombs 양성"],
+                                    "answer": 2,
+                                    "explanation": "철결핍빈혈에서는 저장철 감소로 ferritin이 감소한다.",
+                                    "references": [
+                                        {"source": "강의록", "basis": "철결핍빈혈 검사 소견"}
+                                    ],
+                                    "labels": {"topic": "철결핍빈혈", "assessment_domain": "검사"},
+                                }
+                            ]
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            set_id = payload["set_id"]
+            self.assertEqual(payload["summary"]["question_count"], 1)
+            self.assertEqual(payload["summary"]["needs_review_count"], 1)
+            self.assertEqual(payload["metadata"]["provider"], "notebooklm")
+            self.assertEqual(payload["questions"][0]["generation_mode"], "notebooklm_import")
+        finally:
+            if set_id:
+                (QUESTION_BANK_DIR / f"{set_id}.question_set.json").unlink(missing_ok=True)
+                (REVIEW_SET_DIR / f"{set_id}.review_set.json").unlink(missing_ok=True)
+
+    def test_local_rag_search_returns_source_page_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source = temp_path / "heme_onc_summary.txt"
+            source.write_text(
+                "\n\n".join(
+                    [
+                        "Iron deficiency anemia shows low ferritin, increased TIBC, and microcytic anemia.",
+                        "Acute myeloid leukemia often presents with blasts, Auer rods, anemia, and thrombocytopenia.",
+                        "Febrile neutropenia after chemotherapy requires prompt broad-spectrum antibiotics.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            index_path = temp_path / "rag_index.json"
+            build_rag_index([source], course_id="hematology_oncology_test", output_path=index_path, chunk_size=220)
+
+            result = search_rag_evidence(
+                "AML blast",
+                course_id="hematology_oncology_test",
+                limit=2,
+                index_path=index_path,
+            )
+
+            self.assertGreaterEqual(result["result_count"], 1)
+            self.assertIn("source_name", result["results"][0])
+            self.assertIn("blast", result["results"][0]["snippet"].lower())
+            self.assertEqual(result["results"][0]["page_start"], 1)
+
+    def test_rag_anki_draft_keeps_cards_reviewable(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source = temp_path / "heme_onc_summary.txt"
+            source.write_text(
+                "Multiple myeloma is associated with CRAB findings, monoclonal protein, and lytic bone lesions.",
+                encoding="utf-8",
+            )
+            index_path = temp_path / "rag_index.json"
+            build_rag_index([source], course_id="hematology_oncology_test", output_path=index_path, chunk_size=240)
+
+            result = draft_anki_cards_from_evidence(
+                "multiple myeloma CRAB",
+                course_id="hematology_oncology_test",
+                limit=1,
+                index_path=index_path,
+            )
+
+            self.assertEqual(len(result["cards"]), 1)
+            self.assertTrue(result["cards"][0]["needs_review"])
+            self.assertIn("CRAB", result["cards"][0]["back"])
+            self.assertIn("{{c1::CRAB findings}}", result["cards"][0]["anki_text"])
+
+    def test_choice_explanation_draft_splits_marked_explanations(self):
+        question = {
+            "question_id": "choice-demo",
+            "stem": "다음 중 철결핍빈혈을 시사하는 소견은?",
+            "choices": {
+                "1": "MCV 증가",
+                "2": "Ferritin 감소",
+                "3": "LDH 증가",
+                "4": "직접 Coombs 양성",
+                "5": "호중구 감소",
+            },
+            "answer": "②",
+            "explanation": "② 저장철 감소로 ferritin이 감소한다. ① MCV는 대개 감소한다. ③ 용혈 소견과 더 관련된다.",
+        }
+
+        result = build_choice_explanation_draft(question)
+
+        self.assertEqual(result["answer"], "2")
+        self.assertTrue(result["choice_explanations"]["2"]["is_correct"])
+        self.assertEqual(result["choice_explanations"]["1"]["source"], "marked_explanation")
+        self.assertTrue(result["choice_explanations"]["4"]["needs_review"])
+
+    def test_choice_explanation_draft_api(self):
+        client = TestClient(app)
+        response = client.post(
+            "/api/questions/choice-explanations/draft",
+            json={
+                "question": {
+                    "choices": ["저철분", "저페리틴", "고칼슘", "고칼륨", "저나트륨"],
+                    "answer": 2,
+                    "explanation": "② ferritin 감소가 철결핍빈혈에 합당하다.",
+                }
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["answer"], "2")
+        self.assertIn("choice_explanations", payload)
 
     def test_question_set_detail_edit_and_approve_flow(self):
         client = TestClient(app)

@@ -27,6 +27,7 @@ import xml.etree.ElementTree as ET
 import importlib.util
 import hashlib
 import requests
+from collections import Counter
 
 # ============================================================================
 # 감사 로그 (append-only JSONL)
@@ -87,6 +88,23 @@ MODE_MCQ = "📝 객관식 문제 (Case Study)"
 MODE_CLOZE = "🧩 빈칸 뚫기 (Anki Cloze)"
 MODE_SHORT = "🧠 단답형 문제"
 MODE_ESSAY = "🧾 서술형 문제"
+
+REVIEW_STATUS_DRAFT = "draft"
+REVIEW_STATUS_FACULTY_REVIEW = "faculty_review"
+REVIEW_STATUS_APPROVED = "approved"
+REVIEW_STATUS_ASSIGNED = "assigned"
+FACULTY_REVIEW_STATUS_ORDER = [
+    REVIEW_STATUS_DRAFT,
+    REVIEW_STATUS_FACULTY_REVIEW,
+    REVIEW_STATUS_APPROVED,
+    REVIEW_STATUS_ASSIGNED,
+]
+FACULTY_REVIEW_STATUS_LABELS = {
+    REVIEW_STATUS_DRAFT: "초안",
+    REVIEW_STATUS_FACULTY_REVIEW: "검수 대기",
+    REVIEW_STATUS_APPROVED: "승인 완료",
+    REVIEW_STATUS_ASSIGNED: "학생 배포",
+}
 
 # ============================================================================
 # 초기 설정
@@ -599,6 +617,8 @@ if "user_data_cache" not in st.session_state:
     st.session_state["user_data_cache"] = {}
 if "home_visual_loaded" not in st.session_state:
     st.session_state.home_visual_loaded = False
+if "daily_dx_attempts" not in st.session_state:
+    st.session_state.daily_dx_attempts = {}
 
 def reset_runtime_state_for_auth_change():
     volatile_keys = [
@@ -619,6 +639,7 @@ def reset_runtime_state_for_auth_change():
         "fsrs_settings_initialized",
         "remote_bundle_cache",
         "user_data_cache",
+        "daily_dx_attempts",
     ]
     for key in volatile_keys:
         if key in st.session_state:
@@ -1083,6 +1104,247 @@ def persist_profile_settings(profile_name):
     }
     save_user_settings(data)
 
+def sanitize_meta_value(value, fallback=""):
+    text = str(value or "").strip()
+    return text or fallback
+
+def infer_question_type(item):
+    if not isinstance(item, dict):
+        return "mcq"
+    if item.get("type") == "cloze":
+        response_type = str(item.get("response_type") or "cloze").strip().lower()
+        return response_type if response_type in {"cloze", "short", "essay"} else "cloze"
+    return "mcq"
+
+def infer_generation_mode(style_text=None, source_type="lecture_material"):
+    source_name = str(source_type or "").strip().lower()
+    if source_name in {"past_exam", "written_exam", "practical_exam"}:
+        return "faculty_seed"
+    if style_text and len(str(style_text).strip()) >= 120:
+        return "past_style_low_shot"
+    return "high_yield"
+
+def default_source_scope_weights(generation_mode):
+    mode = str(generation_mode or "").strip().lower()
+    if mode == "past_style_low_shot":
+        return {"lecture": 0.65, "instructor": 0.1, "course": 0.15, "global": 0.1}
+    if mode == "blended_style":
+        return {"lecture": 0.35, "instructor": 0.3, "course": 0.25, "global": 0.1}
+    if mode == "faculty_seed":
+        return {"lecture": 0.5, "instructor": 0.1, "course": 0.25, "global": 0.15}
+    return {"lecture": 0.55, "instructor": 0.1, "course": 0.15, "global": 0.2}
+
+def normalize_source_scope_weights(weights=None, generation_mode="high_yield"):
+    default = default_source_scope_weights(generation_mode)
+    if not isinstance(weights, dict):
+        return default
+    out = {}
+    for key in ("lecture", "instructor", "course", "global"):
+        try:
+            out[key] = max(0.0, float(weights.get(key, default[key])))
+        except Exception:
+            out[key] = float(default[key])
+    total = sum(out.values())
+    if total <= 0:
+        return default
+    normalized = {}
+    for key, value in out.items():
+        normalized[key] = round(value / total, 2)
+    remainder = round(1.0 - sum(normalized.values()), 2)
+    normalized["lecture"] = round(normalized.get("lecture", 0.0) + remainder, 2)
+    return normalized
+
+def estimate_style_confidence(style_text=None, generation_mode="high_yield"):
+    mode = str(generation_mode or "").strip().lower()
+    text_len = len(str(style_text or "").strip())
+    if mode == "past_style_low_shot":
+        if text_len >= 1200:
+            return 0.82
+        if text_len >= 300:
+            return 0.74
+        return 0.66
+    if mode == "blended_style":
+        if text_len >= 300:
+            return 0.68
+        return 0.58
+    if mode == "faculty_seed":
+        return 0.72
+    return 0.46
+
+def infer_cognitive_level(item):
+    if not isinstance(item, dict):
+        return "L2 Interpretation"
+    text = " ".join(
+        [
+            item.get("problem") or item.get("front") or "",
+            item.get("explanation") or "",
+        ]
+    ).lower()
+    if item.get("type") == "cloze":
+        response_type = str(item.get("response_type") or "cloze").strip().lower()
+        if response_type == "essay":
+            return "L3 Clinical Reasoning"
+        if response_type == "short":
+            return "L2 Interpretation"
+        return "L1 Recall"
+    reasoning_keywords = [
+        "가장 적절한", "우선", "다음 단계", "치료", "진단", "검사", "소견", "증례",
+        "best", "most likely", "next step", "diagnosis", "management", "patient",
+    ]
+    if any(keyword in text for keyword in reasoning_keywords):
+        return "L3 Clinical Reasoning"
+    if len(text) >= 180:
+        return "L2 Interpretation"
+    return "L1 Recall"
+
+def extract_concept_tags(text, limit=5):
+    tokens = re.findall(r"[A-Za-z][A-Za-z-]{2,}|[가-힣]{2,}", str(text or "").lower())
+    stopwords = {
+        "문항", "문제", "정답", "해설", "대한", "다음", "설명", "가장", "적절한", "경우", "환자",
+        "에서", "이다", "있는", "하며", "통해", "which", "what", "when", "with", "without",
+        "from", "this", "that", "these", "those", "patient", "most", "likely", "best",
+        "next", "step", "following", "management", "diagnosis",
+    }
+    counts = Counter()
+    for token in tokens:
+        if token in stopwords or len(token) < 2:
+            continue
+        counts[token] += 1
+    return [token for token, _ in counts.most_common(limit)]
+
+def normalize_question_metadata(item, defaults=None):
+    defaults = defaults or {}
+    if not isinstance(item, dict):
+        return item
+
+    normalized = dict(item)
+    subject = sanitize_meta_value(normalized.get("subject") or defaults.get("subject"), "General")
+    unit = sanitize_meta_value(normalized.get("unit") or defaults.get("unit"), "미분류")
+    question_type = infer_question_type(normalized)
+    generation_mode = sanitize_meta_value(
+        normalized.get("generation_mode") or defaults.get("generation_mode"),
+        infer_generation_mode(defaults.get("style_text"), defaults.get("source_type")),
+    )
+    source_type = sanitize_meta_value(normalized.get("source_type") or defaults.get("source_type"), "lecture_material")
+    style_confidence = normalized.get("style_confidence")
+    try:
+        style_confidence = float(style_confidence)
+    except Exception:
+        style_confidence = estimate_style_confidence(defaults.get("style_text"), generation_mode)
+    style_confidence = min(max(style_confidence, 0.0), 1.0)
+
+    image_refs = normalized.get("image_refs")
+    if not isinstance(image_refs, list):
+        image_refs = list(normalized.get("images") or [])
+    image_match_confidence = normalized.get("image_match_confidence")
+    try:
+        image_match_confidence = float(image_match_confidence)
+    except Exception:
+        if image_refs:
+            image_match_confidence = float(defaults.get("image_match_confidence", 0.62))
+        else:
+            image_match_confidence = 0.0
+    image_match_confidence = min(max(image_match_confidence, 0.0), 1.0)
+
+    review_status = sanitize_meta_value(normalized.get("review_status") or defaults.get("review_status"), REVIEW_STATUS_DRAFT)
+    if review_status not in FACULTY_REVIEW_STATUS_ORDER:
+        review_status = REVIEW_STATUS_DRAFT
+    concept_tags = normalized.get("concept_tags")
+    if not isinstance(concept_tags, list) or not concept_tags:
+        concept_tags = extract_concept_tags(
+            " ".join(
+                [
+                    normalized.get("problem") or normalized.get("front") or "",
+                    normalized.get("explanation") or "",
+                    normalized.get("faculty_note") or "",
+                ]
+            ),
+            limit=5,
+        )
+
+    normalized["subject"] = subject
+    normalized["unit"] = unit
+    normalized["course_id"] = sanitize_meta_value(normalized.get("course_id") or defaults.get("course_id"), subject)
+    normalized["lecture_id"] = sanitize_meta_value(
+        normalized.get("lecture_id") or defaults.get("lecture_id"),
+        f"{normalized['course_id']}::{unit}",
+    )
+    normalized["unit_id"] = sanitize_meta_value(normalized.get("unit_id") or defaults.get("unit_id"), unit)
+    normalized["instructor_id"] = sanitize_meta_value(normalized.get("instructor_id") or defaults.get("instructor_id"))
+    normalized["source_type"] = source_type
+    normalized["source_name"] = sanitize_meta_value(normalized.get("source_name") or defaults.get("source_name"))
+    normalized["generation_mode"] = generation_mode
+    normalized["question_type"] = question_type
+    normalized["cognitive_level"] = sanitize_meta_value(
+        normalized.get("cognitive_level") or defaults.get("cognitive_level"),
+        infer_cognitive_level(normalized),
+    )
+    normalized["difficulty"] = sanitize_meta_value(normalized.get("difficulty"), normalized.get("difficulty") or "")
+    normalized["style_confidence"] = round(style_confidence, 2)
+    normalized["source_scope_weights"] = normalize_source_scope_weights(
+        normalized.get("source_scope_weights") or defaults.get("source_scope_weights"),
+        generation_mode=generation_mode,
+    )
+    normalized["review_status"] = review_status
+    normalized["image_refs"] = image_refs
+    normalized["image_match_confidence"] = round(image_match_confidence, 2)
+    normalized["faculty_note"] = sanitize_meta_value(normalized.get("faculty_note") or defaults.get("faculty_note"))
+    normalized["assignment_id"] = sanitize_meta_value(normalized.get("assignment_id") or defaults.get("assignment_id"))
+    normalized["assignment_title"] = sanitize_meta_value(normalized.get("assignment_title") or defaults.get("assignment_title"))
+    normalized["assignment_mode"] = sanitize_meta_value(normalized.get("assignment_mode") or defaults.get("assignment_mode"))
+    normalized["assignment_audience"] = sanitize_meta_value(
+        normalized.get("assignment_audience") or defaults.get("assignment_audience")
+    )
+    normalized["assignment_start_at"] = sanitize_meta_value(
+        normalized.get("assignment_start_at") or defaults.get("assignment_start_at")
+    )
+    normalized["assignment_due_at"] = sanitize_meta_value(
+        normalized.get("assignment_due_at") or defaults.get("assignment_due_at")
+    )
+    normalized["concept_tags"] = concept_tags
+
+    if "review_history" not in normalized or not isinstance(normalized.get("review_history"), list):
+        normalized["review_history"] = []
+
+    if "review_completed_at" not in normalized:
+        normalized["review_completed_at"] = ""
+    if review_status in {REVIEW_STATUS_APPROVED, REVIEW_STATUS_ASSIGNED} and not normalized.get("review_completed_at"):
+        normalized["review_completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    explicit_needs_review = normalized.get("needs_review")
+    if isinstance(explicit_needs_review, bool):
+        normalized["needs_review"] = explicit_needs_review
+    else:
+        normalized["needs_review"] = bool(
+            review_status in {REVIEW_STATUS_DRAFT, REVIEW_STATUS_FACULTY_REVIEW}
+            or style_confidence < 0.65
+            or (image_refs and image_match_confidence < 0.75)
+        )
+    return normalized
+
+def ensure_question_metadata(data: dict) -> dict:
+    updated = False
+    for bucket in ("text", "cloze"):
+        rows = data.get(bucket, [])
+        if not isinstance(rows, list):
+            continue
+        for idx, item in enumerate(rows):
+            if not isinstance(item, dict):
+                continue
+            normalized = normalize_question_metadata(
+                item,
+                defaults={
+                    "subject": item.get("subject") or "General",
+                    "unit": item.get("unit") or "미분류",
+                },
+            )
+            if normalized != item:
+                rows[idx] = normalized
+                updated = True
+    if updated:
+        save_questions(data)
+    return data
+
 def ensure_question_ids(data: dict) -> dict:
     """모든 문항에 고유 ID 부여"""
     updated = False
@@ -1092,9 +1354,278 @@ def ensure_question_ids(data: dict) -> dict:
             updated = True
     if updated:
         save_questions(data)
-    return data
+    return ensure_question_metadata(data)
 
-def add_questions_to_bank(questions_data, mode, subject="General", unit="미분류", quality_filter=True, min_length=20, batch_id=None):
+def update_questions_metadata(question_ids, patch, actor="faculty"):
+    ids = {str(qid) for qid in (question_ids or []) if str(qid).strip()}
+    if not ids or not isinstance(patch, dict):
+        return 0
+    bank = load_questions()
+    changed = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for bucket in ("text", "cloze"):
+        for idx, item in enumerate(bank.get(bucket, [])):
+            if not isinstance(item, dict) or str(item.get("id")) not in ids:
+                continue
+            before_status = item.get("review_status")
+            updated = dict(item)
+            for key, value in patch.items():
+                updated[key] = value
+            if patch.get("review_status") and patch.get("review_status") != before_status:
+                history = list(updated.get("review_history") or [])
+                history.append(
+                    {
+                        "from": before_status or "",
+                        "to": patch.get("review_status"),
+                        "at": now_iso,
+                        "actor": actor,
+                    }
+                )
+                updated["review_history"] = history[-30:]
+                if patch.get("review_status") in {REVIEW_STATUS_APPROVED, REVIEW_STATUS_ASSIGNED}:
+                    updated["review_completed_at"] = now_iso
+                if patch.get("review_status") == REVIEW_STATUS_ASSIGNED:
+                    updated["assigned_at"] = now_iso
+            normalized = normalize_question_metadata(updated, defaults={})
+            bank[bucket][idx] = normalized
+            changed += 1
+    if changed:
+        save_questions(bank)
+    return changed
+
+def get_distribution_ready_questions(questions):
+    ready = []
+    for item in questions or []:
+        status = str(item.get("review_status") or "").strip()
+        assignment_id = str(item.get("assignment_id") or "").strip()
+        if status == REVIEW_STATUS_ASSIGNED or (status == REVIEW_STATUS_APPROVED and assignment_id):
+            ready.append(item)
+    return ready
+
+def collect_faculty_batch_overview(questions):
+    grouped = {}
+    for item in questions or []:
+        if not isinstance(item, dict):
+            continue
+        batch_id = str(item.get("batch_id") or "legacy")
+        row = grouped.setdefault(
+            batch_id,
+            {
+                "batch_id": batch_id,
+                "question_ids": [],
+                "question_count": 0,
+                "source_type": item.get("source_type") or "",
+                "source_name": item.get("source_name") or "",
+                "generation_mode": item.get("generation_mode") or "",
+                "subjects": set(),
+                "units": set(),
+                "courses": set(),
+                "lectures": set(),
+                "status_counts": Counter(),
+                "needs_review_count": 0,
+                "image_question_count": 0,
+                "avg_style_confidence": [],
+                "created_at": item.get("date_added") or "",
+            },
+        )
+        row["question_ids"].append(item.get("id"))
+        row["question_count"] += 1
+        row["subjects"].add(item.get("subject") or "General")
+        row["units"].add(get_unit_name(item))
+        row["courses"].add(item.get("course_id") or item.get("subject") or "General")
+        row["lectures"].add(item.get("lecture_id") or f"{item.get('subject') or 'General'}::{get_unit_name(item)}")
+        row["status_counts"][item.get("review_status") or REVIEW_STATUS_DRAFT] += 1
+        row["needs_review_count"] += 1 if item.get("needs_review") else 0
+        row["image_question_count"] += 1 if item.get("image_refs") or item.get("images") else 0
+        try:
+            row["avg_style_confidence"].append(float(item.get("style_confidence") or 0))
+        except Exception:
+            pass
+        created_at = item.get("date_added") or ""
+        if created_at and (not row["created_at"] or created_at > row["created_at"]):
+            row["created_at"] = created_at
+    out = []
+    for row in grouped.values():
+        avg_conf = sum(row["avg_style_confidence"]) / len(row["avg_style_confidence"]) if row["avg_style_confidence"] else 0.0
+        out.append(
+            {
+                "batch_id": row["batch_id"],
+                "question_ids": row["question_ids"],
+                "question_count": row["question_count"],
+                "source_type": row["source_type"],
+                "source_name": row["source_name"],
+                "generation_mode": row["generation_mode"],
+                "subjects": sorted(row["subjects"]),
+                "units": sorted(row["units"]),
+                "courses": sorted(row["courses"]),
+                "lectures": sorted(row["lectures"]),
+                "needs_review_count": row["needs_review_count"],
+                "image_question_count": row["image_question_count"],
+                "avg_style_confidence": round(avg_conf, 2),
+                "status_counts": dict(row["status_counts"]),
+                "created_at": row["created_at"],
+            }
+        )
+    return sorted(out, key=lambda x: str(x.get("created_at") or ""), reverse=True)
+
+def collect_assignment_overview(questions):
+    grouped = {}
+    for item in questions or []:
+        assignment_id = str(item.get("assignment_id") or "").strip()
+        if not assignment_id:
+            continue
+        row = grouped.setdefault(
+            assignment_id,
+            {
+                "assignment_id": assignment_id,
+                "assignment_title": item.get("assignment_title") or assignment_id,
+                "assignment_mode": item.get("assignment_mode") or "학습모드",
+                "assignment_audience": item.get("assignment_audience") or "",
+                "assignment_start_at": item.get("assignment_start_at") or "",
+                "assignment_due_at": item.get("assignment_due_at") or "",
+                "question_ids": [],
+                "subjects": set(),
+                "units": set(),
+                "courses": set(),
+            },
+        )
+        row["question_ids"].append(item.get("id"))
+        row["subjects"].add(item.get("subject") or "General")
+        row["units"].add(get_unit_name(item))
+        row["courses"].add(item.get("course_id") or item.get("subject") or "General")
+    out = []
+    for row in grouped.values():
+        out.append(
+            {
+                **row,
+                "question_count": len(row["question_ids"]),
+                "subjects": sorted(row["subjects"]),
+                "units": sorted(row["units"]),
+                "courses": sorted(row["courses"]),
+            }
+        )
+    return sorted(out, key=lambda x: str(x.get("assignment_start_at") or ""), reverse=True)
+
+def get_related_internal_knowledge(question, questions, limit=3):
+    if not isinstance(question, dict):
+        return []
+    tags = set(question.get("concept_tags") or extract_concept_tags(question.get("problem") or question.get("front") or "", limit=5))
+    subject = question.get("subject") or "General"
+    unit = get_unit_name(question)
+    candidates = []
+    for item in questions or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("id") == question.get("id"):
+            continue
+        if str(item.get("review_status") or "") not in {REVIEW_STATUS_APPROVED, REVIEW_STATUS_ASSIGNED}:
+            continue
+        score = 0
+        if (item.get("subject") or "General") == subject:
+            score += 2
+        if get_unit_name(item) == unit:
+            score += 2
+        overlap = tags & set(item.get("concept_tags") or [])
+        score += len(overlap) * 3
+        if score <= 0:
+            continue
+        summary = (
+            item.get("faculty_note")
+            or item.get("explanation")
+            or item.get("note")
+            or item.get("problem")
+            or item.get("front")
+            or ""
+        )
+        candidates.append(
+            {
+                "score": score,
+                "title": (item.get("problem") or item.get("front") or "")[:120],
+                "summary": summary[:240],
+                "subject": item.get("subject") or "General",
+                "unit": get_unit_name(item),
+                "concept_tags": item.get("concept_tags") or [],
+            }
+        )
+    return sorted(candidates, key=lambda x: (-x["score"], x["title"]))[:limit]
+
+def build_faculty_report_rows(questions, exam_history):
+    q_by_id = {str(item.get("id")): item for item in questions or [] if isinstance(item, dict) and item.get("id")}
+    unit_stats = {}
+    concept_counter = Counter()
+    for session in exam_history or []:
+        items = session.get("items") or []
+        for item in items:
+            q = q_by_id.get(str(item.get("id") or "")) or item
+            subject = q.get("subject") or item.get("subject") or "General"
+            unit = q.get("unit") or item.get("unit") or "미분류"
+            key = (subject, unit)
+            row = unit_stats.setdefault(key, {"분과": subject, "단원": unit, "응시": 0, "정답": 0})
+            row["응시"] += 1
+            if item.get("is_correct"):
+                row["정답"] += 1
+            if not item.get("is_correct"):
+                tags = q.get("concept_tags") or extract_concept_tags(
+                    " ".join(
+                        [
+                            q.get("problem") or q.get("front") or "",
+                            q.get("faculty_note") or "",
+                            q.get("explanation") or "",
+                        ]
+                    ),
+                    limit=4,
+                )
+                for tag in tags[:3]:
+                    concept_counter[tag] += 1
+
+    unit_rows = []
+    for row in unit_stats.values():
+        attempted = row["응시"]
+        correct = row["정답"]
+        row["정답률"] = round((correct / attempted) * 100, 1) if attempted else 0.0
+        unit_rows.append(row)
+    unit_rows.sort(key=lambda x: (x["정답률"], -x["응시"]))
+
+    review_rows = []
+    for batch in collect_faculty_batch_overview(questions):
+        approved = batch["status_counts"].get(REVIEW_STATUS_APPROVED, 0) + batch["status_counts"].get(REVIEW_STATUS_ASSIGNED, 0)
+        adoption = round((approved / batch["question_count"]) * 100, 1) if batch["question_count"] else 0.0
+        review_rows.append(
+            {
+                "배치": batch["batch_id"],
+                "문항수": batch["question_count"],
+                "채택률": adoption,
+                "검수필요": batch["needs_review_count"],
+                "생성모드": batch["generation_mode"] or "n/a",
+                "출처": batch["source_type"] or "n/a",
+            }
+        )
+
+    turnaround_hours = []
+    for item in questions or []:
+        added_at = parse_iso_datetime(item.get("date_added"))
+        reviewed_at = parse_iso_datetime(item.get("review_completed_at"))
+        if added_at and reviewed_at and reviewed_at >= added_at:
+            turnaround_hours.append((reviewed_at - added_at).total_seconds() / 3600.0)
+    turnaround = round(sum(turnaround_hours) / len(turnaround_hours), 1) if turnaround_hours else 0.0
+    concept_rows = [{"개념": tag, "오답집중": count} for tag, count in concept_counter.most_common(10)]
+    return {
+        "unit_rows": unit_rows,
+        "batch_rows": review_rows,
+        "concept_rows": concept_rows,
+        "review_turnaround_hours": turnaround,
+    }
+
+def add_questions_to_bank(
+    questions_data,
+    mode,
+    subject="General",
+    unit="미분류",
+    quality_filter=True,
+    min_length=20,
+    batch_id=None,
+    metadata_defaults=None,
+):
     """생성된 문제를 question bank에 추가 (구조화된 JSON 형식)
     
     Args:
@@ -1117,6 +1648,7 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
     else:
         parsed_questions = questions_data if isinstance(questions_data, list) else [questions_data]
     
+    metadata_defaults = metadata_defaults or {}
     added_count = 0
     if not batch_id:
         batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
@@ -1143,6 +1675,14 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
         if "id" not in q_data:
             q_data["id"] = str(uuid.uuid4())
         q_data["batch_id"] = q_data.get("batch_id") or batch_id
+        q_data = normalize_question_metadata(
+            q_data,
+            defaults={
+                **metadata_defaults,
+                "subject": q_data["subject"],
+                "unit": q_data["unit"],
+            },
+        )
         
         if mode == MODE_MCQ:
             bank["text"].append(q_data)
@@ -1154,7 +1694,15 @@ def add_questions_to_bank(questions_data, mode, subject="General", unit="미분�
     save_questions(bank)
     return added_count
 
-def add_questions_to_bank_auto(items, subject="General", unit="미분류", quality_filter=True, min_length=20, batch_id=None):
+def add_questions_to_bank_auto(
+    items,
+    subject="General",
+    unit="미분류",
+    quality_filter=True,
+    min_length=20,
+    batch_id=None,
+    metadata_defaults=None,
+):
     """MCQ/Cloze 혼합 입력 자동 분류 후 저장"""
     if not batch_id:
         batch_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
@@ -1172,9 +1720,27 @@ def add_questions_to_bank_auto(items, subject="General", unit="미분류", quali
             mcq_items.append(item)
     added = 0
     if mcq_items:
-        added += add_questions_to_bank(mcq_items, MODE_MCQ, subject, unit, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(
+            mcq_items,
+            MODE_MCQ,
+            subject,
+            unit,
+            quality_filter,
+            min_length,
+            batch_id=batch_id,
+            metadata_defaults=metadata_defaults,
+        )
     if cloze_items:
-        added += add_questions_to_bank(cloze_items, MODE_CLOZE, subject, unit, quality_filter, min_length, batch_id=batch_id)
+        added += add_questions_to_bank(
+            cloze_items,
+            MODE_CLOZE,
+            subject,
+            unit,
+            quality_filter,
+            min_length,
+            batch_id=batch_id,
+            metadata_defaults=metadata_defaults,
+        )
     return added
 
 
@@ -1435,6 +2001,20 @@ def parse_mcq_content(q_data: dict) -> dict:
         "fsrs": q_data.get("fsrs"),
         "note": q_data.get("note", ""),
         "images": q_data.get("images", []),
+        "course_id": q_data.get("course_id"),
+        "lecture_id": q_data.get("lecture_id"),
+        "unit_id": q_data.get("unit_id"),
+        "source_type": q_data.get("source_type"),
+        "generation_mode": q_data.get("generation_mode"),
+        "question_type": q_data.get("question_type"),
+        "cognitive_level": q_data.get("cognitive_level"),
+        "style_confidence": q_data.get("style_confidence"),
+        "source_scope_weights": q_data.get("source_scope_weights"),
+        "review_status": q_data.get("review_status"),
+        "faculty_note": q_data.get("faculty_note", ""),
+        "assignment_id": q_data.get("assignment_id"),
+        "assignment_title": q_data.get("assignment_title"),
+        "concept_tags": q_data.get("concept_tags", []),
     }
 
 def sanitize_mcq_problem_text(problem_text):
@@ -1477,6 +2057,20 @@ def parse_cloze_content(q_data: dict) -> dict:
         "fsrs": q_data.get("fsrs"),
         "note": q_data.get("note", ""),
         "images": q_data.get("images", []),
+        "course_id": q_data.get("course_id"),
+        "lecture_id": q_data.get("lecture_id"),
+        "unit_id": q_data.get("unit_id"),
+        "source_type": q_data.get("source_type"),
+        "generation_mode": q_data.get("generation_mode"),
+        "question_type": q_data.get("question_type"),
+        "cognitive_level": q_data.get("cognitive_level"),
+        "style_confidence": q_data.get("style_confidence"),
+        "source_scope_weights": q_data.get("source_scope_weights"),
+        "review_status": q_data.get("review_status"),
+        "faculty_note": q_data.get("faculty_note", ""),
+        "assignment_id": q_data.get("assignment_id"),
+        "assignment_title": q_data.get("assignment_title"),
+        "concept_tags": q_data.get("concept_tags", []),
     }
 
 def get_question_stats():
@@ -1578,6 +2172,96 @@ def is_answer_correct(q, user_ans):
         return bool(isinstance(ai_grade, dict) and ai_grade.get("is_correct") is True)
     correct_text = q.get("answer")
     return bool(correct_text and isinstance(user_ans, str) and fuzzy_match(user_ans, correct_text))
+
+def normalize_daily_dx_text(value):
+    return re.sub(r"[^a-z0-9가-힣]", "", str(value or "").lower())
+
+def get_daily_dx_answer_text(question):
+    if not isinstance(question, dict):
+        return ""
+    if question.get("type") == "cloze":
+        return str(question.get("answer") or "").strip()
+    options = question.get("options") or []
+    try:
+        answer_idx = int(question.get("answer") or 0) - 1
+    except Exception:
+        answer_idx = -1
+    if 0 <= answer_idx < len(options):
+        return str(options[answer_idx] or "").strip()
+    return str(question.get("answer") or "").strip()
+
+def score_daily_dx_candidate(question):
+    if not isinstance(question, dict):
+        return -1
+    stem = str(question.get("problem") or question.get("front") or "")
+    answer_text = get_daily_dx_answer_text(question)
+    if len(stem.strip()) < 30 or not answer_text:
+        return -1
+    text = " ".join([stem, str(question.get("explanation") or ""), str(question.get("faculty_note") or "")]).lower()
+    score = 0
+    if question.get("review_status") in {REVIEW_STATUS_ASSIGNED, REVIEW_STATUS_APPROVED}:
+        score += 8
+    if question.get("assignment_id"):
+        score += 4
+    if question.get("type") == "mcq":
+        score += 5
+    if str(question.get("cognitive_level") or "").lower().find("clinical") >= 0:
+        score += 4
+    if str(question.get("question_type") or "").lower() in {"diagnosis", "diagnostic"}:
+        score += 4
+    case_keywords = [
+        "환자", "내원", "주소", "증상", "소견", "검사", "진단", "치료", "남자", "여자",
+        "present", "patient", "diagnosis", "symptom", "physical", "finding", "management",
+    ]
+    score += min(8, sum(1 for keyword in case_keywords if keyword in text))
+    if question.get("concept_tags"):
+        score += 1
+    return score
+
+def select_daily_dx_question(questions, today_key=None, user_key="guest"):
+    candidates = []
+    for question in questions or []:
+        score = score_daily_dx_candidate(question)
+        if score < 0:
+            continue
+        candidates.append((score, str(question.get("id") or ""), question))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (-row[0], row[1]))
+    pool = candidates[: min(len(candidates), 30)]
+    seed_text = f"{today_key or datetime.now().date().isoformat()}::{user_key or 'guest'}"
+    digest = hashlib.sha256(seed_text.encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(pool)
+    return pool[idx][2]
+
+def grade_daily_dx_guess(user_guess, answer_text):
+    guess_norm = normalize_daily_dx_text(user_guess)
+    answer_norm = normalize_daily_dx_text(answer_text)
+    if not guess_norm or not answer_norm:
+        return False
+    if guess_norm == answer_norm:
+        return True
+    if len(guess_norm) >= 3 and (guess_norm in answer_norm or answer_norm in guess_norm):
+        return True
+    return SequenceMatcher(None, guess_norm, answer_norm).ratio() >= 0.72
+
+def build_daily_dx_share_text(question, is_correct, attempts=1, today_key=None):
+    subject = question.get("subject") or "General"
+    unit = question.get("unit") or "미분류"
+    result = "정답" if is_correct else "복습 필요"
+    return "\n".join(
+        [
+            f"Axioma Daily Dx - {today_key or datetime.now().date().isoformat()}",
+            f"{subject} / {unit}",
+            f"결과: {result} ({int(attempts or 1)}회 시도)",
+            "정답은 가리고 공유해보세요.",
+        ]
+    )
+
+def build_daily_dx_anki_tag(question):
+    subject = re.sub(r"\s+", "_", str(question.get("subject") or "General").strip())
+    unit = re.sub(r"\s+", "_", str(question.get("unit") or "미분류").strip())
+    return f"Axioma::DailyDx::{subject}::{unit}"
 
 def parse_iso_datetime(value):
     if not value:
@@ -1688,11 +2372,33 @@ def update_question_by_id(q_id, patch):
     for key in ("text", "cloze"):
         for item in bank.get(key, []):
             if item.get("id") == q_id:
+                before_status = item.get("review_status")
                 allowed = {
                     "subject", "unit", "problem", "options", "answer", "front",
-                    "explanation", "difficulty", "note", "image"
+                    "explanation", "difficulty", "note", "image", "faculty_note",
+                    "review_status", "needs_review", "course_id", "lecture_id", "unit_id",
+                    "instructor_id", "source_type", "source_name", "generation_mode",
+                    "question_type", "cognitive_level", "style_confidence",
+                    "source_scope_weights", "image_refs", "image_match_confidence",
+                    "assignment_id", "assignment_title", "assignment_mode",
+                    "assignment_audience", "assignment_start_at", "assignment_due_at",
+                    "concept_tags",
                 }
                 item.update({k: v for k, v in patch.items() if k in allowed})
+                if patch.get("review_status") and patch.get("review_status") != before_status:
+                    history = list(item.get("review_history") or [])
+                    history.append(
+                        {
+                            "from": before_status or "",
+                            "to": patch.get("review_status"),
+                            "at": datetime.now(timezone.utc).isoformat(),
+                            "actor": "faculty_single",
+                        }
+                    )
+                    item["review_history"] = history[-30:]
+                normalized = normalize_question_metadata(item, defaults={})
+                item.clear()
+                item.update(normalized)
                 save_questions(bank)
                 return True
     return False
@@ -2056,6 +2762,9 @@ def start_exam_session_from_items(raw_items, exam_type, mode):
         "type": exam_type,
         "subjects": sorted({(q.get("subject") or "General") for q in raw_items}),
         "units": sorted({get_unit_name(q) for q in raw_items}),
+        "courses": sorted({(q.get("course_id") or q.get("subject") or "General") for q in raw_items}),
+        "lectures": sorted({(q.get("lecture_id") or f"{q.get('subject') or 'General'}::{get_unit_name(q)}") for q in raw_items}),
+        "assignment_ids": sorted({str(q.get("assignment_id") or "") for q in raw_items if str(q.get("assignment_id") or "").strip()}),
         "num_questions": len(parsed),
         "started_at": datetime.now(timezone.utc).isoformat()
     }
@@ -2073,6 +2782,18 @@ def normalize_mcq_item(item):
             parsed["difficulty"] = item.get("difficulty")
             parsed["id"] = item.get("id")
             parsed["fsrs"] = item.get("fsrs")
+            parsed["faculty_note"] = item.get("faculty_note", "")
+            parsed["review_status"] = item.get("review_status")
+            parsed["course_id"] = item.get("course_id")
+            parsed["lecture_id"] = item.get("lecture_id")
+            parsed["unit_id"] = item.get("unit_id")
+            parsed["generation_mode"] = item.get("generation_mode")
+            parsed["cognitive_level"] = item.get("cognitive_level")
+            parsed["style_confidence"] = item.get("style_confidence")
+            parsed["source_scope_weights"] = item.get("source_scope_weights")
+            parsed["assignment_id"] = item.get("assignment_id")
+            parsed["assignment_title"] = item.get("assignment_title")
+            parsed["concept_tags"] = item.get("concept_tags", [])
             return parsed
     problem = (item.get("problem") or "").strip()
     options = item.get("options") or []
@@ -2085,12 +2806,18 @@ def normalize_mcq_item(item):
     while len(options) < 5:
         options.append(f"보기 {len(options) + 1}")
     options = options[:5]
+    invalid_answer = False
     try:
         answer_num = int(answer)
     except Exception:
+        invalid_answer = True
         answer_num = 1
     if answer_num < 1 or answer_num > 5:
+        invalid_answer = True
         answer_num = 1
+    needs_review = item.get("needs_review")
+    if invalid_answer:
+        needs_review = True
     return {
         "type": "mcq",
         "problem": problem,
@@ -2102,6 +2829,22 @@ def normalize_mcq_item(item):
         "difficulty": item.get("difficulty"),
         "id": item.get("id"),
         "fsrs": item.get("fsrs"),
+        "faculty_note": item.get("faculty_note", ""),
+        "review_status": item.get("review_status"),
+        "course_id": item.get("course_id"),
+        "lecture_id": item.get("lecture_id"),
+        "unit_id": item.get("unit_id"),
+        "generation_mode": item.get("generation_mode"),
+        "cognitive_level": item.get("cognitive_level"),
+        "style_confidence": item.get("style_confidence"),
+        "source_scope_weights": item.get("source_scope_weights"),
+        "assignment_id": item.get("assignment_id"),
+        "assignment_title": item.get("assignment_title"),
+        "concept_tags": item.get("concept_tags", []),
+        "pma_solution": item.get("pma_solution", {}),
+        "evidence_refs": item.get("evidence_refs", []),
+        "evidence_tier": item.get("evidence_tier", ""),
+        "needs_review": needs_review,
     }
 
 def normalize_cloze_item(item):
@@ -2126,6 +2869,18 @@ def normalize_cloze_item(item):
                     "difficulty": item.get("difficulty"),
                     "id": item.get("id"),
                     "fsrs": item.get("fsrs"),
+                    "faculty_note": item.get("faculty_note", ""),
+                    "review_status": item.get("review_status"),
+                    "course_id": item.get("course_id"),
+                    "lecture_id": item.get("lecture_id"),
+                    "unit_id": item.get("unit_id"),
+                    "generation_mode": item.get("generation_mode"),
+                    "cognitive_level": item.get("cognitive_level"),
+                    "style_confidence": item.get("style_confidence"),
+                    "source_scope_weights": item.get("source_scope_weights"),
+                    "assignment_id": item.get("assignment_id"),
+                    "assignment_title": item.get("assignment_title"),
+                    "concept_tags": item.get("concept_tags", []),
                 }
         return None
     front = (item.get("front") or "").strip()
@@ -2147,6 +2902,18 @@ def normalize_cloze_item(item):
         "difficulty": item.get("difficulty"),
         "id": item.get("id"),
         "fsrs": item.get("fsrs"),
+        "faculty_note": item.get("faculty_note", ""),
+        "review_status": item.get("review_status"),
+        "course_id": item.get("course_id"),
+        "lecture_id": item.get("lecture_id"),
+        "unit_id": item.get("unit_id"),
+        "generation_mode": item.get("generation_mode"),
+        "cognitive_level": item.get("cognitive_level"),
+        "style_confidence": item.get("style_confidence"),
+        "source_scope_weights": item.get("source_scope_weights"),
+        "assignment_id": item.get("assignment_id"),
+        "assignment_title": item.get("assignment_title"),
+        "concept_tags": item.get("concept_tags", []),
     }
 
 def format_explanation_text(text):
@@ -4385,6 +5152,8 @@ def extract_text_from_file(uploaded_file, **kwargs):
         return extract_text_from_pptx(uploaded_file)
     elif file_ext == ".hwp":
         return extract_text_from_hwp(uploaded_file)
+    elif file_ext in [".txt", ".md"]:
+        return uploaded_file.read().decode("utf-8", errors="ignore")
     else:
         raise ValueError(f"지원하지 않는 파일 형식: {file_ext}")
 
@@ -4455,11 +5224,13 @@ PROMPT_MCQ = """
 당신은 의과대학 교수입니다. 강의록을 분석하여 '임상 증례형 객관식 문제(5지 선다)'를 5문제 출제하세요.
 
 [출제 지침]
-1. 단순 암기보다 증상, 검사 소견을 보고 진단/치료를 고르는 문제 위주.
+1. 단순 암기보다 증상, 검사 소견을 보고 진단/치료를 고르는 PMA/임상의학종합평가 스타일 문제 위주.
 2. 각 문제마다 명확한 증례 제시.
 3. 선지는 정확히 5개만 작성할 것.
-4. 해설에 정답 이유와 오답 이유를 명확히 설명할 것.
+4. 해설은 "풀이 -> 정답 -> 오답 포인트 -> 출제 포인트" 흐름으로 작성할 것.
 5. 정확히 JSON 형식으로만 출력할 것.
+6. 강의록 근거가 약하거나 최신 진료지침 확인이 필요한 문항은 needs_review=true로 표시할 것.
+7. AMBOSS, UpToDate, NEJM 등 유료/저작권 자료는 무단 원문 복사하지 말고, 사용자가 제공한 승인 자료가 있을 때만 근거 요약으로 활용할 것.
 
 [필수 출력 형식 - JSON 배열]
 [
@@ -4467,7 +5238,20 @@ PROMPT_MCQ = """
     "problem": "[문제] 임상 증례... 증상 + 검사 소견 + 진단 질문",
     "options": ["선지 1", "선지 2", "선지 3", "선지 4", "선지 5"],
     "answer": 1,
-    "explanation": "정답(①) 이유: ... | ②번 오답 이유: ... | ③번 오답 이유: ... | ④번 오답 이유: ... | ⑤번 오답 이유: ..."
+    "explanation": "풀이: ...\n정답: ① ...\n오답 포인트: ② ... ③ ... ④ ... ⑤ ...\n출제 포인트: ...",
+    "pma_solution": {
+      "reasoning_summary": "핵심 풀이 흐름",
+      "correct_reason": "정답 근거",
+      "choice_explanations": {"1": "1번 해설", "2": "2번 해설", "3": "3번 해설", "4": "4번 해설", "5": "5번 해설"},
+      "high_yield_point": "반드시 기억할 포인트",
+      "trap": "오답 유도 함정",
+      "source_anchor": "강의록 근거 요약"
+    },
+    "evidence_refs": [
+      {"source": "강의록 또는 승인 근거자료명", "basis": "근거 요약", "source_type": "lecture"}
+    ],
+    "evidence_tier": "lecture_only",
+    "needs_review": true
   },
   {
     "problem": "[문제] 다른 증례...",
@@ -4481,6 +5265,7 @@ PROMPT_MCQ = """
 - 반드시 유효한 JSON 배열만 출력
 - answer는 1~5 숫자 (1 = ①, 2 = ②, 3 = ③, 4 = ④, 5 = ⑤)
 - 각 문제는 독립적이어야 함
+- evidence_tier는 lecture_only, lecture_plus_guideline, lecture_plus_journal, lecture_plus_textbook, lecture_plus_database, lecture_plus_mixed, needs_external_review 중 하나
 """
 
 
@@ -4586,7 +5371,21 @@ def build_style_instructions(style_text):
 {term_rule}
 """
 
-def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None, style_text=None):
+def build_evidence_instructions(evidence_text):
+    if not evidence_text:
+        return ""
+    excerpt = str(evidence_text or "")[:12000]
+    return f"""
+[승인 근거자료 참고]
+아래 자료는 사용자가 직접 제공한 승인/라이선스 자료입니다.
+강의록을 1차 근거로 두고, 보조 근거가 필요한 경우에만 활용하세요.
+강의록과 근거자료가 충돌하거나 최신 지침 확인이 필요하면 needs_review=true로 표시하세요.
+문항에 반영한 근거는 evidence_refs와 evidence_tier에 요약으로 남기세요.
+
+{excerpt}
+"""
+
+def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=None, style_text=None, evidence_text=None):
     """Gemini를 이용해 콘텐츠 생성"""
     if not api_key:
         return "⚠️ 왼쪽 사이드바에 Gemini API 키를 먼저 입력해주세요."
@@ -4600,14 +5399,15 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
+    evidence_block = build_evidence_instructions(evidence_text)
     if selected_mode == mode_mcq:
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + evidence_block
     elif selected_mode == mode_cloze:
-        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     elif selected_mode == mode_short:
-        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_short + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     else:
-        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_essay + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         genai.configure(api_key=api_key)
@@ -4634,7 +5434,7 @@ def generate_content_gemini(text_content, selected_mode, num_items=5, api_key=No
     except Exception as e:
         return f"❌ Gemini 생성 실패: {str(e)}"
 
-def generate_content_openai(text_content, selected_mode, num_items=5, openai_api_key=None, style_text=None):
+def generate_content_openai(text_content, selected_mode, num_items=5, openai_api_key=None, style_text=None, evidence_text=None):
     """ChatGPT를 이용해 콘텐츠 생성"""
     if not openai_api_key:
         return "⚠️ 왼쪽 사이드바에 OpenAI API 키를 먼저 입력해주세요."
@@ -4648,14 +5448,15 @@ def generate_content_openai(text_content, selected_mode, num_items=5, openai_api
     prompt_short = globals().get("PROMPT_SHORT", PROMPT_CLOZE)
     prompt_essay = globals().get("PROMPT_ESSAY", PROMPT_CLOZE)
     style_block = build_style_instructions(style_text)
+    evidence_block = build_evidence_instructions(evidence_text)
     if selected_mode == mode_mcq:
-        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block
+        system_prompt = PROMPT_MCQ.replace("5문제", f"{num_items}문제") + style_block + evidence_block
     elif selected_mode == mode_cloze:
-        system_prompt = PROMPT_CLOZE + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
+        system_prompt = PROMPT_CLOZE + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요. 한 줄에 하나의 항목만 작성하세요."
     elif selected_mode == mode_short:
-        system_prompt = prompt_short + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_short + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     else:
-        system_prompt = prompt_essay + style_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
+        system_prompt = prompt_essay + style_block + evidence_block + f"\n\n[요청] 총 {num_items}개 항목을 출력하세요."
     
     try:
         import sys
@@ -4758,12 +5559,12 @@ def convert_json_mcq_to_text(json_text, num_items):
         return json_text
 
 
-def generate_content(text_content, selected_mode, ai_model, num_items=5, api_key=None, openai_api_key=None, style_text=None):
+def generate_content(text_content, selected_mode, ai_model, num_items=5, api_key=None, openai_api_key=None, style_text=None, evidence_text=None):
     """선택된 AI 모델을 사용해 콘텐츠 생성"""
     if ai_model == "🔵 Google Gemini":
-        return generate_content_gemini(text_content, selected_mode, num_items=num_items, api_key=api_key, style_text=style_text)
+        return generate_content_gemini(text_content, selected_mode, num_items=num_items, api_key=api_key, style_text=style_text, evidence_text=evidence_text)
     else:  # ChatGPT
-        return generate_content_openai(text_content, selected_mode, num_items=num_items, openai_api_key=openai_api_key, style_text=style_text)
+        return generate_content_openai(text_content, selected_mode, num_items=num_items, openai_api_key=openai_api_key, style_text=style_text, evidence_text=evidence_text)
 
 def split_text_into_chunks(text, chunk_size=8000, overlap=500):
     """문자 단위로 텍스트를 분할 (중첩 포함)"""
@@ -4781,7 +5582,7 @@ def split_text_into_chunks(text, chunk_size=8000, overlap=500):
         start = end - overlap if end - overlap > start else end
     return chunks
 
-def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=5, chunk_size=8000, overlap=500, api_key=None, openai_api_key=None, style_text=None):
+def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=5, chunk_size=8000, overlap=500, api_key=None, openai_api_key=None, style_text=None, evidence_text=None):
     """텍스트를 청크로 나누어 모델 호출을 여러 번 수행
     
     Returns:
@@ -4811,7 +5612,7 @@ def generate_content_in_chunks(text_content, selected_mode, ai_model, num_items=
             if n <= 0:
                 results[idx] = ""
                 continue
-            futures[ex.submit(generate_content, chunk, selected_mode, ai_model, n, api_key, openai_api_key, style_text)] = idx
+            futures[ex.submit(generate_content, chunk, selected_mode, ai_model, n, api_key, openai_api_key, style_text, evidence_text)] = idx
 
         completed = 0
         for fut in concurrent.futures.as_completed(futures):
@@ -4932,6 +5733,7 @@ if not st.session_state.get("auth_user_id"):
 def get_main_page_config(admin_mode):
     pages = [
         ("home", "🏠 홈"),
+        ("daily", "🩺 Daily Dx"),
         ("generate", "📚 문제 생성"),
         ("convert", "🧾 기출문제 변환"),
         ("exam", "🎯 실전 시험"),
@@ -5582,64 +6384,604 @@ if active_page == "home":
                 except Exception:
                     safe_dataframe(heat, use_container_width=True, hide_index=True)
 
-if active_page == "admin" and admin_mode:
-        st.title("🛠️ 운영자 콘솔")
-        st.caption("사용자별 API 사용량, 호출 건수, 추정 비용을 확인합니다.")
+if active_page == "daily":
+    st.title("🩺 Daily Dx")
+    show_action_notice()
+    st.caption("저장된 문항 중 하루 1개를 골라 진단명 또는 핵심 답안을 직접 입력합니다.")
 
-        all_users = list_local_user_ids()
-        if not all_users:
-            st.info("로컬 사용자 데이터가 없습니다.")
-        else:
-            selected = st.selectbox("대상 사용자", ["전체"] + all_users, index=0, key="admin_user_filter")
-            days = st.slider("조회 기간(일)", 1, 365, 30, 1, key="admin_days_filter")
-            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    bank = load_questions()
+    all_questions = bank.get("text", []) + bank.get("cloze", [])
+    distributed_questions = get_distribution_ready_questions(all_questions)
+    daily_pool = distributed_questions if distributed_questions else all_questions
 
-            rows = []
-            target_users = all_users if selected == "전체" else [selected]
-            for uid in target_users:
-                for row in read_audit_rows_for_user(uid):
-                    ts_raw = str(row.get("timestamp") or "")
-                    try:
-                        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-                        if ts.tzinfo is None:
-                            ts = ts.replace(tzinfo=timezone.utc)
-                    except Exception:
-                        continue
-                    if ts < cutoff:
-                        continue
-                    enriched = dict(row)
-                    enriched["user_id"] = uid
-                    rows.append(enriched)
+    today_value = st.date_input("Daily 날짜", value=datetime.now().date(), key="daily_dx_date")
+    today_key = today_value.isoformat()
+    daily_question = select_daily_dx_question(
+        daily_pool,
+        today_key=today_key,
+        user_key=get_current_user_id(),
+    )
 
-            if not rows:
-                st.warning("선택한 조건에서 조회된 로그가 없습니다.")
-            else:
-                summary = summarize_usage_rows(rows)
-                total_est, breakdown = estimate_cost_usd_from_summary(summary)
-                total_calls = sum(x.get("calls", 0) for x in summary.values())
-                total_tokens = sum(x.get("tokens", 0) for x in summary.values())
+    if not daily_question:
+        st.info("Daily Dx에 사용할 저장 문항이 아직 없습니다. 케이스형 객관식이나 단답형 문항을 먼저 생성해 주세요.")
+    else:
+        answer_text = get_daily_dx_answer_text(daily_question)
+        daily_key = f"{today_key}:{daily_question.get('id') or answer_text}"
+        attempts = st.session_state.daily_dx_attempts.get(daily_key, [])
+        latest = attempts[-1] if attempts else {}
+        revealed = bool(latest.get("submitted"))
+        parsed_daily = parse_cloze_content(daily_question) if daily_question.get("type") == "cloze" else parse_mcq_content(daily_question)
 
-                m1, m2, m3 = st.columns(3)
-                m1.metric("총 API 호출", f"{total_calls:,}")
-                m2.metric("총 토큰", f"{total_tokens:,}")
-                m3.metric("추정 비용(USD)", f"${total_est:.4f}")
+        meta_cols = st.columns(4)
+        meta_cols[0].metric("과목", daily_question.get("subject") or "General")
+        meta_cols[1].metric("단원", daily_question.get("unit") or "미분류")
+        meta_cols[2].metric("시도", len(attempts))
+        meta_cols[3].metric("출처", "배포 문항" if distributed_questions else "내 문제은행")
 
-                st.markdown("### 모델별 사용량")
-                safe_dataframe(breakdown, use_container_width=True, hide_index=True)
+        st.markdown("### What's the Diagnosis?")
+        st.markdown(parsed_daily.get("front") or daily_question.get("problem") or daily_question.get("front") or "")
+        if daily_question.get("images"):
+            st.image(daily_question.get("images"), width=min(520, int(st.session_state.image_display_width)))
 
-                st.markdown("### 최근 로그")
-                latest = sorted(rows, key=lambda x: str(x.get("timestamp") or ""), reverse=True)[:50]
-                latest_view = [
+        with st.expander("힌트", expanded=False):
+            tags = daily_question.get("concept_tags") or []
+            if tags:
+                st.caption(f"개념 태그: {', '.join(tags[:5])}")
+            if daily_question.get("cognitive_level"):
+                st.caption(f"인지 수준: {daily_question.get('cognitive_level')}")
+            if daily_question.get("type") != "cloze":
+                options = daily_question.get("options") or []
+                if options:
+                    st.caption("선택지 힌트")
+                    letters = ["A", "B", "C", "D", "E"]
+                    for i, opt in enumerate(options[:5]):
+                        st.write(f"{letters[i]}. {opt}")
+
+        guess = st.text_input(
+            "진단명 또는 핵심 답안",
+            value=str(latest.get("guess") or ""),
+            key=f"daily_dx_guess_{daily_key}",
+            disabled=revealed,
+        )
+        col_submit, col_reset, col_exam = st.columns(3)
+        with col_submit:
+            if st.button("Submit", key=f"daily_dx_submit_{daily_key}", use_container_width=True, disabled=revealed or not guess.strip()):
+                is_correct = grade_daily_dx_guess(guess, answer_text)
+                attempts.append(
                     {
-                        "timestamp": r.get("timestamp"),
-                        "user_id": r.get("user_id"),
-                        "event": r.get("event"),
-                        "model": r.get("model"),
-                        "usage_tokens": r.get("usage_tokens"),
+                        "guess": guess,
+                        "is_correct": is_correct,
+                        "submitted": True,
+                        "submitted_at": datetime.now(timezone.utc).isoformat(),
                     }
-                    for r in latest
+                )
+                st.session_state.daily_dx_attempts[daily_key] = attempts[-5:]
+                st.rerun()
+        with col_reset:
+            if st.button("오늘 풀이 초기화", key=f"daily_dx_reset_{daily_key}", use_container_width=True):
+                st.session_state.daily_dx_attempts.pop(daily_key, None)
+                st.rerun()
+        with col_exam:
+            if st.button("학습모드로 이어 풀기", key=f"daily_dx_study_{daily_key}", use_container_width=True):
+                exam_type = "빈칸" if daily_question.get("type") == "cloze" else "객관식"
+                started = start_exam_session_from_items([daily_question], exam_type, "학습모드")
+                if started:
+                    st.session_state.exam_mode_entry_anchor = "daily_dx"
+                    st.session_state.last_action_notice = "Daily Dx 문항을 학습모드로 준비했습니다."
+                    st.rerun()
+
+        if revealed:
+            is_correct = bool(latest.get("is_correct"))
+            st.markdown("---")
+            st.write(f"{'🟢' if is_correct else '🔴'} **정답:** {answer_text}")
+            if latest.get("guess"):
+                st.caption(f"내 답안: {latest.get('guess')}")
+            if daily_question.get("explanation"):
+                st.markdown(format_explanation_text(daily_question.get("explanation")))
+            if daily_question.get("faculty_note"):
+                st.info(f"교수 메모: {daily_question.get('faculty_note')}")
+
+            related = get_related_internal_knowledge(daily_question, all_questions, limit=3)
+            if related:
+                with st.expander("관련 개념", expanded=True):
+                    for row in related:
+                        st.markdown(f"**{row['title']}**")
+                        st.caption(f"{row['subject']} / {row['unit']} | 태그: {', '.join(row['concept_tags'][:4])}")
+                        if row.get("summary"):
+                            st.write(row["summary"])
+
+            share_text = build_daily_dx_share_text(daily_question, is_correct, attempts=len(attempts), today_key=today_key)
+            anki_tag = build_daily_dx_anki_tag(daily_question)
+            st.text_area("공유 텍스트", value=share_text, height=120, key=f"daily_dx_share_{daily_key}")
+            st.text_input("Anki Tag", value=anki_tag, key=f"daily_dx_anki_{daily_key}")
+
+if active_page == "admin" and admin_mode:
+        st.title("🛠️ 운영자 콘솔 / 교수 Studio")
+        st.caption("운영 로그와 함께 교수용 업로드 Inbox, 검수 큐, 배포 설정, 익명화 리포트를 관리합니다.")
+
+        studio_bank = load_questions()
+        studio_questions = studio_bank.get("text", []) + studio_bank.get("cloze", [])
+        studio_history = load_exam_history()
+        batch_rows = collect_faculty_batch_overview(studio_questions)
+        assignment_rows = collect_assignment_overview(studio_questions)
+        distributed_questions = get_distribution_ready_questions(studio_questions)
+        review_queue = [
+            q for q in studio_questions
+            if q.get("needs_review") or q.get("review_status") in {REVIEW_STATUS_DRAFT, REVIEW_STATUS_FACULTY_REVIEW}
+        ]
+        usage_tab, inbox_tab, review_tab, assign_tab, report_tab = st.tabs(
+            ["📈 운영 요약", "📥 업로드 Inbox", "🧪 문항 검수 큐", "📦 배포/과제 설정", "📊 수업 리포트"]
+        )
+
+        with usage_tab:
+            st.caption("사용자별 API 사용량, 호출 건수, 추정 비용을 확인합니다.")
+            all_users = list_local_user_ids()
+            if not all_users:
+                st.info("로컬 사용자 데이터가 없습니다.")
+            else:
+                selected = st.selectbox("대상 사용자", ["전체"] + all_users, index=0, key="admin_user_filter")
+                days = st.slider("조회 기간(일)", 1, 365, 30, 1, key="admin_days_filter")
+                cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+                rows = []
+                target_users = all_users if selected == "전체" else [selected]
+                for uid in target_users:
+                    for row in read_audit_rows_for_user(uid):
+                        ts_raw = str(row.get("timestamp") or "")
+                        try:
+                            ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                        except Exception:
+                            continue
+                        if ts < cutoff:
+                            continue
+                        enriched = dict(row)
+                        enriched["user_id"] = uid
+                        rows.append(enriched)
+
+                if not rows:
+                    st.warning("선택한 조건에서 조회된 로그가 없습니다.")
+                else:
+                    summary = summarize_usage_rows(rows)
+                    total_est, breakdown = estimate_cost_usd_from_summary(summary)
+                    total_calls = sum(x.get("calls", 0) for x in summary.values())
+                    total_tokens = sum(x.get("tokens", 0) for x in summary.values())
+
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("총 API 호출", f"{total_calls:,}")
+                    m2.metric("총 토큰", f"{total_tokens:,}")
+                    m3.metric("추정 비용(USD)", f"${total_est:.4f}")
+
+                    st.markdown("### 모델별 사용량")
+                    safe_dataframe(breakdown, use_container_width=True, hide_index=True)
+
+                    st.markdown("### 최근 로그")
+                    latest = sorted(rows, key=lambda x: str(x.get("timestamp") or ""), reverse=True)[:50]
+                    latest_view = [
+                        {
+                            "timestamp": r.get("timestamp"),
+                            "user_id": r.get("user_id"),
+                            "event": r.get("event"),
+                            "model": r.get("model"),
+                            "usage_tokens": r.get("usage_tokens"),
+                        }
+                        for r in latest
+                    ]
+                    safe_dataframe(latest_view, use_container_width=True, hide_index=True)
+
+        with inbox_tab:
+            st.markdown("### 업로드 Inbox")
+            st.caption("문제 생성/기출 변환 탭에서 저장한 배치가 자동으로 Inbox에 쌓입니다.")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("전체 배치", len(batch_rows))
+            col2.metric("검수 대기 문항", len(review_queue))
+            col3.metric("학생 배포 문항", len(distributed_questions))
+            col4.metric("배포 세트", len(assignment_rows))
+
+            if not batch_rows:
+                st.info("아직 교수용 Inbox에 들어온 배치가 없습니다. 먼저 생성/변환 탭에서 문항을 저장해 주세요.")
+            else:
+                inbox_rows = []
+                for row in batch_rows:
+                    status_parts = []
+                    for status in FACULTY_REVIEW_STATUS_ORDER:
+                        count = row.get("status_counts", {}).get(status, 0)
+                        if count:
+                            status_parts.append(f"{FACULTY_REVIEW_STATUS_LABELS.get(status, status)} {count}")
+                    inbox_rows.append(
+                        {
+                            "배치": row["batch_id"],
+                            "문항수": row["question_count"],
+                            "과목": ", ".join(row["subjects"][:3]),
+                            "단원": ", ".join(row["units"][:3]),
+                            "출처": row["source_type"] or "n/a",
+                            "생성모드": row["generation_mode"] or "n/a",
+                            "검수상태": " / ".join(status_parts) if status_parts else "초안",
+                            "이미지문항": row["image_question_count"],
+                            "평균신뢰도": row["avg_style_confidence"],
+                        }
+                    )
+                safe_dataframe(inbox_rows, use_container_width=True, hide_index=True)
+
+                selected_batch_id = st.selectbox(
+                    "배치 선택",
+                    [row["batch_id"] for row in batch_rows],
+                    format_func=lambda batch_id: f"{batch_id} ({next((r['question_count'] for r in batch_rows if r['batch_id'] == batch_id), 0)}문항)",
+                    key="faculty_batch_select",
+                )
+                selected_batch = next((row for row in batch_rows if row["batch_id"] == selected_batch_id), None)
+                batch_questions = [q for q in studio_questions if str(q.get("batch_id") or "legacy") == selected_batch_id]
+                if selected_batch and batch_questions:
+                    seed = batch_questions[0]
+                    st.markdown("### 배치 메타데이터 보정")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        batch_course = st.text_input("코스 ID", value=seed.get("course_id") or seed.get("subject") or "General", key="faculty_batch_course")
+                        batch_instructor = st.text_input("교수/조교 ID", value=seed.get("instructor_id") or "", key="faculty_batch_instructor")
+                        batch_source_type = st.selectbox(
+                            "자료 출처",
+                            ["lecture_material", "faculty_note", "practical_material", "past_exam", "written_exam", "practical_exam"],
+                            index=max(0, ["lecture_material", "faculty_note", "practical_material", "past_exam", "written_exam", "practical_exam"].index(seed.get("source_type"))) if seed.get("source_type") in ["lecture_material", "faculty_note", "practical_material", "past_exam", "written_exam", "practical_exam"] else 0,
+                            key="faculty_batch_source_type",
+                        )
+                    with col_b:
+                        batch_lecture = st.text_input("강의 ID", value=seed.get("lecture_id") or f"{batch_course}::{seed.get('unit') or '미분류'}", key="faculty_batch_lecture")
+                        generation_modes = ["high_yield", "past_style_low_shot", "blended_style", "faculty_seed"]
+                        batch_generation_mode = st.selectbox(
+                            "생성 전략",
+                            generation_modes,
+                            index=generation_modes.index(seed.get("generation_mode")) if seed.get("generation_mode") in generation_modes else 0,
+                            key="faculty_batch_generation_mode",
+                        )
+                        batch_note = st.text_area("공통 교수 메모", value=seed.get("faculty_note") or "", height=100, key="faculty_batch_note")
+
+                    action_col1, action_col2, action_col3 = st.columns(3)
+                    with action_col1:
+                        if st.button("📨 검수 대기로 이동", use_container_width=True, key="faculty_move_to_review"):
+                            changed = update_questions_metadata(
+                                selected_batch["question_ids"],
+                                {
+                                    "course_id": batch_course,
+                                    "lecture_id": batch_lecture,
+                                    "source_type": batch_source_type,
+                                    "generation_mode": batch_generation_mode,
+                                    "instructor_id": batch_instructor,
+                                    "faculty_note": batch_note,
+                                    "review_status": REVIEW_STATUS_FACULTY_REVIEW,
+                                    "needs_review": True,
+                                },
+                                actor="faculty_inbox",
+                            )
+                            if changed:
+                                st.session_state.last_action_notice = f"배치 {selected_batch_id}를 검수 대기로 이동했습니다."
+                                st.rerun()
+                    with action_col2:
+                        if st.button("✅ 배치 승인", use_container_width=True, key="faculty_batch_approve"):
+                            changed = update_questions_metadata(
+                                selected_batch["question_ids"],
+                                {
+                                    "course_id": batch_course,
+                                    "lecture_id": batch_lecture,
+                                    "source_type": batch_source_type,
+                                    "generation_mode": batch_generation_mode,
+                                    "instructor_id": batch_instructor,
+                                    "faculty_note": batch_note,
+                                    "review_status": REVIEW_STATUS_APPROVED,
+                                    "needs_review": False,
+                                },
+                                actor="faculty_inbox",
+                            )
+                            if changed:
+                                st.session_state.last_action_notice = f"배치 {selected_batch_id}를 승인했습니다."
+                                st.rerun()
+                    with action_col3:
+                        if st.button("📝 초안으로 되돌리기", use_container_width=True, key="faculty_batch_reset"):
+                            changed = update_questions_metadata(
+                                selected_batch["question_ids"],
+                                {
+                                    "review_status": REVIEW_STATUS_DRAFT,
+                                    "needs_review": True,
+                                },
+                                actor="faculty_inbox",
+                            )
+                            if changed:
+                                st.session_state.last_action_notice = f"배치 {selected_batch_id}를 초안 상태로 되돌렸습니다."
+                                st.rerun()
+
+                    with st.expander("배치 미리보기", expanded=False):
+                        for idx_preview, item in enumerate(batch_questions[:5], 1):
+                            stem = item.get("problem") or item.get("front") or ""
+                            st.markdown(f"**{idx_preview}.** {stem[:220]}")
+                            st.caption(
+                                f"{FACULTY_REVIEW_STATUS_LABELS.get(item.get('review_status'), item.get('review_status'))} | "
+                                f"인지수준: {item.get('cognitive_level') or 'n/a'} | "
+                                f"스타일 신뢰도: {item.get('style_confidence', 0):.2f}"
+                            )
+                            if item.get("images"):
+                                st.caption(f"이미지 연결 {len(item.get('images') or [])}개")
+
+        with review_tab:
+            st.markdown("### 문항 검수 큐")
+            if not review_queue:
+                st.success("현재 검수 대기 중인 문항이 없습니다.")
+            else:
+                queue_status_filter = st.multiselect(
+                    "검수 상태 필터",
+                    FACULTY_REVIEW_STATUS_ORDER,
+                    default=[REVIEW_STATUS_DRAFT, REVIEW_STATUS_FACULTY_REVIEW],
+                    format_func=lambda x: FACULTY_REVIEW_STATUS_LABELS.get(x, x),
+                    key="faculty_review_status_filter",
+                )
+                queue_needs_image = st.checkbox("이미지 검수 필요 문항만", value=False, key="faculty_review_image_only")
+                filtered_review_queue = []
+                for item in review_queue:
+                    if queue_status_filter and item.get("review_status") not in queue_status_filter:
+                        continue
+                    if queue_needs_image and not (item.get("images") or item.get("image_refs")):
+                        continue
+                    filtered_review_queue.append(item)
+                queue_options = [q.get("id") for q in filtered_review_queue]
+                if not queue_options:
+                    st.info("선택한 조건에 맞는 검수 대상이 없습니다.")
+                else:
+                    selected_qid = st.selectbox(
+                        "검수할 문항 선택",
+                        queue_options,
+                        format_func=lambda qid: next(
+                            (
+                                f"{(q.get('subject') or 'General')} / {get_unit_name(q)} / "
+                                f"{(q.get('problem') or q.get('front') or '')[:80]}"
+                                for q in filtered_review_queue
+                                if q.get("id") == qid
+                            ),
+                            str(qid),
+                        ),
+                        key="faculty_review_select",
+                    )
+                    target = next((q for q in filtered_review_queue if q.get("id") == selected_qid), None)
+                    if target:
+                        st.markdown("### 선택 문항 상세")
+                        st.caption(
+                            f"배치: {target.get('batch_id') or 'legacy'} | "
+                            f"현재 상태: {FACULTY_REVIEW_STATUS_LABELS.get(target.get('review_status'), target.get('review_status'))}"
+                        )
+                        stem = target.get("problem") or target.get("front") or ""
+                        st.markdown(stem)
+                        if target.get("options"):
+                            for idx_opt, opt in enumerate(target.get("options", [])[:5], 1):
+                                st.write(f"{idx_opt}. {opt}")
+                        if target.get("images"):
+                            st.image(target.get("images"), width=220)
+
+                        related_rows = get_related_internal_knowledge(target, studio_questions, limit=3)
+                        if related_rows:
+                            with st.expander("🧠 내부 지식 패널", expanded=False):
+                                for row in related_rows:
+                                    st.markdown(f"**{row['title']}**")
+                                    st.caption(f"{row['subject']} / {row['unit']} | 태그: {', '.join(row['concept_tags'][:4])}")
+                                    st.write(row["summary"])
+                                    st.divider()
+
+                        edit_col1, edit_col2 = st.columns(2)
+                        with edit_col1:
+                            review_status_value = st.selectbox(
+                                "검수 상태",
+                                FACULTY_REVIEW_STATUS_ORDER,
+                                index=FACULTY_REVIEW_STATUS_ORDER.index(target.get("review_status")) if target.get("review_status") in FACULTY_REVIEW_STATUS_ORDER else 0,
+                                format_func=lambda x: FACULTY_REVIEW_STATUS_LABELS.get(x, x),
+                                key="faculty_review_status_edit",
+                            )
+                            cognitive_level_value = st.selectbox(
+                                "인지 수준",
+                                ["L1 Recall", "L2 Interpretation", "L3 Clinical Reasoning"],
+                                index=["L1 Recall", "L2 Interpretation", "L3 Clinical Reasoning"].index(target.get("cognitive_level")) if target.get("cognitive_level") in ["L1 Recall", "L2 Interpretation", "L3 Clinical Reasoning"] else 1,
+                                key="faculty_cognitive_level_edit",
+                            )
+                            style_confidence_value = st.slider(
+                                "스타일 신뢰도",
+                                0.0,
+                                1.0,
+                                float(target.get("style_confidence") or 0.0),
+                                0.01,
+                                key="faculty_style_confidence_edit",
+                            )
+                            needs_review_value = st.checkbox(
+                                "추가 검수 필요",
+                                value=bool(target.get("needs_review")),
+                                key="faculty_needs_review_edit",
+                            )
+                        with edit_col2:
+                            difficulty_value = st.text_input("난이도", value=target.get("difficulty") or "", key="faculty_difficulty_edit")
+                            image_confidence_value = st.slider(
+                                "이미지 매칭 신뢰도",
+                                0.0,
+                                1.0,
+                                float(target.get("image_match_confidence") or 0.0),
+                                0.01,
+                                key="faculty_image_confidence_edit",
+                            )
+                            concept_tags_value = st.text_input(
+                                "개념 태그 (콤마 구분)",
+                                value=", ".join(target.get("concept_tags") or []),
+                                key="faculty_concept_tags_edit",
+                            )
+                        faculty_note_value = st.text_area(
+                            "교수 메모 / 수업 보강 포인트",
+                            value=target.get("faculty_note") or "",
+                            height=120,
+                            key="faculty_note_edit",
+                        )
+
+                        save_col1, save_col2 = st.columns(2)
+                        with save_col1:
+                            if st.button("💾 문항 검수 저장", use_container_width=True, key="faculty_review_save"):
+                                tag_list = [tag.strip() for tag in concept_tags_value.split(",") if tag.strip()]
+                                saved = update_question_by_id(
+                                    target.get("id"),
+                                    {
+                                        "review_status": review_status_value,
+                                        "cognitive_level": cognitive_level_value,
+                                        "difficulty": difficulty_value,
+                                        "style_confidence": style_confidence_value,
+                                        "image_match_confidence": image_confidence_value,
+                                        "faculty_note": faculty_note_value,
+                                        "needs_review": needs_review_value,
+                                        "concept_tags": tag_list,
+                                    },
+                                )
+                                if saved:
+                                    st.session_state.last_action_notice = "선택 문항의 검수 정보가 저장되었습니다."
+                                    st.rerun()
+                        with save_col2:
+                            if st.button("✅ 현재 배치 전체 승인", use_container_width=True, key="faculty_review_batch_approve"):
+                                batch_ids = [
+                                    q.get("id")
+                                    for q in studio_questions
+                                    if str(q.get("batch_id") or "legacy") == str(target.get("batch_id") or "legacy")
+                                ]
+                                changed = update_questions_metadata(
+                                    batch_ids,
+                                    {
+                                        "review_status": REVIEW_STATUS_APPROVED,
+                                        "needs_review": False,
+                                    },
+                                    actor="faculty_review_queue",
+                                )
+                                if changed:
+                                    st.session_state.last_action_notice = f"배치 {target.get('batch_id')}를 승인했습니다."
+                                    st.rerun()
+
+        with assign_tab:
+            st.markdown("### 배포/과제 설정")
+            approved_batches = []
+            for row in batch_rows:
+                approved_count = row.get("status_counts", {}).get(REVIEW_STATUS_APPROVED, 0) + row.get("status_counts", {}).get(REVIEW_STATUS_ASSIGNED, 0)
+                if approved_count > 0:
+                    approved_batches.append(row)
+            col1, col2, col3 = st.columns(3)
+            col1.metric("승인 배치", len(approved_batches))
+            col2.metric("활성 과제", len(assignment_rows))
+            col3.metric("학생 배포 문항", len(distributed_questions))
+
+            if assignment_rows:
+                assignment_view = [
+                    {
+                        "과제": row["assignment_title"],
+                        "ID": row["assignment_id"],
+                        "문항수": row["question_count"],
+                        "과목": ", ".join(row["subjects"][:3]),
+                        "시작": row["assignment_start_at"] or "미설정",
+                        "마감": row["assignment_due_at"] or "미설정",
+                        "모드": row["assignment_mode"] or "학습모드",
+                    }
+                    for row in assignment_rows
                 ]
-                safe_dataframe(latest_view, use_container_width=True, hide_index=True)
+                safe_dataframe(assignment_view, use_container_width=True, hide_index=True)
+
+            if not approved_batches:
+                st.info("배포 가능한 승인 배치가 없습니다. 먼저 Inbox 또는 검수 큐에서 문항을 승인해 주세요.")
+            else:
+                selected_assign_batch_id = st.selectbox(
+                    "배포할 승인 배치",
+                    [row["batch_id"] for row in approved_batches],
+                    format_func=lambda batch_id: f"{batch_id} ({next((r['question_count'] for r in approved_batches if r['batch_id'] == batch_id), 0)}문항)",
+                    key="faculty_assign_batch_select",
+                )
+                assign_batch_questions = [
+                    q for q in studio_questions
+                    if str(q.get("batch_id") or "legacy") == selected_assign_batch_id
+                    and str(q.get("review_status") or "") in {REVIEW_STATUS_APPROVED, REVIEW_STATUS_ASSIGNED}
+                ]
+                selected_assign_batch = next((row for row in approved_batches if row["batch_id"] == selected_assign_batch_id), None)
+                default_assignment_title = (
+                    (selected_assign_batch.get("source_name") if selected_assign_batch else "")
+                    or f"Assignment {selected_assign_batch_id}"
+                )
+                assign_title = st.text_input("과제 제목", value=default_assignment_title, key="faculty_assignment_title")
+                assign_mode = st.radio("학생 배포 모드", ["학습모드", "시험모드"], horizontal=True, key="faculty_assignment_mode")
+                assign_audience = st.text_input("대상 그룹", value="파일럿 수강생", key="faculty_assignment_audience")
+                assign_date = st.date_input("시작일", value=datetime.now().date(), key="faculty_assignment_start_date")
+                assign_due = st.date_input("마감일", value=(datetime.now() + timedelta(days=14)).date(), key="faculty_assignment_due_date")
+                assignment_id = f"{selected_assign_batch_id}-{assign_date.isoformat()}"
+
+                assign_col1, assign_col2, assign_col3 = st.columns(3)
+                with assign_col1:
+                    if st.button("🚀 학생 배포로 게시", use_container_width=True, key="faculty_publish_assignment"):
+                        changed = update_questions_metadata(
+                            [q.get("id") for q in assign_batch_questions],
+                            {
+                                "review_status": REVIEW_STATUS_ASSIGNED,
+                                "needs_review": False,
+                                "assignment_id": assignment_id,
+                                "assignment_title": assign_title,
+                                "assignment_mode": assign_mode,
+                                "assignment_audience": assign_audience,
+                                "assignment_start_at": assign_date.isoformat(),
+                                "assignment_due_at": assign_due.isoformat(),
+                            },
+                            actor="faculty_assignment",
+                        )
+                        if changed:
+                            st.session_state.last_action_notice = f"{assign_title} 과제를 학생 배포 상태로 게시했습니다."
+                            st.rerun()
+                with assign_col2:
+                    if st.button("🔎 학생 화면 미리보기", use_container_width=True, key="faculty_assignment_preview"):
+                        preview_items = [item for item in assign_batch_questions if item.get("type") == "mcq"]
+                        preview_exam_type = "객관식"
+                        if not preview_items:
+                            preview_items = [item for item in assign_batch_questions if item.get("type") == "cloze"]
+                            preview_exam_type = "빈칸"
+                        started = start_exam_session_from_items(preview_items, preview_exam_type, assign_mode)
+                        if started:
+                            st.session_state.exam_mode_entry_anchor = "assignment_preview"
+                            st.session_state.last_action_notice = f"{assign_title} 미리보기 세션 {started}개 문항을 준비했습니다."
+                            st.rerun()
+                with assign_col3:
+                    if st.button("↩️ 배포 회수", use_container_width=True, key="faculty_assignment_revert"):
+                        changed = update_questions_metadata(
+                            [q.get("id") for q in assign_batch_questions if str(q.get("assignment_id") or "").strip()],
+                            {
+                                "review_status": REVIEW_STATUS_APPROVED,
+                                "assignment_id": "",
+                                "assignment_title": "",
+                                "assignment_mode": "",
+                                "assignment_audience": "",
+                                "assignment_start_at": "",
+                                "assignment_due_at": "",
+                            },
+                            actor="faculty_assignment",
+                        )
+                        if changed:
+                            st.session_state.last_action_notice = f"{selected_assign_batch_id} 배치의 학생 배포를 회수했습니다."
+                            st.rerun()
+
+        with report_tab:
+            st.markdown("### 수업 리포트")
+            st.caption("학생 개인 식별정보 없이 단원/개념/검수 흐름 단위로만 집계합니다.")
+            report_payload = build_faculty_report_rows(studio_questions, studio_history)
+            col1, col2, col3 = st.columns(3)
+            col1.metric("익명화 세션 수", len(studio_history))
+            col2.metric("평균 검수 소요(시간)", report_payload.get("review_turnaround_hours", 0.0))
+            col3.metric("활성 배포 문항", len(distributed_questions))
+
+            with st.expander("단원별 정답률", expanded=True):
+                if report_payload.get("unit_rows"):
+                    safe_dataframe(report_payload["unit_rows"], use_container_width=True, hide_index=True)
+                else:
+                    st.info("아직 단원별 리포트를 만들 충분한 풀이 기록이 없습니다.")
+
+            with st.expander("오답 집중 개념", expanded=False):
+                if report_payload.get("concept_rows"):
+                    safe_dataframe(report_payload["concept_rows"], use_container_width=True, hide_index=True)
+                else:
+                    st.info("오답 집중 개념 데이터가 아직 없습니다.")
+
+            with st.expander("배치별 채택률 / 검수 상태", expanded=False):
+                if report_payload.get("batch_rows"):
+                    safe_dataframe(report_payload["batch_rows"], use_container_width=True, hide_index=True)
+                else:
+                    st.info("표시할 배치 데이터가 없습니다.")
 
 # ============================================================================
 # PAGE: 문제 생성
@@ -5661,8 +7003,19 @@ if active_page == "generate":
     # 파일 업로드
     uploaded_file = st.file_uploader("강의 자료 업로드", type=["pdf", "docx", "pptx", "hwp"])
     style_file = st.file_uploader("기출문제 스타일 업로드 (선택)", type=["pdf", "docx", "pptx", "hwp", "txt", "tsv", "json"], key="style_upload")
+    evidence_files = st.file_uploader(
+        "승인 근거자료 업로드 (선택)",
+        type=["pdf", "docx", "pptx", "hwp", "txt", "md"],
+        accept_multiple_files=True,
+        key="evidence_upload",
+        help="교수 승인 자료, 가이드라인 요약, PubMed/논문 요약 등 권리 확인이 된 자료만 넣어주세요.",
+    )
+    if evidence_files:
+        st.caption(
+            "근거자료는 강의록 보조 용도로만 사용하며, AMBOSS/UpToDate/NEJM 등 유료 자료 원문을 무단 수집하거나 복사하지 않습니다."
+        )
     gen_copyright_ok = render_copyright_ack("gen")
-    if (uploaded_file or style_file) and not gen_copyright_ok:
+    if (uploaded_file or style_file or evidence_files) and not gen_copyright_ok:
         st.warning("파일 분석/문제 생성을 시작하려면 저작권 확인 체크를 완료하세요.")
     style_text = None
     if style_file and gen_copyright_ok:
@@ -5705,7 +7058,45 @@ if active_page == "generate":
             subject_input = st.text_input("과목명 (예: 순환기내과)", value="General")
         with col_unit:
             unit_input = st.text_input("단원명 (선택)", value="미분류")
-        
+
+        with st.expander("🎓 교수용 메타데이터", expanded=False):
+            gen_col1, gen_col2 = st.columns(2)
+            with gen_col1:
+                course_id_input = st.text_input("코스 ID / 과목 코드", value=subject_input, key="gen_course_id")
+                instructor_id_input = st.text_input("교수/조교 ID", value="", key="gen_instructor_id")
+                source_type_input = st.selectbox(
+                    "자료 출처",
+                    ["lecture_material", "faculty_note", "practical_material"],
+                    index=0,
+                    key="gen_source_type",
+                )
+            with gen_col2:
+                lecture_default = f"{course_id_input or subject_input}::{unit_input or '미분류'}"
+                lecture_id_input = st.text_input("강의 ID", value=lecture_default, key="gen_lecture_id")
+                generation_mode_input = st.selectbox(
+                    "생성 전략",
+                    ["자동", "past_style_low_shot", "blended_style", "high_yield"],
+                    index=0,
+                    key="gen_generation_mode",
+                )
+                faculty_note_seed = st.text_area(
+                    "교수 메모/출제 포인트 (선택)",
+                    value="",
+                    height=80,
+                    key="gen_faculty_note_seed",
+                )
+
+            resolved_generation_mode = generation_mode_input
+            if generation_mode_input == "자동":
+                if style_text and len(str(style_text).strip()) < 300 and instructor_id_input.strip():
+                    resolved_generation_mode = "blended_style"
+                else:
+                    resolved_generation_mode = infer_generation_mode(style_text, source_type_input)
+            st.caption(
+                f"자동 판정 생성 전략: `{resolved_generation_mode}` | "
+                f"예상 스타일 신뢰도: {estimate_style_confidence(style_text, resolved_generation_mode):.2f}"
+            )
+
         if not ai_model_key_ready:
             st.button("🚀 문제 생성 시작", use_container_width=True, disabled=True, help="API 키를 먼저 입력해 주세요.")
         elif not gen_copyright_ok:
@@ -5718,6 +7109,23 @@ if active_page == "generate":
                     if not raw_text.strip():
                         st.error("텍스트 추출 결과가 비어 있습니다. 스캔 PDF 또는 이미지 중심 파일인 경우 OCR/원문 품질을 확인해 주세요.")
                         st.stop()
+                    evidence_text = ""
+                    if evidence_files:
+                        evidence_blocks = []
+                        for evidence_file in evidence_files[:5]:
+                            try:
+                                if hasattr(evidence_file, "seek"):
+                                    evidence_file.seek(0)
+                                extracted_evidence = extract_text_from_file(evidence_file)
+                                if extracted_evidence.strip():
+                                    evidence_blocks.append(
+                                        f"--- evidence: {evidence_file.name} ---\n{extracted_evidence[:8000]}"
+                                    )
+                            except Exception as evidence_error:
+                                st.warning(f"근거자료 처리 실패 ({evidence_file.name}): {evidence_error}")
+                        evidence_text = "\n\n".join(evidence_blocks)[:20000]
+                        if evidence_text:
+                            st.caption(f"✅ 근거자료 추출됨: {len(evidence_text):,} 글자")
                 
                 with st.spinner("⚙️ AI가 문제 생성 중... (1~2분 소요)"):
                     result = generate_content_in_chunks(
@@ -5730,6 +7138,7 @@ if active_page == "generate":
                         api_key=api_key,
                         openai_api_key=openai_api_key,
                         style_text=style_text,
+                        evidence_text=evidence_text,
                     )
                 
                 # result는 이제 구조화된 dict 리스트
@@ -5740,8 +7149,29 @@ if active_page == "generate":
                     st.session_state.generation_preview_subject = subject_input
                     st.session_state.generation_preview_unit = unit_input
 
+                    metadata_defaults = {
+                        "course_id": course_id_input or subject_input,
+                        "lecture_id": lecture_id_input or f"{course_id_input or subject_input}::{unit_input or '미분류'}",
+                        "unit_id": unit_input,
+                        "instructor_id": instructor_id_input,
+                        "source_type": source_type_input,
+                        "source_name": uploaded_file.name,
+                        "generation_mode": resolved_generation_mode,
+                        "style_text": style_text,
+                        "style_confidence": estimate_style_confidence(style_text, resolved_generation_mode),
+                        "source_scope_weights": default_source_scope_weights(resolved_generation_mode),
+                        "faculty_note": faculty_note_seed,
+                    }
                     # JSON에 저장
-                    saved_count = add_questions_to_bank(result, mode, subject_input, unit_input, quality_filter=enable_filter, min_length=min_length)
+                    saved_count = add_questions_to_bank(
+                        result,
+                        mode,
+                        subject_input,
+                        unit_input,
+                        quality_filter=enable_filter,
+                        min_length=min_length,
+                        metadata_defaults=metadata_defaults,
+                    )
                     st.success(f"✅ **{saved_count}개 문제** 생성 및 저장 완료!")
                     
                     # 통계 업데이트
@@ -6017,6 +7447,33 @@ if active_page == "convert":
         with col2:
             default_unit = Path(uploaded_exam.name).stem[:50] if uploaded_exam else "미분류"
             exam_unit = st.text_input("기본 단원명 (선택)", value=default_unit, key="past_exam_unit")
+
+        with st.expander("🎓 교수용 메타데이터", expanded=False):
+            conv_col1, conv_col2 = st.columns(2)
+            with conv_col1:
+                conv_course_id = st.text_input("코스 ID / 과목 코드", value=exam_subject, key="conv_course_id")
+                conv_instructor_id = st.text_input("교수/조교 ID", value="", key="conv_instructor_id")
+                conv_source_type = st.selectbox(
+                    "문항 출처",
+                    ["past_exam", "written_exam", "practical_exam"],
+                    index=0,
+                    key="conv_source_type",
+                )
+            with conv_col2:
+                conv_lecture_default = f"{conv_course_id or exam_subject}::{exam_unit or '미분류'}"
+                conv_lecture_id = st.text_input("강의 ID", value=conv_lecture_default, key="conv_lecture_id")
+                conv_generation_mode = st.selectbox(
+                    "생성 전략",
+                    ["faculty_seed", "past_style_low_shot", "blended_style"],
+                    index=0,
+                    key="conv_generation_mode",
+                )
+                conv_faculty_note = st.text_area(
+                    "교수 메모/정답 해설 포인트 (선택)",
+                    value="",
+                    height=80,
+                    key="conv_faculty_note",
+                )
 
         parse_mode = st.radio(
             "변환 방식",
@@ -6403,12 +7860,38 @@ if active_page == "convert":
             with col_save:
                 if st.button("💾 문항 저장", use_container_width=True, key="past_exam_save"):
                     current_items = st.session_state.get("past_exam_items", [])
+                    image_confidence_default = 0.5
+                    if attach_strategy == "layout":
+                        image_confidence_default = 0.78
+                    elif attach_strategy == "ocr":
+                        image_confidence_default = 0.62
+                    elif attach_strategy == "page":
+                        image_confidence_default = 0.55
+                    if st.session_state.get("ai_match_images"):
+                        image_confidence_default = max(image_confidence_default, 0.84)
+                    metadata_defaults = {
+                        "course_id": conv_course_id or exam_subject,
+                        "lecture_id": conv_lecture_id or f"{conv_course_id or exam_subject}::{exam_unit or '미분류'}",
+                        "unit_id": exam_unit,
+                        "instructor_id": conv_instructor_id,
+                        "source_type": conv_source_type,
+                        "source_name": uploaded_exam.name if uploaded_exam else "",
+                        "generation_mode": conv_generation_mode,
+                        "style_confidence": estimate_style_confidence(
+                            st.session_state.get("past_exam_text_area", ""),
+                            conv_generation_mode,
+                        ),
+                        "source_scope_weights": default_source_scope_weights(conv_generation_mode),
+                        "image_match_confidence": image_confidence_default,
+                        "faculty_note": conv_faculty_note,
+                    }
                     added = add_questions_to_bank_auto(
                         current_items,
                         subject=exam_subject,
                         unit=exam_unit,
                         quality_filter=enable_filter,
-                        min_length=min_length
+                        min_length=min_length,
+                        metadata_defaults=metadata_defaults,
                     )
                     st.success(f"✅ {added}개 문항 저장 완료")
             with col_down:
@@ -6486,7 +7969,24 @@ if active_page == "exam":
                     key="image_display_width_slider"
                 )
 
-        questions_all = bank["text"] if exam_type == "객관식" else bank["cloze"]
+        questions_all_raw = bank["text"] if exam_type == "객관식" else bank["cloze"]
+        distributed_pool = get_distribution_ready_questions(questions_all_raw)
+        default_pool_index = 0 if distributed_pool else 1
+        question_pool_mode = st.radio(
+            "문항 풀",
+            ["학생 배포 세트", "전체 문항"],
+            horizontal=True,
+            index=default_pool_index,
+            key=f"exam_question_pool_{exam_type}",
+        )
+        if question_pool_mode == "학생 배포 세트":
+            questions_all = distributed_pool
+            if not questions_all:
+                st.info("현재 배포 중인 교수 승인 문항이 없어 전체 문항 보기로 전환합니다.")
+                questions_all = questions_all_raw
+        else:
+            questions_all = questions_all_raw
+
         subject_unit_map = collect_subject_unit_map(questions_all)
         all_subjects = sorted(subject_unit_map.keys())
         if all_subjects:
@@ -6846,7 +8346,15 @@ if active_page == "exam":
                             "is_correct": is_answer_correct(q, user_ans) if user_ans is not None else False,
                             "explanation": q.get("explanation"),
                             "subject": q.get("subject"),
+                            "unit": q.get("unit"),
+                            "course_id": q.get("course_id"),
+                            "lecture_id": q.get("lecture_id"),
                             "difficulty": q.get("difficulty"),
+                            "review_status": q.get("review_status"),
+                            "assignment_id": q.get("assignment_id"),
+                            "assignment_title": q.get("assignment_title"),
+                            "concept_tags": q.get("concept_tags", []),
+                            "faculty_note": q.get("faculty_note", ""),
                             "note": q.get("note", ""),
                         })
                     meta = st.session_state.current_exam_meta or {}
@@ -6856,6 +8364,10 @@ if active_page == "exam":
                         "mode": meta.get("mode", st.session_state.exam_mode),
                         "type": meta.get("type", st.session_state.exam_type),
                         "subjects": meta.get("subjects", []),
+                        "units": meta.get("units", []),
+                        "courses": meta.get("courses", []),
+                        "lectures": meta.get("lectures", []),
+                        "assignment_ids": meta.get("assignment_ids", []),
                         "num_questions": len(exam_qs),
                         "answered": answered,
                         "correct": correct_count,
@@ -6936,6 +8448,8 @@ if active_page == "exam":
                             st.caption(f"단원: {q.get('unit')}")
                         if q.get("difficulty"):
                             st.caption(f"난이도: {q.get('difficulty', '?')}")
+                        if q.get("faculty_note"):
+                            st.info(f"교수 메모: {q.get('faculty_note')}")
                         if q.get("id"):
                             note_key = f"review_note_{i}"
                             st.text_area("메모", value=q.get("note", ""), key=note_key, height=80)
@@ -6983,6 +8497,26 @@ if active_page == "exam":
                         rt = q.get("response_type", "cloze")
                         rt_label = "빈칸형" if rt == "cloze" else ("단답형" if rt == "short" else "서술형")
                         st.caption(f"유형: {rt_label}")
+                    meta_parts = []
+                    if q.get("review_status"):
+                        meta_parts.append(f"검수상태: {FACULTY_REVIEW_STATUS_LABELS.get(q.get('review_status'), q.get('review_status'))}")
+                    if q.get("assignment_title"):
+                        meta_parts.append(f"배포세트: {q.get('assignment_title')}")
+                    if q.get("cognitive_level"):
+                        meta_parts.append(f"인지수준: {q.get('cognitive_level')}")
+                    if meta_parts:
+                        st.caption(" | ".join(meta_parts))
+                    if q.get("faculty_note"):
+                        st.info(f"교수 메모: {q.get('faculty_note')}")
+                    related_knowledge = get_related_internal_knowledge(q, bank.get("text", []) + bank.get("cloze", []), limit=3)
+                    if related_knowledge:
+                        with st.expander("🧠 내부 지식 패널", expanded=False):
+                            for row in related_knowledge:
+                                st.markdown(f"**{row['title']}**")
+                                st.caption(f"{row['subject']} / {row['unit']} | 태그: {', '.join(row['concept_tags'][:4])}")
+                                if row["summary"]:
+                                    st.write(row["summary"])
+                                st.divider()
 
                     # 입력
                     if q.get('type') == 'mcq':

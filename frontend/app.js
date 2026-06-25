@@ -40,6 +40,9 @@ const imageLightbox = document.querySelector("#imageLightbox");
 const lightboxImage = document.querySelector("#lightboxImage");
 const lightboxCaption = document.querySelector("#lightboxCaption");
 const lightboxClose = document.querySelector("#lightboxClose");
+const ankiCardDialog = document.querySelector("#ankiCardDialog");
+const ankiCardDialogBody = document.querySelector("#ankiCardDialogBody");
+const ankiCardDialogClose = document.querySelector("#ankiCardDialogClose");
 const appTitle = document.querySelector("#appTitle");
 const appSubtitle = document.querySelector("#appSubtitle");
 const sidebarNoteTitle = document.querySelector("#sidebarNoteTitle");
@@ -63,12 +66,21 @@ const answerKeyFile = document.querySelector("#answerKeyFile");
 const answerKeyFileLabel = document.querySelector("#answerKeyFileLabel");
 const courseExamButton = document.querySelector("#courseExamButton");
 const courseExamImportResult = document.querySelector("#courseExamImportResult");
+const notebookLmImportForm = document.querySelector("#notebookLmImportForm");
+const notebookLmRawText = document.querySelector("#notebookLmRawText");
+const notebookLmSourceName = document.querySelector("#notebookLmSourceName");
+const notebookLmSubjectUnit = document.querySelector("#notebookLmSubjectUnit");
+const notebookLmImportButton = document.querySelector("#notebookLmImportButton");
+const notebookLmImportResult = document.querySelector("#notebookLmImportResult");
+const notebookLmPrompt = document.querySelector("#notebookLmPrompt");
+const copyNotebookLmPrompt = document.querySelector("#copyNotebookLmPrompt");
 const studentExamSelect = document.querySelector("#studentExamSelect");
 const studentPracticeMode = document.querySelector("#studentPracticeMode");
 const startStudentPracticeButton = document.querySelector("#startStudentPractice");
 const studentPracticeStatus = document.querySelector("#studentPracticeStatus");
 const studentPracticeStage = document.querySelector("#studentPracticeStage");
 const studentPracticePage = document.querySelector("#student-practice");
+const studentCourseBuilder = document.querySelector("#studentCourseBuilder");
 
 let modelCatalog = null;
 let progressTimer = null;
@@ -84,9 +96,34 @@ let courseExamPracticeList = [];
 let currentPracticeExam = null;
 let currentPracticeIndex = 0;
 let currentPracticeAnswers = {};
+let currentPracticePendingAnswers = {};
+let currentPracticeAnswerEvents = {};
+let currentPracticeTimeByQuestion = {};
 let currentPracticeViewed = new Set();
+let currentPracticeBookmarks = new Set();
+let currentPracticeFlags = {};
+let currentPracticeExpandedChoices = {};
 let currentPracticeTab = "key";
 let currentPracticeSidebarCollapsed = false;
+let currentPracticeSessionId = null;
+let currentPracticeSessionStartedAt = null;
+let currentPracticeActiveQuestionKey = null;
+let currentPracticeQuestionStartedAt = null;
+let currentPracticeTimerPaused = false;
+let practiceRagEvidenceCache = {};
+let practiceRagAnkiCache = {};
+let practiceChoiceExplanationCache = {};
+let courseExamDetailCache = {};
+let studentLibraryIndex = null;
+let studentLibraryMajorLookup = {};
+let studentLibraryTopicLookup = {};
+let studentCategoryQuestionCounts = {};
+let selectedLibraryCourseKey = "hematology_oncology";
+let studentLibraryRenderSeq = 0;
+let practiceTimerInterval = null;
+let practiceAnkiStyleText = true;
+let practiceSelectedAnkiCardIds = new Set();
+let practiceAnkiDialogCards = [];
 
 try {
   const restoredMediaIds = JSON.parse(window.sessionStorage?.getItem("axioma.selectedMediaIds") || "[]");
@@ -105,8 +142,8 @@ const pageMeta = {
   "faculty-report": ["수업 리포트", "신경 및 특수감각기학 통합 성취도 분석"],
   "faculty-ops": ["운영 보드", "팀 작업 배분과 주차별 산출물 관리"],
   "faculty-medlegal": ["EMR/CPX 훈련", "의료법·설명의무·진료기록 교육"],
-  "student-dashboard": ["학습 홈", "문제·개념·복습"],
-  "student-library": ["나의 서재", "분과별 문제와 개념 아카이브"],
+  "student-dashboard": ["학습 홈", "문항 세트와 풀이 기록"],
+  "student-library": ["나의 서재", "시험지·파트별 문항 선택"],
   "student-practice": ["문제 풀기", "승인 문항 기반 학습/시험 모드"],
   "student-concepts": ["개념 노트", "Obsidian식 문항·강의록·레퍼런스 연결"],
   "student-review": ["복습 카드", "오답과 핵심 개념 플래시카드"],
@@ -309,6 +346,13 @@ function showPage(pageId, options = {}) {
   if (safePage === "student-practice" && !courseExamPracticeList.length) {
     loadStudentCourseExams();
   }
+  if (safePage === "student-library") {
+    if (!courseExamPracticeList.length) {
+      loadStudentCourseExams();
+    } else {
+      renderStudentLibraryCourseBuilder(selectedLibraryCourseKey);
+    }
+  }
   if (options.updateHash !== false && window.location.hash !== `#${safePage}`) {
     window.history.pushState(null, "", `#${safePage}`);
   }
@@ -379,6 +423,83 @@ function renderCourseExamImportResult(payload) {
   `;
 }
 
+function parseNotebookLmSubjectUnit(value) {
+  const parts = String(value || "")
+    .split(/[/>|]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    subject: parts[0] || "미분류",
+    unit: parts.slice(1).join(" / ") || "미분류",
+  };
+}
+
+function renderNotebookLmImportResult(packet) {
+  if (!notebookLmImportResult) return;
+  const summary = packet?.summary || {};
+  notebookLmImportResult.hidden = false;
+  notebookLmImportResult.className = "notebooklm-import-result";
+  notebookLmImportResult.innerHTML = `
+    <div>
+      <strong>${escapeHtml(summary.source_name || packet?.set_id || "NotebookLM import")}</strong>
+      <p>문항 ${escapeHtml(summary.question_count || 0)}개를 검토 큐에 저장했습니다. 모든 문항은 검토 전 초안 상태입니다.</p>
+    </div>
+    <div class="notebooklm-import-actions">
+      <span class="badge light">확인 필요 ${escapeHtml(summary.needs_review_count || 0)}개</span>
+      <button type="button" class="secondary-button" data-open-set="${escapeHtml(packet?.set_id || "")}">문항 검토로 이동</button>
+    </div>
+  `;
+}
+
+async function importNotebookLmQuestions() {
+  if (!notebookLmRawText?.value.trim()) {
+    if (notebookLmImportResult) {
+      notebookLmImportResult.hidden = false;
+      notebookLmImportResult.className = "notebooklm-import-result error";
+      notebookLmImportResult.innerHTML = '<p class="inline-error">NotebookLM에서 복사한 JSON을 먼저 붙여넣어 주세요.</p>';
+    }
+    return;
+  }
+  const { subject, unit } = parseNotebookLmSubjectUnit(notebookLmSubjectUnit?.value);
+  if (notebookLmImportButton) notebookLmImportButton.disabled = true;
+  setStatus("NotebookLM 문항 가져오는 중");
+  if (notebookLmImportResult) {
+    notebookLmImportResult.hidden = false;
+    notebookLmImportResult.className = "notebooklm-import-result";
+    notebookLmImportResult.textContent = "NotebookLM 결과를 문항 DB 형식으로 변환하고 있습니다.";
+  }
+  try {
+    const response = await fetch("/api/notebooklm/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        raw_text: notebookLmRawText.value,
+        source_name: notebookLmSourceName?.value?.trim() || "NotebookLM 문항 초안",
+        subject,
+        unit,
+      }),
+    });
+    const packet = await response.json();
+    if (!response.ok) {
+      throw new Error(packet.detail || "NotebookLM import 실패");
+    }
+    renderNotebookLmImportResult(packet);
+    await loadArchiveSets();
+    if (metricQuestions) metricQuestions.textContent = packet.summary?.question_count || packet.questions?.length || 0;
+    setReviewCount(packet.summary?.needs_review_count || packet.questions?.length || 0);
+    setStatus("NotebookLM 문항 가져오기 완료", "muted");
+  } catch (error) {
+    setStatus("NotebookLM import 오류");
+    if (notebookLmImportResult) {
+      notebookLmImportResult.hidden = false;
+      notebookLmImportResult.className = "notebooklm-import-result error";
+      notebookLmImportResult.innerHTML = `<p class="inline-error">가져오기 실패: ${escapeHtml(error.message)}</p>`;
+    }
+  } finally {
+    if (notebookLmImportButton) notebookLmImportButton.disabled = false;
+  }
+}
+
 function joinList(values) {
   return (values || []).filter(Boolean).join(", ");
 }
@@ -408,8 +529,10 @@ function examTitle(summary) {
 }
 
 function practiceSourceTags(question) {
-  const summary = currentPracticeExam?.summary || {};
+  const summary = question?._source_summary || currentPracticeExam?.summary || {};
+  const labels = question?.labels || {};
   const tags = [
+    labels.source_label,
     question.source_exam || summary.source_file || summary.course_name,
     question.period || summary.round_label,
     question.source_page ? `p.${question.source_page}` : "",
@@ -438,44 +561,1236 @@ function practiceLabelText(value) {
   return labelMap[normalized] || normalized.replaceAll("_", " ");
 }
 
+function compactUniqueList(values, max = 3) {
+  return [...new Set((values || []).map((value) => practiceLabelText(value)).filter(Boolean))]
+    .slice(0, max);
+}
+
+function questionSourceLabel(question) {
+  const labels = question?.labels || {};
+  const summary = question?._source_summary || currentPracticeExam?.summary || {};
+  return practiceLabelText(labels.source_label || summary.round_label || question?.period || summary.source_file || "");
+}
+
+function questionFacultyLabel(question) {
+  const labels = question?.labels || {};
+  return practiceLabelText(labels.faculty_verified || labels.faculty || labels.professor || "");
+}
+
+function questionMajorTopicLabel(question) {
+  const labels = question?.labels || {};
+  const major = practiceLabelText(labels.major_category || labels.course_name_labeled || "");
+  const topic = practiceLabelText(labels.topic || labels.subtopic || "");
+  return [major, topic].filter(Boolean).join(" · ");
+}
+
+function practiceQuestionMetaChips(question) {
+  const chips = [
+    questionSourceLabel(question),
+    questionFacultyLabel(question) ? `${questionFacultyLabel(question)} 교수` : "",
+    questionMajorTopicLabel(question),
+  ].filter(Boolean);
+  return compactUniqueList(chips, 4)
+    .map((chip) => `<span class="question-meta-chip">${escapeHtml(chip)}</span>`)
+    .join("");
+}
+
+function practiceQuestionTypeLabel(question) {
+  const labels = question?.labels || {};
+  return practiceLabelText(
+    labels.question_type_labeled
+      || labels.question_type
+      || labels.cognitive_level
+      || "과정시험"
+  );
+}
+
 function explanationNeedsSupplement(explanation) {
   const text = String(explanation || "").trim();
   return text.length < 40 || /해설 없음|해설없음|미기재|검토 필요|없습니다/.test(text);
 }
 
-function buildSupplementalExplanation(question, answer, labels, conceptTags) {
-  const correctChoice = question?.choices?.[answer] || "정답 선지";
-  const conceptLabel = [
-    conceptTags?.[0],
-    labels?.subtopic,
-    labels?.topic,
-    labels?.cognitive_level,
-    labels?.question_type,
-  ].map(practiceLabelText).filter(Boolean)[0] || "핵심 개념";
-  const sourceLabel = [
-    question?.source_exam,
-    question?.period,
-    question?.source_page ? `p.${question.source_page}` : "",
-  ].filter(Boolean).join(" · ");
-
-  return [
-    `정답은 ${answer || "미확인"}번(${correctChoice})입니다.`,
-    `이 문항은 ${conceptLabel}을 확인하기 위한 문항으로 분류되어 있습니다.`,
-    "지문에서 결정 단서를 먼저 표시한 뒤, 정답 선지와 나머지 선지를 같은 기준으로 대조해 보세요.",
-    sourceLabel ? `근거 출처: ${sourceLabel}` : "원문 해설이 짧아 강의록 근거와 교수 검토를 통해 보강이 필요합니다.",
-  ].join(" ");
-}
-
 function practiceExplanationInfo(question, answer, labels, conceptTags) {
+  const keyInfo = question?.key_info && typeof question.key_info === "object" ? question.key_info : {};
+  const importedPieces = [
+    keyInfo.core_explanation,
+    question?.answer_rationale,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  if (importedPieces.length) {
+    return {
+      text: importedPieces.join(" "),
+      supplemental: false,
+      imported: true,
+    };
+  }
   const original = String(question?.explanation || "").trim();
   const supplemental = explanationNeedsSupplement(original);
   if (!supplemental) {
     return { text: original, supplemental: false };
   }
   return {
-    text: buildSupplementalExplanation(question, answer, labels, conceptTags),
+    text: "",
     supplemental: true,
   };
+}
+
+const practiceCircledDigitMap = {
+  "①": "1",
+  "②": "2",
+  "③": "3",
+  "④": "4",
+  "⑤": "5",
+  "⑥": "6",
+  "⑦": "7",
+  "⑧": "8",
+};
+
+const practiceAnkiStopwords = new Set([
+  "this",
+  "that",
+  "with",
+  "from",
+  "patient",
+  "patients",
+  "finding",
+  "findings",
+  "following",
+  "which",
+  "대한",
+  "다음",
+  "가장",
+  "문항",
+  "환자",
+  "정답",
+  "선지",
+  "근거",
+  "설명",
+  "확인",
+  "필요",
+]);
+
+const practiceBadAnkiPhrases = [
+  "정답은",
+  "이 문항은",
+  "지문에서",
+  "정답 선지",
+  "문항으로 분류",
+  "근거 출처",
+  "검토",
+  "부족",
+  "교수",
+  "조교",
+];
+
+const practiceWeakExplanationPhrases = [
+  "정답은",
+  "이 문항은",
+  "저장된 해설",
+  "검토가 필요",
+  "검토 필요",
+  "근거가 부족",
+  "근거 부족",
+  "원문 해설이 짧아",
+  "보강이 필요",
+  "강의록 근거와 교수 검토",
+  "지문에서 결정 단서",
+  "정답 선지와 나머지 선지",
+  "정답 근거 확인이 필요",
+];
+
+function normalizePracticeChoiceKey(value) {
+  const text = String(value || "").trim();
+  if (practiceCircledDigitMap[text]) return practiceCircledDigitMap[text];
+  for (const [marker, digit] of Object.entries(practiceCircledDigitMap)) {
+    if (text.includes(marker)) return digit;
+  }
+  const match = text.match(/[1-8]/);
+  return match ? match[0] : text;
+}
+
+function practiceAnswerKeys(question) {
+  const source = Array.isArray(question?.generated_answer) && question.generated_answer.length
+    ? question.generated_answer
+    : Array.isArray(question?.answer) ? question.answer : [question?.answer];
+  return Array.from(
+    new Set(source.map(normalizePracticeChoiceKey).filter(Boolean))
+  );
+}
+
+function practicePrimaryAnswer(question) {
+  return practiceAnswerKeys(question)[0] || "";
+}
+
+function practiceAnswerLabel(question) {
+  const keys = practiceAnswerKeys(question);
+  return keys.length ? keys.join(", ") : "미확인";
+}
+
+function practiceChoiceIsCorrect(question, choiceKey) {
+  return practiceAnswerKeys(question).includes(normalizePracticeChoiceKey(choiceKey));
+}
+
+function practiceNormalizeAnswerSelection(value) {
+  const source = Array.isArray(value) ? value : value ? [value] : [];
+  return Array.from(
+    new Set(source.map(normalizePracticeChoiceKey).filter(Boolean))
+  );
+}
+
+function practiceHasAnswerSelection(value) {
+  return practiceNormalizeAnswerSelection(value).length > 0;
+}
+
+function practiceSelectionLabel(value) {
+  const keys = practiceNormalizeAnswerSelection(value);
+  return keys.length ? keys.join(", ") : "";
+}
+
+function practiceIsMultiAnswerQuestion(question) {
+  return practiceAnswerKeys(question).length > 1;
+}
+
+function practiceSelectionIsCorrect(question, selection) {
+  const answerKeys = practiceAnswerKeys(question);
+  const selectedKeys = practiceNormalizeAnswerSelection(selection);
+  return answerKeys.length > 0
+    && answerKeys.length === selectedKeys.length
+    && answerKeys.every((key) => selectedKeys.includes(key));
+}
+
+function isPlaceholderStimulus(value) {
+  return /^<\s*(그림|사진|표|자료)\s*>$/.test(String(value || "").trim());
+}
+
+function splitPracticeSentences(text) {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return [];
+  return cleaned
+    .split(/(?<=[.!?。！？다])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function extractPracticeMarkedExplanations(explanation) {
+  const text = String(explanation || "").trim();
+  const markerRegex = /(①|②|③|④|⑤|⑥|⑦|⑧|(?:^|[\s,.;:])([1-8])[\).])\s*/g;
+  const matches = Array.from(text.matchAll(markerRegex));
+  if (!matches.length) return {};
+  const rows = {};
+  matches.forEach((match, index) => {
+    const marker = practiceCircledDigitMap[match[1]] || match[2] || normalizePracticeChoiceKey(match[1]);
+    const start = (match.index || 0) + match[0].length;
+    const end = index + 1 < matches.length ? matches[index + 1].index || text.length : text.length;
+    const body = text.slice(start, end).trim().replace(/^[\s:;.-]+|[\s:;.-]+$/g, "");
+    if (marker && body) rows[marker] = body;
+  });
+  return rows;
+}
+
+function existingChoiceExplanationMap(question) {
+  const candidates = [
+    question?.choice_explanations,
+    question?.pma_solution?.choice_explanations,
+    question?.explanations_by_choice,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (Array.isArray(candidate)) {
+      const rows = {};
+      candidate.forEach((value, index) => {
+        if (String(value || "").trim()) rows[String(index + 1)] = String(value).trim();
+      });
+      if (Object.keys(rows).length) return rows;
+    }
+    if (typeof candidate === "object") {
+      const rows = {};
+      Object.entries(candidate).forEach(([key, value]) => {
+        const body = typeof value === "object" && value
+          ? String(value.rationale || value.explanation || value.text || "").trim()
+          : String(value || "").trim();
+        if (body) rows[normalizePracticeChoiceKey(key)] = body;
+      });
+      if (Object.keys(rows).length) return rows;
+    }
+  }
+  return {};
+}
+
+function choiceKeywords(choiceText) {
+  return Array.from(
+    new Set(
+      String(choiceText || "")
+        .match(/[A-Za-z][A-Za-z0-9+\-/]{2,}|[가-힣]{2,}/g) || []
+    )
+  )
+    .map((token) => token.toLowerCase())
+    .filter((token) => !practiceAnkiStopwords.has(token));
+}
+
+function findChoiceMentionSentence(choiceText, explanation) {
+  const keywords = choiceKeywords(choiceText);
+  if (!keywords.length) return "";
+  return splitPracticeSentences(explanation).find((sentence) => {
+    const lower = sentence.toLowerCase();
+    return keywords.some((keyword) => lower.includes(keyword));
+  }) || "";
+}
+
+function isWeakPracticeExplanationText(text) {
+  const value = String(text || "").trim();
+  if (!value) return true;
+  return practiceWeakExplanationPhrases.some((phrase) => value.includes(phrase));
+}
+
+function practiceChoiceLookup(question) {
+  return Object.fromEntries(
+    practiceChoiceEntries(question).map(([key, value]) => [
+      normalizePracticeChoiceKey(key),
+      String(value || "").trim(),
+    ])
+  );
+}
+
+function practiceQuestionFocus(question) {
+  const stem = String(question?.stem || "").replace(/\s+/g, " ").trim();
+  if (/가장\s*흔한\s*원인/.test(stem)) return "가장 흔한 원인";
+  if (/초기\s*처치|우선.*처치|가장\s*적절한\s*처치/.test(stem)) return "가장 적절한 초기 처치";
+  if (/치료|처방|투여/.test(stem)) return "가장 적절한 치료";
+  if (/진단|의심/.test(stem)) return "가장 가능성 높은 진단";
+  if (/검사|소견/.test(stem)) return "가장 중요한 검사/소견";
+  if (/옳지\s*않|틀린\s*것|아닌\s*것|부적절/.test(stem)) return "틀린 진술";
+  return "지문이 묻는 핵심 기준";
+}
+
+function isPracticeNegativeQuestion(question) {
+  return /틀린\s*것|옳지\s*않|아닌\s*것|부적절|잘못|거리가\s*먼|해당하지/.test(String(question?.stem || ""));
+}
+
+function isCraniosynostosisQuestion(question) {
+  const haystack = [
+    question?.stem,
+    question?.stimulus,
+    question?.explanation,
+    ...practiceChoiceEntries(question).map(([, value]) => value),
+  ].join(" ");
+  return /두개유합증|craniosynostosis|cranial\s*vault|두개천장|시상봉합|sagittal\s+suture/i.test(haystack);
+}
+
+function craniosynostosisLearningPoints(choiceText, isCorrect) {
+  const lowerChoice = String(choiceText || "").toLowerCase();
+  if (/cranial vault|두개천장/.test(lowerChoice)) {
+    return [
+      { label: "두개천장", body: "두개천장(cranial vault, calvaria)은 뇌를 덮는 두개골의 지붕 부분으로, 전두골·두정골·후두골 등이 봉합선으로 연결되어 성장합니다." },
+      { label: "봉합선", body: "두개골 봉합선은 단순한 선이 아니라 성장판처럼 작동하는 섬유성 결합부입니다. 영아기와 소아기 두개골 성장은 이 봉합선을 통해 일어납니다." },
+      { label: "핵심 법칙", body: "봉합이 조기에 유합되면 그 봉합선에 수직인 방향의 성장이 제한되고, 상대적으로 열린 봉합 방향으로 보상성 성장이 일어납니다." },
+    ];
+  }
+  if (/crouzon|크루존|brachycephaly|단두/.test(lowerChoice)) {
+    return [
+      { label: "질환 연결", body: "Crouzon syndrome은 craniosynostosis를 동반할 수 있는 대표적 증후군성 두개유합증입니다." },
+      { label: "형태", body: "양측 관상봉합 유합이 있으면 앞뒤 길이가 짧고 좌우 폭이 넓은 단두증(brachycephaly) 형태가 나타날 수 있습니다." },
+      { label: "동반 소견", body: "안구돌출, 중안면 저형성, 상악 저형성 같은 얼굴뼈 발달 이상이 함께 나타날 수 있습니다." },
+    ];
+  }
+  if (/lambdoid|삼각봉합|plagiocephaly|편평두/.test(lowerChoice)) {
+    return [
+      { label: "봉합 위치", body: "Lambdoid suture는 후두골과 두정골 사이에 있는 뒤쪽 봉합입니다." },
+      { label: "형태", body: "한쪽 lambdoid suture가 조기에 유합되면 뒤쪽 두개골 성장이 비대칭이 되어 posterior plagiocephaly가 나타날 수 있습니다." },
+      { label: "임상 구분", body: "위치성 사두증과 달리 lambdoid synostosis는 봉합 조기 유합에 따른 구조적 비대칭입니다." },
+    ];
+  }
+  if (/sagittal|시상봉합/.test(lowerChoice)) {
+    return [
+      { label: "봉합 위치", body: "시상봉합(sagittal suture)은 양쪽 두정골 사이를 정중선에서 잇는 봉합입니다." },
+      { label: "정상 유합", body: "이 정답지 기준에서는 시상봉합의 정상 유합 시작 시점을 10세 초반으로 봅니다. 1세 전후 시작이라는 서술은 정상 유합 시점으로는 너무 이릅니다." },
+      { label: "조기 유합", body: "시상봉합이 병적으로 조기 유합되면 좌우 방향 성장이 제한되고 전후 방향 성장이 상대적으로 두드러져 주상두(scaphocephaly)가 나타날 수 있습니다." },
+    ];
+  }
+  if (/metopic|전두봉합|trigonocephaly|삼각두/.test(lowerChoice)) {
+    return [
+      { label: "봉합 위치", body: "Metopic suture는 이마 중앙에서 양측 전두골 사이를 연결하는 봉합입니다." },
+      { label: "형태", body: "Metopic suture가 조기에 유합되면 이마가 삼각형처럼 좁아지는 trigonocephaly가 나타날 수 있습니다." },
+      { label: "임상 소견", body: "전두부 중앙 융기, 양측 전두부 협소화, 안와 사이 거리 감소가 함께 관찰될 수 있습니다." },
+    ];
+  }
+  return [
+    { label: "개념", body: "두개유합증은 두개골 봉합이 정상보다 일찍 닫혀 두개골 성장 방향과 머리 모양이 달라지는 질환군입니다." },
+    { label: "검토 기준", body: "봉합 위치, 조기 유합 시 성장 제한 방향, 결과적 두개골 형태를 각각 분리해 연결합니다." },
+  ];
+}
+
+function buildCraniosynostosisChoiceExplanation(question, choiceKey, answer) {
+  const choices = practiceChoiceLookup(question);
+  const choiceText = choices[choiceKey] || "해당 보기";
+  const lowerChoice = choiceText.toLowerCase();
+  const isCorrect = choiceKey === answer;
+  let rationale = "";
+
+  if (/cranial vault|두개천장/.test(lowerChoice)) {
+    rationale = "두개천장(cranial vault)은 뇌를 덮는 두개골 지붕이고, 봉합선은 두개골 뼈 사이의 성장판 역할을 합니다. 두개유합증에서는 봉합이 너무 일찍 닫히면 그 봉합선에 수직인 방향의 골성장이 제한되고, 열린 봉합 방향으로 보상성 성장이 일어납니다.";
+  } else if (/crouzon|크루존|brachycephaly|단두/.test(lowerChoice)) {
+    rationale = "Crouzon syndrome은 증후군성 두개유합증의 대표 질환입니다. 관상봉합, 특히 양측 관상봉합이 조기에 유합되면 두개골의 앞뒤 성장이 제한되어 전후경이 짧아지는 단두증(brachycephaly)이 나타날 수 있습니다.";
+  } else if (/lambdoid|삼각봉합|plagiocephaly|편평두/.test(lowerChoice)) {
+    rationale = "Lambdoid suture는 뒤쪽 두개골에서 두정골과 후두골 사이를 잇는 봉합입니다. 한쪽 lambdoid suture가 조기에 유합되면 후두부 성장이 비대칭이 되어 posterior plagiocephaly로 나타날 수 있습니다.";
+  } else if (/sagittal|시상봉합/.test(lowerChoice)) {
+    rationale = "시상봉합(sagittal suture)은 양쪽 두정골 사이를 정중선에서 잇는 봉합입니다. 이 정답지 기준에서는 시상봉합의 정상 유합 시작 시점을 10세 초반으로 보므로, 정상 유합이 1세 전후에 시작된다는 서술은 너무 이릅니다. 시상봉합이 병적으로 조기 유합되면 전후로 긴 주상두(scaphocephaly)가 나타날 수 있습니다.";
+  } else if (/metopic|전두봉합|trigonocephaly|삼각두/.test(lowerChoice)) {
+    rationale = "Metopic suture는 이마 중앙에서 양측 전두골 사이를 잇는 봉합입니다. 전두봉합이 조기에 유합되면 이마가 삼각형처럼 좁아지고 안와 사이가 좁아지는 trigonocephaly가 나타날 수 있습니다.";
+  } else {
+    rationale = isCorrect
+      ? "두개유합증에서는 봉합 위치, 조기 유합 시 성장 제한 방향, 결과적 두개골 형태를 함께 비교해야 합니다."
+      : "두개유합증은 봉합 위치와 조기 유합 후 나타나는 두개골 형태를 연결해 이해합니다.";
+  }
+
+  return {
+    choiceText,
+    isCorrect,
+    needsReview: false,
+    rationale,
+    learningPoints: craniosynostosisLearningPoints(choiceText, isCorrect),
+    source: "concept_comparison",
+    evidence: [],
+    questionPolarity: "negative",
+    statementStatus: isCorrect ? "false_statement" : "true_statement",
+  };
+}
+
+function buildAutonomicDysreflexiaChoiceExplanation(question, choiceKey, answer) {
+  const choices = practiceChoiceLookup(question);
+  const choiceText = choices[choiceKey] || "해당 보기";
+  const lowerChoice = choiceText.toLowerCase();
+  const isCorrect = choiceKey === answer;
+  let rationale = "";
+  let learningPoints = [];
+
+  if (isCorrect) {
+    rationale = "방광팽창은 척수손상 환자의 자율신경 이상반사증에서 가장 먼저 떠올려야 하는 유발 요인입니다. 방광 과팽창, 요정체, 도뇨관 폐쇄 같은 방광 자극이 병변 아래쪽의 구심성 자극을 만들고, 상위 중추의 억제가 끊긴 상태에서 과도한 교감신경 반응이 발생합니다. 그래서 이 문항처럼 ‘가장 흔한 원인’을 묻는 경우에는 방광팽창이 정답입니다.";
+    learningPoints = [
+      ["개념", "자율신경 이상반사증은 대개 T6 이상 척수손상에서 병변 아래쪽 유해 자극이 과도한 교감신경 반응을 일으키는 상태입니다."],
+      ["정답 근거", "방광팽창, 요정체, 도뇨관 폐쇄 같은 방광 자극은 가장 흔하고 먼저 확인해야 하는 trigger입니다."],
+      ["기억 포인트", "AD 의심 시 우선 앉히고 혈압을 확인한 뒤 방광 문제를 먼저 해결합니다."],
+    ];
+  } else if (/fecal|대변|매복/.test(lowerChoice)) {
+    rationale = "대변매복은 장 팽창이나 직장 자극을 통해 자율신경 이상반사증을 유발할 수 있으므로 헷갈릴 수 있는 보기입니다. 실제로 bowel problem은 중요한 유발 요인이지만, 시험에서 ‘가장 흔한 원인’을 묻는다면 우선순위는 방광팽창 또는 도뇨관 폐쇄 같은 urinary trigger입니다. 따라서 이 선지는 ‘가능한 원인’일 수는 있어도 ‘가장 흔한 원인’으로는 방광팽창보다 밀립니다.";
+    learningPoints = [
+      ["개념", "대변매복은 장 팽창·직장 자극을 통해 AD를 유발할 수 있는 실제 trigger입니다."],
+      ["왜 헷갈리는가", "AD의 유발 요인을 묻는 문항이면 bowel problem도 맞는 후보가 될 수 있습니다."],
+      ["배제 기준", "이 문항은 ‘가장 흔한 원인’을 묻기 때문에, bowel trigger보다 urinary trigger인 방광팽창이 우선입니다."],
+      ["기억 포인트", "AD trigger는 bladder first, bowel second 순서로 떠올리면 안전합니다."],
+    ];
+  } else if (/pressure|압박|injury/.test(lowerChoice)) {
+    rationale = "압박손상은 척수손상 환자에서 흔히 관리해야 하는 피부 합병증이고, 통증성 피부 자극이 자율신경 이상반사증의 trigger가 될 수는 있습니다. 그러나 이 보기는 AD의 병태생리 자체보다 욕창 예방·피부 관리 쪽에 더 가까운 보기입니다. ‘가장 흔한 원인’을 묻는 이 문항에서는 피부 자극보다 방광팽창 같은 비뇨기계 자극을 먼저 선택해야 합니다.";
+    learningPoints = [
+      ["개념", "압박손상은 척수손상 환자의 주요 합병증이며 통증성 피부 자극이 AD를 유발할 수 있습니다."],
+      ["왜 헷갈리는가", "병변 아래쪽 피부 자극도 AD trigger가 될 수 있다는 점에서 완전히 무관한 보기는 아닙니다."],
+      ["배제 기준", "가장 흔한 원인을 묻는 경우에는 피부 자극보다 방광팽창·도뇨관 폐쇄 같은 비뇨기계 자극이 우선입니다."],
+      ["기억 포인트", "욕창은 척수손상 관리 포인트, AD 최빈 trigger는 방광 문제입니다."],
+    ];
+  } else if (/scrotal|torsion|음낭|꼬임/.test(lowerChoice)) {
+    rationale = "음낭꼬임은 급성 음낭 통증을 일으키는 비뇨기 응급질환입니다. 통증 자극이라는 점 때문에 AD의 ‘유해 자극’과 연결해 생각할 수 있지만, 척수손상 환자에서 반복적으로 문제 되는 대표적 유발 요인은 방광 또는 장 자극입니다. 따라서 이 선지는 질환 자체는 중요하지만, 이 문항의 ‘가장 흔한 원인’ 기준에는 맞지 않습니다.";
+    learningPoints = [
+      ["개념", "음낭꼬임은 급성 음낭 통증과 고환 허혈을 일으키는 응급질환입니다."],
+      ["왜 헷갈리는가", "통증성 자극이라는 점에서는 AD의 유해 자극 범주와 연결될 수 있습니다."],
+      ["배제 기준", "하지만 척수손상 환자의 AD에서 반복적으로 먼저 확인하는 최빈 원인은 방광팽창입니다."],
+      ["기억 포인트", "질환 자체의 응급도와 이 문항의 빈도 기준을 분리해서 봐야 합니다."],
+    ];
+  } else if (/toenail|발톱|내향성/.test(lowerChoice)) {
+    rationale = "내향성발톱은 병변 아래쪽의 통증성 말초 자극이 될 수 있어 자율신경 이상반사증의 유발 요인 목록에는 들어갈 수 있습니다. 하지만 시험적으로 중요한 포인트는 ‘가능한 모든 유해 자극’이 아니라 빈도와 우선순위입니다. 가장 흔하고 먼저 확인해야 하는 원인은 방광팽창이므로, 내향성발톱은 오답입니다.";
+    learningPoints = [
+      ["개념", "내향성발톱은 국소 통증·염증을 만들 수 있는 말초 유해 자극입니다."],
+      ["왜 헷갈리는가", "AD는 병변 아래쪽의 여러 유해 자극으로 발생할 수 있어 말초 통증 자극도 후보가 됩니다."],
+      ["배제 기준", "그러나 최빈 원인을 묻는 문항에서는 방광팽창이 내향성발톱보다 훨씬 우선입니다."],
+      ["기억 포인트", "가능한 trigger와 가장 흔한 trigger를 구분해야 합니다."],
+    ];
+  } else {
+    rationale = `${choiceText}는 병변 아래쪽 유해 자극으로 자율신경 이상반사증과 연결될 수 있는지 검토할 수 있습니다. 다만 이 문항은 ‘가능한 원인’이 아니라 ‘가장 흔한 원인’을 묻고 있으므로, 빈도가 높고 가장 먼저 확인해야 하는 방광팽창이 우선됩니다.`;
+    learningPoints = [
+      ["개념", "AD는 병변 아래쪽 유해 자극이 과도한 교감신경 반응을 일으키는 상태입니다."],
+      ["배제 기준", "이 문항은 가능한 trigger가 아니라 가장 흔한 trigger를 묻습니다."],
+      ["기억 포인트", "가장 흔한 원인은 방광팽창 같은 비뇨기계 자극입니다."],
+    ];
+  }
+
+  return {
+    choiceText,
+    isCorrect,
+    needsReview: false,
+    rationale,
+    learningPoints: learningPoints.map(([label, body]) => ({ label, body })),
+    source: "concept_comparison",
+    evidence: [],
+  };
+}
+
+function buildPracticeChoiceComparisonFallback(question, choiceKey, answer) {
+  const choices = practiceChoiceLookup(question);
+  const choiceText = choices[choiceKey] || "해당 보기";
+  const correctText = choices[answer] || "기준 개념";
+  const stem = String(question?.stem || "");
+  if (isCraniosynostosisQuestion(question)) {
+    return buildCraniosynostosisChoiceExplanation(question, choiceKey, answer);
+  }
+  if (/자율신경\s*이상반사|autonomic\s*dysreflexia/i.test(stem)) {
+    return buildAutonomicDysreflexiaChoiceExplanation(question, choiceKey, answer);
+  }
+  const isCorrect = choiceKey === answer;
+  const focus = practiceQuestionFocus(question);
+  const labels = question?.labels || {};
+  const understanding = practiceQuestionUnderstanding(question, labels);
+  const concept = understanding.askedConcept || labels.subtopic || labels.topic || focus;
+  const assessment = understanding.assessment || focus;
+  const isNegative = isPracticeNegativeQuestion(question);
+  if (isNegative) {
+    return {
+      choiceText,
+      isCorrect,
+      needsReview: true,
+      rationale: isCorrect
+        ? `${choiceText}는 ${concept}에서 개념·시점·적응증·기전 중 어떤 부분이 어긋나는지 확인해야 하는 진술입니다.`
+        : `${choiceText}는 ${concept}에서 함께 비교해야 하는 진술입니다. ${assessment} 기준으로 개념이 성립하는지 확인합니다.`,
+      source: "needs_manual_content",
+      evidence: [],
+      questionPolarity: "negative",
+      statementStatus: isCorrect ? "false_statement" : "true_statement",
+    };
+  }
+  return {
+    choiceText,
+    isCorrect,
+    needsReview: true,
+    rationale: isCorrect
+      ? `${correctText}는 ${concept}에서 ${assessment}을 판단할 때 기준이 되는 개념입니다. 지문 단서와 이 개념이 연결되는 의학적 근거를 별도로 작성해야 합니다.`
+      : `${choiceText}는 ${concept}과 함께 비교해야 하는 개념입니다. ${assessment}이라는 같은 기준에서 지문 조건과 맞는지 확인해야 합니다.`,
+    source: "needs_manual_content",
+    evidence: [],
+  };
+}
+
+function explanationForVisibleChoice(question, answer, choiceKey, draftRows) {
+  if (isCraniosynostosisQuestion(question)) {
+    return buildCraniosynostosisChoiceExplanation(question, choiceKey, answer);
+  }
+  if (/자율신경\s*이상반사|autonomic\s*dysreflexia/i.test(String(question?.stem || ""))) {
+    return buildAutonomicDysreflexiaChoiceExplanation(question, choiceKey, answer);
+  }
+  const existing = draftRows?.[choiceKey];
+  if (existing?.rationale) {
+    return existing;
+  }
+  return buildPracticeChoiceComparisonFallback(question, choiceKey, answer);
+}
+
+function buildPracticeChoiceExplanationDraft(question, answer, explanationInfo) {
+  const existingMap = existingChoiceExplanationMap(question);
+  const markedMap = extractPracticeMarkedExplanations(question?.explanation || "");
+  const correctAnswer = normalizePracticeChoiceKey(answer);
+  const originalExplanation = String(question?.explanation || "").trim();
+  const fallbackCorrect = explanationInfo?.text || originalExplanation || "정답 근거 확인이 필요합니다.";
+  const rows = {};
+  practiceChoiceEntries(question).forEach(([key, text]) => {
+    const normalizedKey = normalizePracticeChoiceKey(key);
+    const isCorrect = normalizedKey === correctAnswer;
+    let source = "existing_choice_explanation";
+    let rationale = existingMap[normalizedKey] || "";
+    if (!rationale) {
+      source = "marked_explanation";
+      rationale = markedMap[normalizedKey] || "";
+    }
+    if (!rationale) {
+      source = "choice_mention";
+      rationale = findChoiceMentionSentence(text, originalExplanation);
+    }
+    if (!rationale && isCorrect) {
+      source = explanationInfo?.supplemental ? "supplemental_correct_rationale" : "correct_rationale";
+      rationale = fallbackCorrect;
+    }
+    if (!rationale) {
+      return;
+    }
+    rows[normalizedKey] = {
+      choiceText: text,
+      isCorrect,
+      needsReview: isWeakPracticeExplanationText(rationale),
+      rationale,
+      source,
+    };
+  });
+  return rows;
+}
+
+function normalizePracticeChoiceExplanationPayload(payload, question) {
+  const choiceRows = Object.fromEntries(practiceChoiceEntries(question));
+  const rows = {};
+  Object.entries(payload?.choice_explanations || {}).forEach(([key, value]) => {
+    const normalizedKey = normalizePracticeChoiceKey(key);
+    const rationale = String(value?.rationale || value?.explanation || value?.text || "").trim();
+    rows[normalizedKey] = {
+      choiceText: value?.choice_text || choiceRows[normalizedKey] || "",
+      isCorrect: Boolean(value?.is_correct),
+      needsReview: Boolean(value?.needs_review) || isWeakPracticeExplanationText(rationale),
+      rationale,
+      learningPoints: Array.isArray(value?.learning_points)
+        ? value.learning_points
+        : Array.isArray(value?.learningPoints) ? value.learningPoints : [],
+      questionPolarity: value?.question_polarity || value?.questionPolarity || "",
+      statementStatus: value?.statement_status || value?.statementStatus || "",
+      source: value?.source || "server_choice_explanation",
+      evidence: Array.isArray(value?.evidence) ? value.evidence : [],
+    };
+  });
+  return rows;
+}
+
+function practiceChoiceExplanationCourseId(question, labels = {}, conceptTags = []) {
+  return practiceRagCourseId(question, labels, conceptTags);
+}
+
+function practiceChoiceExplanationCacheKey(question, labels = {}, conceptTags = []) {
+  const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+  const courseId = practiceChoiceExplanationCourseId(question, labels, conceptTags) || "no_rag";
+  const contentKey = hashString(
+    [
+      question?.stem,
+      question?.stimulus,
+      question?.answer,
+      question?.explanation,
+      JSON.stringify(question?.choices || {}),
+    ].join("\n")
+  );
+  return `choice_explanations:${courseId}:${questionKey}:${contentKey}`;
+}
+
+function shouldRefreshPracticeChoiceExplanations(cacheKey) {
+  const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+  if (!question) return false;
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  return practiceChoiceExplanationCacheKey(question, labels, conceptTags) === cacheKey;
+}
+
+async function fetchPracticeChoiceExplanations(question, labels, conceptTags, cacheKey) {
+  const fallback = buildPracticeChoiceExplanationDraft(
+    question,
+    normalizePracticeChoiceKey(question?.answer || ""),
+    practiceExplanationInfo(question, normalizePracticeChoiceKey(question?.answer || ""), labels, conceptTags)
+  );
+  const courseId = practiceChoiceExplanationCourseId(question, labels, conceptTags);
+  try {
+    const response = await fetch("/api/questions/choice-explanations/draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: {
+          ...question,
+          source_exam: question?.source_exam || currentPracticeExam?.summary?.source_exam,
+          source_file: question?.source_file || currentPracticeExam?.summary?.source_file,
+        },
+        course_id: courseId || undefined,
+        use_rag: true,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "선지별 해설 생성 실패");
+    }
+    practiceChoiceExplanationCache[cacheKey] = {
+      status: "ready",
+      rows: normalizePracticeChoiceExplanationPayload(payload, question),
+      fallback,
+      ragCourseId: payload.rag_course_id || "",
+      policy: payload.draft_policy || "",
+      questionUnderstanding: payload.question_understanding || null,
+    };
+    if (payload.question_understanding) {
+      question.question_understanding = payload.question_understanding;
+    }
+  } catch (error) {
+    practiceChoiceExplanationCache[cacheKey] = {
+      status: "error",
+      rows: fallback,
+      fallback,
+      message: error.message || "선지별 해설 생성 실패",
+    };
+  }
+  if (shouldRefreshPracticeChoiceExplanations(cacheKey)) {
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+  }
+}
+
+function practiceQuestionUnderstanding(question, labels = {}) {
+  const saved = question?.question_understanding || {};
+  const conceptPath = saved.concept_path || [
+    labels.major_category,
+    labels.topic,
+    labels.subtopic,
+  ].filter(Boolean).join(" > ");
+  const askedConcept = saved.asked_concept || labels.subtopic || labels.topic || labels.major_category || "";
+  const assessment = saved.assessment_domain || labels.assessment_domain || "";
+  const questionType = saved.question_type || labels.question_type || "";
+  const task = saved.task || (
+    assessment
+      ? `${practiceLabelText(assessment)}을 판단하는 데 필요한 핵심 기준을 찾습니다.`
+      : "문항이 묻는 개념을 먼저 정리한 뒤 선지를 비교합니다."
+  );
+  const decisionRule = saved.decision_rule || (
+    askedConcept
+      ? `${practiceLabelText(askedConcept)}와 가장 잘 맞는 선지를 선택합니다.`
+      : "문항이 묻는 기준을 세운 뒤 각 선지의 개념을 비교합니다."
+  );
+  const tags = Array.isArray(saved.concept_tags)
+    ? saved.concept_tags
+    : Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  return {
+    conceptPath,
+    askedConcept,
+    assessment,
+    questionType,
+    polarity: saved.polarity || "",
+    task,
+    decisionRule,
+    tags,
+  };
+}
+
+function renderPracticeQuestionUnderstanding(question, labels) {
+  const understanding = practiceQuestionUnderstanding(question, labels);
+  const chips = [
+    understanding.questionType,
+    understanding.assessment,
+    understanding.polarity === "negative" ? "틀린 진술 찾기" : "",
+  ].filter(Boolean).map((item) => `<span class="provenance-chip">${escapeHtml(practiceLabelText(item))}</span>`).join("");
+  const tagChips = (understanding.tags || []).slice(0, 6)
+    .map((tag) => `<span>${escapeHtml(practiceLabelText(tag))}</span>`)
+    .join("");
+  return `
+    <section class="question-understanding-card">
+      <div class="tool-panel-kicker">문항 이해</div>
+      <h3>${escapeHtml(practiceLabelText(understanding.askedConcept) || "평가 개념 정리")}</h3>
+      <p>${escapeHtml(understanding.task)}</p>
+      <dl>
+        <div>
+          <dt>판단 기준</dt>
+          <dd>${escapeHtml(understanding.decisionRule)}</dd>
+        </div>
+        ${understanding.conceptPath ? `
+          <div>
+            <dt>라벨 경로</dt>
+            <dd>${escapeHtml(understanding.conceptPath)}</dd>
+          </div>
+        ` : ""}
+      </dl>
+      ${chips ? `<div class="question-understanding-chips">${chips}</div>` : ""}
+      ${tagChips ? `<div class="question-understanding-tags">${tagChips}</div>` : ""}
+    </section>
+  `;
+}
+
+function getPracticeChoiceExplanationState(question, answer, explanationInfo, labels, conceptTags) {
+  const cacheKey = practiceChoiceExplanationCacheKey(question, labels, conceptTags);
+  const fallback = buildPracticeChoiceExplanationDraft(question, answer, explanationInfo);
+  if (!practiceChoiceExplanationCache[cacheKey]) {
+    practiceChoiceExplanationCache[cacheKey] = {
+      status: "loading",
+      rows: fallback,
+      fallback,
+    };
+    window.setTimeout(() => fetchPracticeChoiceExplanations(question, labels, conceptTags, cacheKey), 0);
+  }
+  return practiceChoiceExplanationCache[cacheKey];
+}
+
+function renderPracticeChoiceExplanation(choiceKey, explanation, sourceTags) {
+  if (!explanation?.rationale) return "";
+  const sourceLabel = {
+    choice_comparison: "개념 비교",
+    choice_mention: "원해설 기반",
+    concept_comparison: "개념 비교",
+    correct_rationale: "기준 개념",
+    existing_choice_explanation: "선지별 해설",
+    marked_explanation: "번호별 해설",
+    needs_manual_content: "해설 작성 필요",
+    needs_manual_review: "검토 필요",
+    rag_evidence_draft: "근거 DB 초안",
+    server_choice_explanation: "저장 해설",
+    supplemental_correct_rationale: "보강 해설 초안",
+  }[explanation?.source] || "해설 초안";
+  const questionPolarity = explanation?.questionPolarity || explanation?.question_polarity || "";
+  const metaLabel = questionPolarity === "negative"
+    ? (explanation?.isCorrect ? "틀린 진술" : "맞는 설명")
+    : (explanation?.isCorrect ? "기준 개념" : "구분 포인트");
+  const className = [
+    explanation?.isCorrect ? "correct" : "wrong",
+    explanation?.needsReview ? "needs-review" : "",
+  ].filter(Boolean).join(" ");
+  const evidence = Array.isArray(explanation?.evidence) ? explanation.evidence : [];
+  const learningPoints = Array.isArray(explanation?.learningPoints)
+    ? explanation.learningPoints
+    : Array.isArray(explanation?.learning_points) ? explanation.learning_points : [];
+  const evidenceHtml = evidence.length
+    ? evidence.map((item) => `
+      <span class="provenance-chip">
+        ${escapeHtml(item.title || item.source_name || "근거 DB")}
+        ${item.page_start ? ` p.${escapeHtml(item.page_start)}` : ""}
+      </span>
+      ${item.snippet ? `<small>${escapeHtml(item.snippet)}</small>` : ""}
+    `).join("")
+    : sourceTags || '<span class="provenance-chip">출처 확인 필요</span>';
+  const isManualPlaceholder = ["needs_manual_content", "needs_manual_review"].includes(explanation?.source)
+    && isWeakPracticeExplanationText(explanation?.rationale);
+  const rationaleHtml = isManualPlaceholder
+    ? `
+      <p class="choice-explanation-pending">
+        이 선지는 아직 완성된 선지별 해설이 없습니다. 문항이 묻는 기준을 먼저 정한 뒤,
+        해당 선지의 개념 정의와 지문 조건에서 벗어나는 지점을 근거 자료로 작성해야 합니다.
+      </p>
+    `
+    : `<p>${escapeHtml(explanation?.rationale || "")}</p>`;
+  return `
+    <div class="amboss-choice-explanation ${className}">
+      <div class="choice-explanation-meta">
+        <span>${escapeHtml(choiceKey)}번 ${escapeHtml(metaLabel)}</span>
+        <em>${escapeHtml(sourceLabel)}</em>
+      </div>
+      ${rationaleHtml}
+      ${learningPoints.length ? `
+        <div class="choice-learning-points">
+          ${learningPoints.map((point) => `
+            <article>
+              <strong>${escapeHtml(point.label || "학습 포인트")}</strong>
+              <span>${escapeHtml(point.body || "")}</span>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+      <div class="source-stack choice-evidence-stack"><span>근거</span><div>${evidenceHtml}</div></div>
+    </div>
+  `;
+}
+
+function regexEscape(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function practiceAnkiTerms({ question, labels, conceptTags, correctChoice, sentence }) {
+  const rawTerms = [
+    correctChoice,
+    labels?.subtopic,
+    labels?.topic,
+    labels?.unit,
+    ...(conceptTags || []),
+    ...((String(sentence || "").match(/[A-Za-z][A-Za-z0-9+\-/]{3,}(?:\s+[A-Za-z][A-Za-z0-9+\-/]{3,}){0,2}|[가-힣]{2,}/g)) || []),
+    ...((String(question?.stem || "").match(/[A-Za-z][A-Za-z0-9+\-/]{4,}|[가-힣]{2,}/g)) || []),
+  ];
+  const terms = rawTerms
+    .map((term) => String(term || "").replace(/[(){}\[\],.;:!?]/g, "").trim())
+    .filter((term) => term.length >= 2)
+    .filter((term) => !practiceAnkiStopwords.has(term.toLowerCase()));
+  return Array.from(new Set(terms)).sort((left, right) => right.length - left.length).slice(0, 12);
+}
+
+function buildClozeSentence(sentence, terms) {
+  let output = String(sentence || "").replace(/\s+/g, " ").trim();
+  if (!output) return "";
+  let clozeIndex = 1;
+  for (const term of terms || []) {
+    if (clozeIndex > 3) break;
+    if (output.includes("{{c") && output.includes(`::${term}`)) continue;
+    const pattern = new RegExp(regexEscape(term), "i");
+    if (!pattern.test(output)) continue;
+    output = output.replace(pattern, (match) => `{{c${clozeIndex}::${match}}}`);
+    clozeIndex += 1;
+  }
+  return output;
+}
+
+function firstPracticeSentence(text, maxLength = 240) {
+  const sentence = splitPracticeSentences(text)[0] || String(text || "").replace(/\s+/g, " ").trim();
+  if (sentence.length <= maxLength) return sentence;
+  return `${sentence.slice(0, maxLength).replace(/\s+\S*$/, "")}...`;
+}
+
+function buildPracticeAnkiCandidates({ answer, conceptTags, explanationInfo, labels, question, ragAnkiState }) {
+  const correctChoice = practiceChoiceEntries(question)
+    .find(([key]) => normalizePracticeChoiceKey(key) === normalizePracticeChoiceKey(answer))?.[1]
+    || "정답 선지";
+  const cards = [];
+  const seen = new Set();
+  const pushCard = ({ plainText, ankiText, source, tags = [] }) => {
+    const plain = firstPracticeSentence(plainText, 260);
+    if (!plain || seen.has(plain)) return;
+    if (plain.length < 18 || practiceBadAnkiPhrases.some((phrase) => plain.includes(phrase))) return;
+    const terms = practiceAnkiTerms({ question, labels, conceptTags, correctChoice, sentence: plain });
+    const cloze = ankiText && String(ankiText).includes("{{c")
+      ? String(ankiText)
+      : buildClozeSentence(plain, terms);
+    const hasCloze = cloze.includes("{{c");
+    if (!hasCloze || practiceBadAnkiPhrases.some((phrase) => cloze.includes(phrase))) return;
+    seen.add(plain);
+    cards.push({
+      cardId: `anki_${cards.length + 1}_${Math.abs(hashString(plain))}`,
+      plainText: plain,
+      ankiText: hasCloze ? cloze : plain,
+      source,
+      tags,
+      needsReview: !hasCloze,
+    });
+  };
+
+  (question?.anki_cards || question?.anki_card_candidates || []).forEach((card) => {
+    if (!card) return;
+    pushCard({
+      plainText: card.plain_text || card.front || card.text || card.anki_text || card.back,
+      ankiText: card.anki_text || card.back || card.cloze || card.text,
+      source: card.source || "저장된 Anki 후보",
+      tags: card.tags || ["stored_anki_candidate"],
+    });
+  });
+
+  splitPracticeSentences(explanationInfo?.text || "")
+    .slice(0, 3)
+    .forEach((sentence) => pushCard({
+      plainText: sentence,
+      source: explanationInfo?.supplemental ? "보강 해설 초안" : "문항 해설",
+      tags: ["question_explanation"],
+    }));
+
+  if (ragAnkiState?.status === "ready") {
+    (ragAnkiState.cards || []).forEach((card) => {
+      pushCard({
+        plainText: card.plain_text || card.front || card.back,
+        ankiText: card.anki_text || card.back,
+        source: card.source || "근거 DB",
+        tags: card.tags || ["rag_draft"],
+      });
+    });
+  }
+
+  return cards.slice(0, 6);
+}
+
+function hashString(value) {
+  let hash = 0;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(index);
+    hash |= 0;
+  }
+  return hash;
+}
+
+function renderPracticeAnkiCandidatePreview(cards, ragAnkiState) {
+  const statusCopy = ragAnkiState?.status === "loading"
+    ? "근거 DB 카드 후보를 불러오는 중입니다."
+    : ragAnkiState?.status === "error"
+      ? `근거 DB 연결 오류: ${ragAnkiState.message}`
+      : cards.length
+        ? "해설 문장과 근거 DB에서 복습 후보를 만들었습니다."
+        : "아직 신뢰할 수 있는 카드 후보가 없습니다. 원해설 또는 선지별 해설 보강 후 생성합니다.";
+  return `
+    <div class="anki-candidate-preview">
+      <div>
+        <span>관련 카드 후보</span>
+        <strong>${escapeHtml(cards.length)} cards</strong>
+        <p>${escapeHtml(statusCopy)}</p>
+      </div>
+      ${cards.slice(0, 3).map((card) => `
+        <article>
+          <small>${escapeHtml(card.source || "출처 확인 필요")}</small>
+          <p>${escapeHtml(practiceAnkiStyleText ? card.ankiText : card.plainText)}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function practiceRagHaystack(question, labels = {}, conceptTags = []) {
+  const summary = currentPracticeExam?.summary || {};
+  return [
+    summary.course_name,
+    summary.source_file,
+    summary.source_exam,
+    question?.source_exam,
+    question?.source_file,
+    labels.topic,
+    labels.subtopic,
+    labels.unit,
+    labels.question_type,
+    labels.cognitive_level,
+    ...(conceptTags || []),
+    question?.stem,
+    question?.stimulus,
+    question?.explanation,
+    ...(question?.choices ? Object.values(question.choices) : []),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isHematologyOncologyPracticeQuestion(question, labels = {}, conceptTags = []) {
+  const haystack = practiceRagHaystack(question, labels, conceptTags);
+  return /혈액|종양|빈혈|백혈|림프종|골수종|항암|수혈|혈소판|응고|호중구|heme|hemat|oncolog|anemia|leukemia|lymphoma|myeloma|blast|neutropenia|transfusion|platelet|coagulation|cancer|tumou?r/.test(haystack);
+}
+
+function isNeuroSpecialSensesPracticeQuestion(question, labels = {}, conceptTags = []) {
+  const haystack = practiceRagHaystack(question, labels, conceptTags);
+  return /신경|특수감각|감각기|척수|말초신경|뇌전증|치매|실어증|시신경|망막|백내장|녹내장|청력|난청|전정|어지럼|이명|중이염|사시|척추|neuro|neurolog|spinal|cord|nerve|seizure|epilepsy|aphasia|dementia|optic|retina|glaucoma|cataract|hearing|vestibular|vertigo|tinnitus|strabismus/.test(haystack);
+}
+
+function practiceRagCourseId(question, labels = {}, conceptTags = []) {
+  if (isHematologyOncologyPracticeQuestion(question, labels, conceptTags)) {
+    return "hematology_oncology";
+  }
+  if (isNeuroSpecialSensesPracticeQuestion(question, labels, conceptTags)) {
+    return "neuro_special_senses";
+  }
+  return "";
+}
+
+function practiceRagCourseLabel(courseId) {
+  return {
+    hematology_oncology: "혈액종양 근거 DB",
+    neuro_special_senses: "신경·특수감각 근거 DB",
+  }[courseId] || "근거 DB";
+}
+
+function practiceRagQuery(question, labels = {}, conceptTags = []) {
+  const values = [
+    labels.subtopic,
+    labels.topic,
+    labels.unit,
+    ...(conceptTags || []),
+    question?.stem,
+    question?.stimulus,
+  ].filter(Boolean);
+  const query = values.join(" ").replace(/\s+/g, " ").trim();
+  return query.slice(0, 320) || "medical education concept";
+}
+
+function practiceRagCacheKey(question, labels = {}, conceptTags = [], kind = "evidence") {
+  const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+  const query = practiceRagQuery(question, labels, conceptTags).slice(0, 80);
+  const courseId = practiceRagCourseId(question, labels, conceptTags) || "no_rag";
+  return `${kind}:${courseId}:${questionKey}:${query}`;
+}
+
+function shouldRefreshPracticeRag(cacheKey) {
+  const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+  if (!question) return false;
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  return practiceRagCacheKey(question, labels, conceptTags, "evidence") === cacheKey
+    || practiceRagCacheKey(question, labels, conceptTags, "anki") === cacheKey;
+}
+
+async function fetchPracticeRagEvidence(question, labels, conceptTags, cacheKey) {
+  const query = practiceRagQuery(question, labels, conceptTags);
+  const courseId = practiceRagCourseId(question, labels, conceptTags);
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      course_id: courseId,
+      limit: "5",
+    });
+    const response = await fetch(`/api/rag/search?${params.toString()}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "근거 DB 검색 실패");
+    }
+    practiceRagEvidenceCache[cacheKey] = {
+      status: "ready",
+      query,
+      results: payload.results || [],
+      resultCount: payload.result_count || 0,
+    };
+  } catch (error) {
+    practiceRagEvidenceCache[cacheKey] = {
+      status: "error",
+      query,
+      message: error.message || "근거 DB 검색 실패",
+      results: [],
+    };
+  }
+  if (shouldRefreshPracticeRag(cacheKey)) {
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+  }
+}
+
+function getPracticeRagEvidenceState(question, labels, conceptTags) {
+  const courseId = practiceRagCourseId(question, labels, conceptTags);
+  if (!courseId) {
+    return {
+      status: "unavailable",
+      message: "현재 이 과목에는 연결된 근거 DB가 없습니다.",
+    };
+  }
+  const cacheKey = practiceRagCacheKey(question, labels, conceptTags, "evidence");
+  if (!practiceRagEvidenceCache[cacheKey]) {
+    practiceRagEvidenceCache[cacheKey] = {
+      status: "loading",
+      query: practiceRagQuery(question, labels, conceptTags),
+      results: [],
+    };
+    window.setTimeout(() => fetchPracticeRagEvidence(question, labels, conceptTags, cacheKey), 0);
+  }
+  return practiceRagEvidenceCache[cacheKey];
+}
+
+async function fetchPracticeRagAnki(question, labels, conceptTags, cacheKey) {
+  const query = practiceRagQuery(question, labels, conceptTags);
+  const courseId = practiceRagCourseId(question, labels, conceptTags);
+  try {
+    const response = await fetch("/api/rag/anki-draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        course_id: courseId,
+        limit: 3,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "Anki 초안 생성 실패");
+    }
+    practiceRagAnkiCache[cacheKey] = {
+      status: "ready",
+      query,
+      cards: payload.cards || [],
+      note: payload.note || "",
+    };
+  } catch (error) {
+    practiceRagAnkiCache[cacheKey] = {
+      status: "error",
+      query,
+      message: error.message || "Anki 초안 생성 실패",
+      cards: [],
+    };
+  }
+  if (shouldRefreshPracticeRag(cacheKey)) {
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+  }
+}
+
+function getPracticeRagAnkiState(question, labels, conceptTags) {
+  const courseId = practiceRagCourseId(question, labels, conceptTags);
+  if (!courseId) {
+    return {
+      status: "unavailable",
+      message: "현재 이 과목에는 연결된 근거 기반 Anki 초안 생성기가 없습니다.",
+    };
+  }
+  const cacheKey = practiceRagCacheKey(question, labels, conceptTags, "anki");
+  if (!practiceRagAnkiCache[cacheKey]) {
+    practiceRagAnkiCache[cacheKey] = {
+      status: "loading",
+      query: practiceRagQuery(question, labels, conceptTags),
+      cards: [],
+    };
+    window.setTimeout(() => fetchPracticeRagAnki(question, labels, conceptTags, cacheKey), 0);
+  }
+  return practiceRagAnkiCache[cacheKey];
+}
+
+function renderPracticeRagEvidence(state, { compact = false } = {}) {
+  if (state.status === "unavailable") {
+    return `
+      <div class="rag-evidence-box muted-state">
+        <span>근거 DB</span>
+        <p>${escapeHtml(state.message)}</p>
+      </div>
+    `;
+  }
+  if (state.status === "loading") {
+    return `
+      <div class="rag-evidence-box loading-state">
+        <span>연결된 학습 근거</span>
+        <p>로컬 근거 DB에서 관련 근거를 찾는 중입니다.</p>
+      </div>
+    `;
+  }
+  if (state.status === "error") {
+    return `
+      <div class="rag-evidence-box error-state">
+        <span>근거 DB 연결 오류</span>
+        <p>${escapeHtml(state.message)}</p>
+      </div>
+    `;
+  }
+  if (!state.results?.length) {
+    return `
+      <div class="rag-evidence-box muted-state">
+        <span>연결된 학습 근거</span>
+        <p>현재 문항과 직접 연결되는 근거를 찾지 못했습니다.</p>
+      </div>
+    `;
+  }
+  const visibleResults = state.results.slice(0, compact ? 2 : 5);
+  return `
+    <div class="rag-evidence-box">
+      <div class="rag-evidence-header">
+        <span>연결된 학습 근거</span>
+        <small>${escapeHtml(state.query || "")}</small>
+      </div>
+      <div class="rag-evidence-list">
+        ${visibleResults.map((item, index) => `
+          <article class="rag-evidence-card">
+            <div>
+              <strong>${escapeHtml(item.title || item.source_name || "근거 자료")}</strong>
+              <small>p.${escapeHtml(item.page_start || "-")} · ${escapeHtml(practiceLabelText(item.source_type || "reference"))} · score ${escapeHtml(item.score ?? "-")}</small>
+            </div>
+            <p>${escapeHtml(item.snippet || "")}</p>
+            <em>${escapeHtml(index + 1)}번째 후보</em>
+          </article>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPracticeRagAnkiCards(state) {
+  if (state.status === "unavailable") {
+    return `
+      <div class="rag-evidence-box muted-state">
+        <span>근거 기반 Anki</span>
+        <p>${escapeHtml(state.message)}</p>
+      </div>
+    `;
+  }
+  if (state.status === "loading") {
+    return `
+      <div class="rag-evidence-box loading-state">
+        <span>근거 기반 Anki</span>
+        <p>로컬 근거 DB에서 복습 카드 초안을 만드는 중입니다.</p>
+      </div>
+    `;
+  }
+  if (state.status === "error") {
+    return `
+      <div class="rag-evidence-box error-state">
+        <span>Anki 초안 오류</span>
+        <p>${escapeHtml(state.message)}</p>
+      </div>
+    `;
+  }
+  if (!state.cards?.length) {
+    return `
+      <div class="rag-evidence-box muted-state">
+        <span>근거 기반 Anki</span>
+        <p>현재 문항에서 만들 수 있는 근거 기반 카드 초안을 찾지 못했습니다.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="rag-anki-list">
+      ${state.cards.map((card) => `
+        <article class="anki-preview-card rag-anki-card">
+          <span>검수용 초안 · ${escapeHtml(card.source || "출처 확인 필요")}</span>
+          <strong>${escapeHtml(card.front || "Front")}</strong>
+          <p>${escapeHtml(card.back || "")}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderStudentExamOptions() {
@@ -515,16 +1830,880 @@ async function loadStudentCourseExams() {
     }
     courseExamPracticeList = payload.exams || [];
     renderStudentExamOptions();
+    renderStudentLibraryCourseBuilder(selectedLibraryCourseKey);
+    refreshStudentCategoryQuestionCounts().catch(() => {});
   } catch (error) {
     if (studentPracticeStatus) {
       studentPracticeStatus.textContent = `구조화 문항 목록을 불러오지 못했습니다: ${error.message}`;
     }
+    if (studentCourseBuilder) {
+      studentCourseBuilder.innerHTML = `
+        <div class="library-empty-state">
+          <strong>문항 인덱스를 불러오지 못했습니다.</strong>
+          <p>${escapeHtml(error.message)}</p>
+        </div>
+      `;
+    }
   }
 }
 
+function categoryByKey(courseKey) {
+  return departmentCategories.find((category) => category.key === courseKey) || departmentCategories[0];
+}
+
+function normalizeCourseMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[()\[\]{}·ㆍ\-\s_.,/]+/g, "");
+}
+
+const curriculumCoursePatternMap = {
+  infectious_diseases: [
+    /감염|항생|항균|바이러스|세균|진균|결핵|패혈|균혈|말라리아|hiv|후천성면역결핍|예방접종|crbsi|staph|sepsis/i,
+  ],
+  musculoskeletal: [
+    /근골격|정형|골절|관절|근육|외상|화상|류마티스|척추|압박손상|염좌|탈구|수부|사지/i,
+  ],
+  endocrinology: [
+    /내분비|당뇨|갑상|부신|뇌하수체|대사|인슐린|저혈당|고혈당|cushing|addison|thyroid/i,
+  ],
+  immunology_dermatology: [
+    /면역|피부|알레르기|두드러기|아토피|자가면역|발진|피부질환|홍반|수포|dermat/i,
+  ],
+  reproductive_medicine: [
+    /산부인과|임신|분만|산과|부인과|자궁|난소|태아|유방|월경|질출혈|난관|placenta|obstetric|gyne/i,
+  ],
+  growth_development_aging: [
+    /성장|발달|노화|소아|신생아|영아|청소년|소아청소년|growth|aging|pediatric/i,
+  ],
+  gastroenterology_nutrition: [
+    /소화기|위장|식도|위암|대장|소장|간질환|간경|간염|담도|담관|담석|췌장|췌염|장폐색|장간막|크론|궤양성대장|영양|유미|복부|췌십이지장|ercp|biliary|pancrea|gastro/i,
+  ],
+  cardiology: [
+    /순환기|심장|심근|협심|심부전|부정맥|심전도|심장판막|고혈압|대동맥|혈관|관상동맥|cardio|aortic|arrhythm/i,
+  ],
+  neuro_special_senses: [
+    /신경|뇌|척수|말초신경|뇌졸중|뇌출혈|두통|발작|시각|청각|안과|이비인후|감각|cranial|spinal|neuro/i,
+  ],
+  renal_urology: [
+    /신장|비뇨|요로|전해질|사구체|요관|방광|전립|산염기|콩팥|투석|renal|urology|kidney/i,
+  ],
+  human_society_medicine_1: [
+    /인간.?사회.?의료.?1|인간.?사회.?의료\(i\)|의료사회|윤리|예방의학|역학|보건|의료윤리|공중보건|vaccination|감염병.?예방법/i,
+  ],
+  human_society_medicine_2: [
+    /인간.?사회.?의료.?2|인간.?사회.?의료Ⅱ|인간.?사회.?의료ii|법규|의료법|정책|직업환경|의료관리|보험급여|보건행정|검역법|국민건강보험/i,
+  ],
+  psychiatry: [
+    /정신|우울|조현|불안|양극성|중독|치매|섬망|면담|psychi/i,
+  ],
+  disease_pharmacology: [
+    /약물|약리|부작용|금기|독성|중독|치료원칙|질병의이해|pharm|drug|toxicity/i,
+  ],
+  hematology_oncology: [
+    /혈액종양|혈액및종양|혈종|hematology|oncology|빈혈|백혈병|림프종|골수|혈우병|응고|출혈|수혈|항암|고형암|종양|암|방사선종양|다발골수|조혈|aPTT|blast|leukemia|lymphoma|myeloma/i,
+  ],
+  pulmonology: [
+    /호흡기|폐|기관지|천식|copd|기흉|흉막|흉부|산소|환기|호흡부전|폐렴|폐쇄성|제한성|pulmon|respir/i,
+  ],
+};
+
+const curriculumCourseExactPatterns = {
+  infectious_diseases: [/^감염학$/i, /^infectiousdiseases$/i],
+  musculoskeletal: [/^근골격학$/i],
+  endocrinology: [/^내분비학$/i],
+  immunology_dermatology: [/^면역및피부질환$/i, /^면역피부질환$/i],
+  reproductive_medicine: [/^생식계의학$/i, /^산부인과$/i],
+  growth_development_aging: [/^성장발달노화$/i],
+  gastroenterology_nutrition: [/^소화기및영양학$/i, /^소화기학및영양학$/i],
+  cardiology: [/^순환기학$/i],
+  neuro_special_senses: [/^신경및특수감각기학$/i],
+  renal_urology: [/^신장비뇨기학$/i],
+  human_society_medicine_1: [/^인간사회의료1$/i, /^인간사회의료i$/i],
+  human_society_medicine_2: [/^인간사회의료2$/i, /^인간사회의료ii$/i, /^인간사회의료Ⅱ$/i],
+  psychiatry: [/^정신의학$/i],
+  disease_pharmacology: [/^질병의이해와약물요법$/i],
+  hematology_oncology: [/^혈액및종양학$/i, /^혈액종양내과$/i, /^혈액종양학$/i],
+  pulmonology: [/^호흡기학$/i],
+};
+
+function courseTextParts(item = {}) {
+  return [
+    item.course_id,
+    item.course_name,
+    item.exam_id,
+    item.source_exam,
+    item.source_file,
+    item.round_label,
+    item.period_label,
+  ].filter(Boolean);
+}
+
+function isBroadCompositeExamSummary(item = {}) {
+  const rawText = courseTextParts(item).join(" ");
+  return /pma|임상의학종합평가|임상종합|clinical.*comprehensive/i.test(rawText);
+}
+
+function exactCourseKeyFromText(value) {
+  const normalized = normalizeCourseMatchText(value);
+  if (!normalized) return null;
+  for (const [courseKey, patterns] of Object.entries(curriculumCourseExactPatterns)) {
+    if (patterns.some((pattern) => pattern.test(normalized))) {
+      return courseKey;
+    }
+  }
+  return null;
+}
+
+function courseSummaryDirectlyMatches(item, courseKey) {
+  if (!item || !courseKey) return false;
+  if (item.course_id === courseKey) return true;
+  const category = categoryByKey(courseKey);
+  const targetTokens = [
+    category?.title,
+    category?.key,
+    category?.title?.replaceAll("및", ""),
+  ].map(normalizeCourseMatchText).filter(Boolean);
+  const haystack = normalizeCourseMatchText([
+    item.course_id,
+    item.course_name,
+    item.exam_id,
+    item.source_file,
+  ].filter(Boolean).join(" "));
+  if (targetTokens.some((token) => token && haystack.includes(token))) return true;
+
+  const rawText = courseTextParts(item).join(" ");
+  return (curriculumCoursePatternMap[courseKey] || []).some((pattern) => pattern.test(rawText));
+}
+
+function matchesCourseSummary(item, courseKey) {
+  return courseSummaryDirectlyMatches(item, courseKey);
+}
+
+function questionLabelText(question = {}, summary = {}) {
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags)
+    ? labels.concept_tags.join(" ")
+    : labels.concept_tags || labels.concept_tags_raw;
+  return [
+    labels.course_name_labeled,
+    labels.course_name,
+    labels.major_category,
+    labels.topic,
+    labels.subtopic,
+    labels.assessment_domain,
+    labels.question_type_labeled,
+    labels.question_type,
+    labels.source_label,
+    labels.faculty_verified,
+    conceptTags,
+    question.question_type,
+  ].filter(Boolean).join(" ");
+}
+
+function questionCourseMatchScore(question = {}, summary = {}, courseKey) {
+  if (!courseKey) return 0;
+  const directSummaryMatch = courseSummaryDirectlyMatches(summary, courseKey);
+  const broadComposite = isBroadCompositeExamSummary(summary);
+  let score = directSummaryMatch && !broadComposite ? 100 : 0;
+
+  const labels = question.labels || {};
+  const exactLabelKey = exactCourseKeyFromText(labels.course_name_labeled || labels.course_name);
+  if (exactLabelKey === courseKey) {
+    score += 80;
+  }
+
+  const category = categoryByKey(courseKey);
+  const labelText = questionLabelText(question, summary);
+  const stemText = String(question.stem || "");
+  const normalizedLabelText = normalizeCourseMatchText(labelText);
+  const normalizedCategoryTitle = normalizeCourseMatchText(category?.title);
+  if (normalizedCategoryTitle && normalizedLabelText.includes(normalizedCategoryTitle)) {
+    score += 35;
+  }
+
+  (curriculumCoursePatternMap[courseKey] || []).forEach((pattern) => {
+    if (pattern.test(labelText)) score += 24;
+    if (pattern.test(stemText)) score += 5;
+  });
+
+  return score;
+}
+
+function bestCourseKeyForQuestion(question = {}, summary = {}) {
+  const directCourseKey = summary.course_id && departmentCategories.some((category) => category.key === summary.course_id)
+    ? summary.course_id
+    : null;
+  if (directCourseKey && !isBroadCompositeExamSummary(summary)) {
+    return directCourseKey;
+  }
+
+  let best = { key: null, score: 0 };
+  departmentCategories.forEach((category) => {
+    const score = questionCourseMatchScore(question, summary, category.key);
+    if (score > best.score) {
+      best = { key: category.key, score };
+    }
+  });
+  return best.score >= 20 ? best.key : null;
+}
+
+function questionMatchesCourse(question = {}, summary = {}, courseKey) {
+  return bestCourseKeyForQuestion(question, summary) === courseKey;
+}
+
+async function fetchCourseExamDetail(examId) {
+  if (!examId) throw new Error("시험지 ID가 없습니다.");
+  if (courseExamDetailCache[examId]) return courseExamDetailCache[examId];
+  const response = await fetch(`/api/course-exams/extracted/${encodeURIComponent(examId)}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.detail || "문항 세트 로드 실패");
+  }
+  courseExamDetailCache[examId] = payload;
+  return payload;
+}
+
+function mergedCourseExamSummary(detail = {}, fallbackSummary = {}) {
+  return {
+    ...(detail.exam || {}),
+    ...(detail.summary || {}),
+    ...fallbackSummary,
+    exam_id: detail.exam_id || fallbackSummary.exam_id,
+  };
+}
+
+function makeLibraryFilterId(parts) {
+  return parts
+    .filter(Boolean)
+    .join("__")
+    .replace(/[^\w가-힣.-]+/g, "_")
+    .slice(0, 120);
+}
+
+function addQuestionToLibraryGroup(group, question) {
+  group.questions.push(question);
+  const labels = question.labels || {};
+  [
+    labels.source_label,
+    question?._source_summary?.round_label,
+    question?._source_summary?.exam_date,
+  ].filter(Boolean).forEach((value) => group.sources.add(value));
+  [
+    labels.faculty_verified,
+    labels.faculty,
+    labels.professor,
+  ].filter(Boolean).forEach((value) => group.faculty.add(value));
+  [
+    labels.subtopic,
+    labels.assessment_domain,
+    labels.question_type_labeled || labels.question_type,
+  ].filter(Boolean).forEach((value) => group.subtopics.add(value));
+}
+
+function libraryMajorSortValue(title, courseKey) {
+  const hemeOrder = [
+    "혈액",
+    "빈혈",
+    "출혈/응고질환",
+    "림프종",
+    "백혈병",
+    "골수증식질환",
+    "형질세포질환",
+    "항암치료",
+    "암",
+    "고형암",
+    "수혈",
+    "종양응급",
+    "완화의료",
+  ];
+  if (courseKey === "hematology_oncology") {
+    const index = hemeOrder.indexOf(title);
+    return index >= 0 ? index : 999;
+  }
+  return 999;
+}
+
+function sortLibraryGroups(left, right, courseKey) {
+  const leftOrder = libraryMajorSortValue(left.title, courseKey);
+  const rightOrder = libraryMajorSortValue(right.title, courseKey);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  if (right.questions.length !== left.questions.length) return right.questions.length - left.questions.length;
+  return left.title.localeCompare(right.title, "ko");
+}
+
+async function buildStudentLibraryIndex(courseKey = selectedLibraryCourseKey) {
+  const category = categoryByKey(courseKey);
+  const summaries = courseExamPracticeList
+    .filter((item) => Number(item.practice_ready_count || item.question_count || 0) > 0);
+
+  const details = await Promise.all(summaries.map((item) => fetchCourseExamDetail(item.exam_id)));
+  const majors = new Map();
+  const allQuestions = [];
+  const contributingSources = new Map();
+
+  details.forEach((detail) => {
+    const fallbackSummary = summaries.find((item) => item.exam_id === detail.exam_id) || {};
+    const summary = mergedCourseExamSummary(detail, fallbackSummary);
+    (detail.questions || []).forEach((rawQuestion) => {
+      if (!rawQuestion?.stem || !practiceChoiceEntries(rawQuestion).length) return;
+      if (!questionMatchesCourse(rawQuestion, summary, courseKey)) return;
+      const question = {
+        ...rawQuestion,
+        _source_summary: summary,
+        _source_exam_id: detail.exam_id,
+        _source_exam: detail.exam || {},
+        _curriculum_course_key: courseKey,
+        _curriculum_course_title: category?.title || summary.course_name || "과목",
+      };
+      contributingSources.set(detail.exam_id, summary);
+      const labels = question.labels || {};
+      const majorTitle = practiceLabelText(
+        labels.major_category
+          || labels.course_name_labeled
+          || labels.course_name
+          || summary.course_name
+          || category?.title
+          || "미분류"
+      );
+      const topicTitle = practiceLabelText(
+        labels.topic
+          || labels.subtopic
+          || labels.assessment_domain
+          || labels.question_type_labeled
+          || labels.question_type
+          || "기타 문항"
+      );
+      const majorId = makeLibraryFilterId([courseKey, "major", majorTitle]);
+      const topicId = makeLibraryFilterId([courseKey, "topic", majorTitle, topicTitle]);
+
+      if (!majors.has(majorTitle)) {
+        majors.set(majorTitle, {
+          id: majorId,
+          title: majorTitle,
+          questions: [],
+          topics: new Map(),
+          sources: new Set(),
+          faculty: new Set(),
+          subtopics: new Set(),
+        });
+      }
+      const major = majors.get(majorTitle);
+      if (!major.topics.has(topicTitle)) {
+        major.topics.set(topicTitle, {
+          id: topicId,
+          title: topicTitle,
+          parentId: majorId,
+          parentTitle: majorTitle,
+          questions: [],
+          sources: new Set(),
+          faculty: new Set(),
+          subtopics: new Set(),
+        });
+      }
+      const topic = major.topics.get(topicTitle);
+      addQuestionToLibraryGroup(major, question);
+      addQuestionToLibraryGroup(topic, question);
+      allQuestions.push(question);
+    });
+  });
+
+  const majorList = Array.from(majors.values())
+    .map((major) => ({
+      ...major,
+      topics: Array.from(major.topics.values())
+        .sort((left, right) => right.questions.length - left.questions.length || left.title.localeCompare(right.title, "ko")),
+    }))
+    .sort((left, right) => sortLibraryGroups(left, right, courseKey));
+
+  studentLibraryMajorLookup = {};
+  studentLibraryTopicLookup = {};
+  majorList.forEach((major) => {
+    studentLibraryMajorLookup[major.id] = major;
+    major.topics.forEach((topic) => {
+      studentLibraryTopicLookup[topic.id] = topic;
+    });
+  });
+
+  return {
+    courseKey,
+    courseTitle: category?.title || "과목",
+    summaries: Array.from(contributingSources.values()),
+    majors: majorList,
+    questions: allQuestions,
+    sourceCount: contributingSources.size,
+  };
+}
+
+async function refreshStudentCategoryQuestionCounts() {
+  const playableSummaries = courseExamPracticeList
+    .filter((item) => Number(item.practice_ready_count || item.question_count || 0) > 0);
+  if (!playableSummaries.length) {
+    studentCategoryQuestionCounts = {};
+    renderCategoryGrid(studentCategoryGrid, "student");
+    return;
+  }
+
+  const details = await Promise.all(playableSummaries.map((item) => fetchCourseExamDetail(item.exam_id)));
+  const counts = {};
+  details.forEach((detail) => {
+    const fallbackSummary = playableSummaries.find((item) => item.exam_id === detail.exam_id) || {};
+    const summary = mergedCourseExamSummary(detail, fallbackSummary);
+    (detail.questions || []).forEach((question) => {
+      if (!question?.stem || !practiceChoiceEntries(question).length) return;
+      const courseKey = bestCourseKeyForQuestion(question, summary);
+      if (!courseKey) return;
+      counts[courseKey] = (counts[courseKey] || 0) + 1;
+    });
+  });
+  studentCategoryQuestionCounts = counts;
+  renderCategoryGrid(studentCategoryGrid, "student");
+}
+
+function renderLibraryGroupMeta(group) {
+  const sources = compactUniqueList(Array.from(group.sources || []), 3);
+  const faculty = compactUniqueList(Array.from(group.faculty || []), 3);
+  const subtopics = compactUniqueList(Array.from(group.subtopics || []), 3);
+  return `
+    <div class="library-topic-meta">
+      ${sources.length ? `<span>${escapeHtml(sources.join(" · "))}</span>` : ""}
+      ${faculty.length ? `<span>${escapeHtml(faculty.join(" · "))}</span>` : ""}
+      ${subtopics.length ? `<span>${escapeHtml(subtopics.join(" · "))}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderStudentLibraryIndex(index) {
+  if (!studentCourseBuilder) return;
+  if (!index.questions.length) {
+    studentCourseBuilder.innerHTML = `
+      <div class="library-empty-state">
+        <strong>${escapeHtml(index.courseTitle)} 문항 인덱스 준비 중</strong>
+        <p>이 과목은 아직 라벨링된 문항 세트가 없습니다. 시험지 구조화와 라벨링을 마치면 같은 화면에서 단원별로 풀 수 있습니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const firstOpenId = index.majors[0]?.id || "";
+  studentCourseBuilder.innerHTML = `
+    <div class="library-course-head">
+      <div>
+        <span>Label-based practice</span>
+        <h3>${escapeHtml(index.courseTitle)} 단원별 문항</h3>
+        <p>라벨링된 기출 문항을 대분류와 세부 주제 기준으로 골라 풉니다. 다른 과목도 같은 라벨 구조가 들어오면 그대로 확장됩니다.</p>
+      </div>
+      <div class="library-course-stats">
+        <article><strong>${escapeHtml(index.questions.length)}</strong><span>풀이 가능 문항</span></article>
+        <article><strong>${escapeHtml(index.majors.length)}</strong><span>대분류</span></article>
+        <article><strong>${escapeHtml(index.sourceCount)}</strong><span>시험지/자료</span></article>
+      </div>
+    </div>
+    <div class="library-course-actions">
+      <button
+        type="button"
+        class="library-primary-action"
+        data-library-practice-start
+        data-library-filter-id="__course__"
+        data-library-practice-scope="course"
+      >
+        ${escapeHtml(index.courseTitle)} 전체 문항 풀기
+      </button>
+      <small>각 문항에는 연도·시험지·교수자 라벨을 같이 표시합니다.</small>
+    </div>
+    <div class="library-unit-list">
+      ${index.majors.map((major, majorIndex) => `
+        <article class="library-unit-card ${major.id === firstOpenId ? "is-open" : ""}">
+          <button
+            type="button"
+            class="library-unit-toggle"
+            data-library-major-toggle="${escapeHtml(major.id)}"
+          >
+            <span>${String(majorIndex + 1).padStart(2, "0")}</span>
+            <div>
+              <strong>${escapeHtml(major.title)}</strong>
+              ${renderLibraryGroupMeta(major)}
+            </div>
+            <b>Q ${escapeHtml(major.questions.length)}</b>
+            <i aria-hidden="true">⌄</i>
+          </button>
+          <div class="library-topic-list">
+            <button
+              type="button"
+              class="library-topic-row major-practice-row"
+              data-library-practice-start
+              data-library-filter-id="${escapeHtml(major.id)}"
+              data-library-practice-scope="major"
+            >
+              <div>
+                <strong>${escapeHtml(major.title)} 전체</strong>
+                <small>이 대분류 안의 모든 라벨 문항</small>
+              </div>
+              <b>Q ${escapeHtml(major.questions.length)}</b>
+              <em>풀기</em>
+            </button>
+            ${major.topics.map((topic) => `
+              <button
+                type="button"
+                class="library-topic-row"
+                data-library-practice-start
+                data-library-filter-id="${escapeHtml(topic.id)}"
+                data-library-practice-scope="topic"
+              >
+                <div>
+                  <strong>${escapeHtml(topic.title)}</strong>
+                  ${renderLibraryGroupMeta(topic)}
+                </div>
+                <b>Q ${escapeHtml(topic.questions.length)}</b>
+                <em>풀기</em>
+              </button>
+            `).join("")}
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function renderStudentLibraryCourseBuilder(courseKey = selectedLibraryCourseKey) {
+  if (!studentCourseBuilder) return;
+  selectedLibraryCourseKey = courseKey || selectedLibraryCourseKey;
+  const category = categoryByKey(selectedLibraryCourseKey);
+  const renderSeq = ++studentLibraryRenderSeq;
+  if (!courseExamPracticeList.length) {
+    studentCourseBuilder.innerHTML = `
+      <div class="library-empty-state">
+        <strong>${escapeHtml(category?.title || "과목")} 문항 인덱스를 불러오는 중입니다.</strong>
+        <p>구조화된 시험지 목록을 확인하고 있습니다.</p>
+      </div>
+    `;
+    return;
+  }
+  studentCourseBuilder.innerHTML = `
+    <div class="library-empty-state">
+      <strong>${escapeHtml(category?.title || "과목")} 라벨 인덱스를 구성하는 중입니다.</strong>
+      <p>시험지별 문항을 대분류와 세부 주제로 묶고 있습니다.</p>
+    </div>
+  `;
+  try {
+    const index = await buildStudentLibraryIndex(selectedLibraryCourseKey);
+    if (renderSeq !== studentLibraryRenderSeq) return;
+    studentLibraryIndex = index;
+    renderStudentLibraryIndex(index);
+  } catch (error) {
+    if (renderSeq !== studentLibraryRenderSeq) return;
+    studentCourseBuilder.innerHTML = `
+      <div class="library-empty-state">
+        <strong>문항 인덱스 구성 실패</strong>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function librarySelectionByScope(filterId, scope) {
+  if (!studentLibraryIndex) return null;
+  if (scope === "course" || filterId === "__course__") {
+    return {
+      id: makeLibraryFilterId([studentLibraryIndex.courseKey, "course"]),
+      title: `${studentLibraryIndex.courseTitle} 전체`,
+      questions: studentLibraryIndex.questions,
+    };
+  }
+  if (scope === "major") return studentLibraryMajorLookup[filterId] || null;
+  return studentLibraryTopicLookup[filterId] || studentLibraryMajorLookup[filterId] || null;
+}
+
+function activatePracticePayload(payload, statusText = "") {
+  currentPracticeExam = payload;
+  currentPracticeIndex = 0;
+  currentPracticeAnswers = {};
+  currentPracticePendingAnswers = {};
+  currentPracticeAnswerEvents = {};
+  currentPracticeTimeByQuestion = {};
+  currentPracticeViewed = new Set();
+  currentPracticeBookmarks = new Set();
+  currentPracticeFlags = {};
+  currentPracticeExpandedChoices = {};
+  currentPracticeTab = "key";
+  currentPracticeSidebarCollapsed = false;
+  currentPracticeSessionId = `session_${Date.now()}`;
+  currentPracticeSessionStartedAt = new Date().toISOString();
+  currentPracticeActiveQuestionKey = null;
+  currentPracticeQuestionStartedAt = null;
+  currentPracticeTimerPaused = false;
+  loadPracticeState();
+  document.body.classList.add("practice-session-active");
+  studentPracticePage?.classList.add("practice-active");
+  if (studentPracticeStatus && statusText) {
+    studentPracticeStatus.textContent = statusText;
+  }
+  renderStudentPracticeQuestion({ preserveSidebarScroll: false });
+}
+
+async function startStudentLibraryPractice(filterId, scope = "topic") {
+  const selection = librarySelectionByScope(filterId, scope);
+  if (!selection?.questions?.length || !studentLibraryIndex) return;
+  finalizePracticeQuestionTime();
+  const questions = selection.questions.map((question) => ({ ...question }));
+  const payload = {
+    exam_id: `library_${studentLibraryIndex.courseKey}_${selection.id}`,
+    summary: {
+      course_id: studentLibraryIndex.courseKey,
+      course_name: studentLibraryIndex.courseTitle,
+      round_label: selection.title,
+      question_count: questions.length,
+      source_file: "라벨 기반 문항 세트",
+    },
+    questions,
+  };
+  showPage("student-practice", { scrollTop: false });
+  activatePracticePayload(
+    payload,
+    `${studentLibraryIndex.courseTitle} · ${selection.title} ${questions.length}문항 세트를 열었습니다.`
+  );
+}
+
 function practiceChoiceEntries(question) {
-  return Object.entries(question?.choices || {})
+  const choices = question?.choices || question?.options || {};
+  if (Array.isArray(choices)) {
+    return choices.map((choice, index) => [String(index + 1), choice]);
+  }
+  return Object.entries(choices || {})
     .sort(([left], [right]) => Number(left) - Number(right));
+}
+
+function practiceQuestionKey(question, fallbackIndex = currentPracticeIndex) {
+  return question?.question_id || String(question?.question_number || fallbackIndex);
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function practiceStorageKey() {
+  const examId = currentPracticeExam?.exam_id;
+  return examId ? `paccine.practice.${examId}` : null;
+}
+
+function savePracticeState() {
+  const key = practiceStorageKey();
+  if (!key) return;
+  try {
+    window.sessionStorage?.setItem(
+      key,
+      JSON.stringify({
+        session_id: currentPracticeSessionId,
+        started_at: currentPracticeSessionStartedAt,
+        answers: currentPracticeAnswers,
+        pending_answers: currentPracticePendingAnswers,
+        answer_events: currentPracticeAnswerEvents,
+        time_by_question: currentPracticeTimeByQuestion,
+        viewed: Array.from(currentPracticeViewed),
+        bookmarks: Array.from(currentPracticeBookmarks),
+        flags: currentPracticeFlags,
+        expanded_choices: currentPracticeExpandedChoices,
+        timer_paused: currentPracticeTimerPaused,
+      })
+    );
+  } catch (error) {
+    // Local persistence is optional; the study session still works without it.
+  }
+}
+
+function loadPracticeState() {
+  const key = practiceStorageKey();
+  if (!key) return;
+  try {
+    const restored = JSON.parse(window.sessionStorage?.getItem(key) || "{}");
+    currentPracticeSessionId = restored.session_id || `session_${Date.now()}`;
+    currentPracticeSessionStartedAt = restored.started_at || new Date().toISOString();
+    currentPracticeAnswers = restored.answers && typeof restored.answers === "object" ? restored.answers : {};
+    currentPracticePendingAnswers = restored.pending_answers && typeof restored.pending_answers === "object" ? restored.pending_answers : {};
+    currentPracticeAnswerEvents = restored.answer_events && typeof restored.answer_events === "object" ? restored.answer_events : {};
+    currentPracticeTimeByQuestion = restored.time_by_question && typeof restored.time_by_question === "object" ? restored.time_by_question : {};
+    currentPracticeViewed = new Set(Array.isArray(restored.viewed) ? restored.viewed : []);
+    currentPracticeBookmarks = new Set(Array.isArray(restored.bookmarks) ? restored.bookmarks : []);
+    currentPracticeFlags = restored.flags && typeof restored.flags === "object" ? restored.flags : {};
+    currentPracticeExpandedChoices = restored.expanded_choices && typeof restored.expanded_choices === "object" ? restored.expanded_choices : {};
+    currentPracticeTimerPaused = Boolean(restored.timer_paused);
+  } catch (error) {
+    currentPracticeSessionId = `session_${Date.now()}`;
+    currentPracticeSessionStartedAt = new Date().toISOString();
+    currentPracticeAnswers = {};
+    currentPracticePendingAnswers = {};
+    currentPracticeAnswerEvents = {};
+    currentPracticeTimeByQuestion = {};
+    currentPracticeViewed = new Set();
+    currentPracticeBookmarks = new Set();
+    currentPracticeFlags = {};
+    currentPracticeExpandedChoices = {};
+    currentPracticeTimerPaused = false;
+  }
+}
+
+function finalizePracticeQuestionTime(now = Date.now()) {
+  if (!currentPracticeActiveQuestionKey || !currentPracticeQuestionStartedAt) return;
+  const elapsed = Math.max(0, Math.floor((now - currentPracticeQuestionStartedAt) / 1000));
+  if (elapsed > 0) {
+    currentPracticeTimeByQuestion[currentPracticeActiveQuestionKey] =
+      Number(currentPracticeTimeByQuestion[currentPracticeActiveQuestionKey] || 0) + elapsed;
+  }
+  currentPracticeQuestionStartedAt = now;
+}
+
+function stopPracticeQuestionTimer() {
+  finalizePracticeQuestionTime();
+  currentPracticeActiveQuestionKey = null;
+  currentPracticeQuestionStartedAt = null;
+  currentPracticeTimerPaused = false;
+}
+
+function beginPracticeQuestionTimer(questionKey) {
+  if (!questionKey) return;
+  if (currentPracticeActiveQuestionKey === questionKey && currentPracticeQuestionStartedAt) return;
+  finalizePracticeQuestionTime();
+  currentPracticeActiveQuestionKey = questionKey;
+  if (currentPracticeTimerPaused) {
+    currentPracticeQuestionStartedAt = null;
+    return;
+  }
+  currentPracticeQuestionStartedAt = Date.now();
+}
+
+function pausePracticeQuestionTimer() {
+  if (!currentPracticeActiveQuestionKey) return;
+  finalizePracticeQuestionTime();
+  currentPracticeQuestionStartedAt = null;
+  currentPracticeTimerPaused = true;
+  updateLivePracticeTime();
+}
+
+function resumePracticeQuestionTimer(questionKey) {
+  if (!questionKey) return;
+  currentPracticeActiveQuestionKey = questionKey;
+  currentPracticeQuestionStartedAt = Date.now();
+  currentPracticeTimerPaused = false;
+  updateLivePracticeTime();
+}
+
+function getPracticeTimeForQuestion(questionKey) {
+  const saved = Number(currentPracticeTimeByQuestion[questionKey] || 0);
+  if (!currentPracticeTimerPaused && currentPracticeActiveQuestionKey === questionKey && currentPracticeQuestionStartedAt) {
+    return saved + Math.max(0, Math.floor((Date.now() - currentPracticeQuestionStartedAt) / 1000));
+  }
+  return saved;
+}
+
+function updateLivePracticeTime() {
+  const node = document.querySelector("[data-practice-elapsed]");
+  if (!node || !currentPracticeActiveQuestionKey) return;
+  node.textContent = formatDuration(getPracticeTimeForQuestion(currentPracticeActiveQuestionKey));
+  const status = document.querySelector("[data-practice-timer-status]");
+  if (status) status.textContent = currentPracticeTimerPaused ? "일시정지" : "기록 중";
+}
+
+function startPracticeTimerInterval() {
+  window.clearInterval(practiceTimerInterval);
+  practiceTimerInterval = window.setInterval(updateLivePracticeTime, 1000);
+}
+
+function stopPracticeTimerInterval() {
+  window.clearInterval(practiceTimerInterval);
+  practiceTimerInterval = null;
+}
+
+function resetPracticeRuntimeState({ clearStored = false } = {}) {
+  stopPracticeQuestionTimer();
+  stopPracticeTimerInterval();
+  if (clearStored) {
+    const key = practiceStorageKey();
+    if (key) {
+      try {
+        window.sessionStorage?.removeItem(key);
+      } catch (error) {
+        // Ignore storage cleanup failures.
+      }
+    }
+  }
+  currentPracticeExam = null;
+  currentPracticeIndex = 0;
+  currentPracticeAnswers = {};
+  currentPracticePendingAnswers = {};
+  currentPracticeAnswerEvents = {};
+  currentPracticeTimeByQuestion = {};
+  currentPracticeViewed = new Set();
+  currentPracticeBookmarks = new Set();
+  currentPracticeFlags = {};
+  currentPracticeExpandedChoices = {};
+  currentPracticeTab = "key";
+  currentPracticeSidebarCollapsed = false;
+  currentPracticeSessionId = null;
+  practiceRagEvidenceCache = {};
+  practiceRagAnkiCache = {};
+  currentPracticeSessionStartedAt = null;
+  currentPracticeTimerPaused = false;
+}
+
+function computePracticeSessionStats(questions) {
+  const total = questions.length || 0;
+  const answered = Object.values(currentPracticeAnswers).filter(practiceHasAnswerSelection).length;
+  const correct = questions.filter((item, index) => {
+    const key = practiceQuestionKey(item, index);
+    return practiceSelectionIsCorrect(item, currentPracticeAnswers[key]);
+  }).length;
+  const timeValues = questions
+    .map((item, index) => getPracticeTimeForQuestion(practiceQuestionKey(item, index)))
+    .filter((value) => value > 0);
+  const totalTime = timeValues.reduce((sum, value) => sum + value, 0);
+  const avgTime = timeValues.length ? Math.round(totalTime / timeValues.length) : 0;
+  const weakLabels = {};
+  questions.forEach((item, index) => {
+    const key = practiceQuestionKey(item, index);
+    const selected = currentPracticeAnswers[key];
+    if (!practiceHasAnswerSelection(selected) || practiceSelectionIsCorrect(item, selected)) return;
+    const labels = item.labels || {};
+    const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+    const label = practiceLabelText(conceptTags[0] || labels.subtopic || labels.topic || labels.question_type || "미분류");
+    weakLabels[label] = (weakLabels[label] || 0) + 1;
+  });
+  const weakSummary = Object.entries(weakLabels)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([label, count]) => `${label} ${count}문항`);
+  return {
+    total,
+    viewed: currentPracticeViewed.size,
+    answered,
+    correct,
+    accuracy: answered ? Math.round((correct / answered) * 100) : 0,
+    avgTime,
+    totalTime,
+    bookmarked: currentPracticeBookmarks.size,
+    flagged: Object.keys(currentPracticeFlags).length,
+    weakSummary,
+  };
+}
+
+function renderPracticeSessionSnapshot(questions) {
+  const stats = computePracticeSessionStats(questions);
+  return `
+    <section class="practice-session-snapshot" aria-label="세션 요약">
+      <article><span>정답률</span><strong>${escapeHtml(stats.accuracy)}%</strong><small>${escapeHtml(stats.correct)} / ${escapeHtml(stats.answered || 0)} 풀이</small></article>
+      <article><span>평균 시간</span><strong>${escapeHtml(formatDuration(stats.avgTime))}</strong><small>문항당 기록</small></article>
+      <article><span>북마크</span><strong>${escapeHtml(stats.bookmarked)}</strong><small>다시 볼 문항</small></article>
+      <article><span>보강 후보</span><strong>${escapeHtml(stats.flagged)}</strong><small>신고/검토 표시</small></article>
+    </section>
+    ${stats.weakSummary.length ? `
+      <div class="practice-weak-strip">
+        <span>취약 라벨</span>
+        ${stats.weakSummary.map((item) => `<b>${escapeHtml(item)}</b>`).join("")}
+      </div>
+    ` : ""}
+  `;
 }
 
 function renderPracticeQuestionStrip(questions) {
@@ -537,7 +2716,7 @@ function renderPracticeQuestionStrip(questions) {
       ${visibleQuestions.map((item, offset) => {
         const index = start + offset;
         const key = item.question_id || String(item.question_number || index);
-        const answered = currentPracticeAnswers[key];
+        const answered = practiceHasAnswerSelection(currentPracticeAnswers[key]);
         const viewed = currentPracticeViewed.has(key);
         const active = index === currentPracticeIndex;
         return `
@@ -557,7 +2736,7 @@ function renderPracticeQuestionStrip(questions) {
 
 function renderPracticeQuestionPicker(questions) {
   if (!questions.length) return "";
-  const answeredCount = Object.keys(currentPracticeAnswers).length;
+  const answeredCount = Object.values(currentPracticeAnswers).filter(practiceHasAnswerSelection).length;
   const viewedCount = currentPracticeViewed.size;
   return `
     <details class="practice-picker">
@@ -570,7 +2749,7 @@ function renderPracticeQuestionPicker(questions) {
         ${questions.map((item, index) => {
           const key = item.question_id || String(item.question_number || index);
           const labels = item.labels || {};
-          const answered = currentPracticeAnswers[key];
+          const answered = practiceHasAnswerSelection(currentPracticeAnswers[key]);
           const viewed = currentPracticeViewed.has(key);
           const active = index === currentPracticeIndex;
           return `
@@ -592,29 +2771,28 @@ function renderPracticeQuestionPicker(questions) {
 
 function renderPracticeSessionSidebar(questions) {
   const summary = currentPracticeExam?.summary || {};
-  const answeredCount = Object.keys(currentPracticeAnswers).length;
-  const viewedCount = currentPracticeViewed.size;
+  const stats = computePracticeSessionStats(questions);
   return `
     <aside class="amboss-session-sidebar">
       <div class="amboss-session-summary">
         <span>문항 탐색</span>
         <strong>${escapeHtml(examTitle(summary) || "문항 세트")}</strong>
-        <p>${escapeHtml(viewedCount)} / ${escapeHtml(questions.length)} 열람 · ${escapeHtml(answeredCount)}개 풀이</p>
+        <p>${escapeHtml(stats.viewed)} / ${escapeHtml(questions.length)} 열람 · ${escapeHtml(stats.answered)}개 풀이</p>
       </div>
       <div class="amboss-question-list" aria-label="문항 선택 목록">
         ${questions.map((item, index) => {
           const key = item.question_id || String(item.question_number || index);
           const selected = currentPracticeAnswers[key];
-          const answer = String(item.answer || "");
-          const isCorrect = selected && answer && selected === answer;
-          const isWrong = selected && answer && selected !== answer;
+          const hasSelected = practiceHasAnswerSelection(selected);
+          const isCorrect = hasSelected && practiceSelectionIsCorrect(item, selected);
+          const isWrong = hasSelected && !practiceSelectionIsCorrect(item, selected);
           const viewed = currentPracticeViewed.has(key);
           const active = index === currentPracticeIndex;
           const labels = item.labels || {};
           return `
             <button
               type="button"
-              class="${active ? "active" : ""} ${viewed ? "viewed" : ""} ${selected ? "answered" : ""}"
+              class="${active ? "active" : ""} ${viewed ? "viewed" : ""} ${hasSelected ? "answered" : ""}"
               data-practice-jump="${escapeHtml(index)}"
             >
               <span class="amboss-status ${isCorrect ? "correct" : isWrong ? "wrong" : viewed ? "viewed" : ""}">
@@ -628,8 +2806,8 @@ function renderPracticeSessionSidebar(questions) {
         }).join("")}
       </div>
       <div class="amboss-session-footer">
-        <div><strong>${escapeHtml(viewedCount)}</strong><span>열람</span></div>
-        <div><strong>${escapeHtml(answeredCount)}</strong><span>풀이</span></div>
+        <div><strong>${escapeHtml(stats.accuracy)}%</strong><span>정답률</span></div>
+        <div><strong>${escapeHtml(formatDuration(stats.avgTime))}</strong><span>평균 시간</span></div>
         <button type="button" data-practice-reset>세트 선택</button>
       </div>
     </aside>
@@ -692,10 +2870,20 @@ function renderPracticeTabPanel(context) {
     sourceTags,
   } = context;
   const conceptLabel = practiceLabelText(conceptTags[0] || labels.cognitive_level || labels.question_type) || "개념 매핑 필요";
-  const correctChoice = question?.choices?.[answer] || "정답 선지";
+  const correctChoice = practiceAnswerKeys(question)
+    .map((key) => question?.choices?.[key])
+    .filter(Boolean)
+    .join(" / ") || "기준 개념";
   const mediaCount = (question?.media_refs || []).filter((item) => item.url).length;
   const stimulus = String(question?.stimulus || "").trim();
+  const stimulusIsPlaceholder = isPlaceholderStimulus(stimulus);
   const sourceBlock = sourceTags || '<span class="provenance-chip">출처 확인 필요</span>';
+  const ragEvidenceState = ["point", "note"].includes(currentPracticeTab)
+    ? getPracticeRagEvidenceState(question, labels, conceptTags)
+    : null;
+  const ragAnkiState = currentPracticeTab === "anki"
+    ? getPracticeRagAnkiState(question, labels, conceptTags)
+    : null;
 
   if (currentPracticeTab === "point") {
     return `
@@ -706,19 +2894,28 @@ function renderPracticeTabPanel(context) {
           <article>
             <span>묻는 능력</span>
             <strong>${escapeHtml(practiceLabelText(labels.question_type || labels.cognitive_level) || "문항 유형")}</strong>
-            <p>지문에서 핵심 단서를 찾아 정답 선지와 연결하는 능력을 확인합니다.</p>
+            <p>지문에서 핵심 단서를 찾고, 각 선지의 개념을 같은 기준으로 판단하는 능력을 확인합니다.</p>
           </article>
           <article>
-            <span>정답 기준</span>
-            <strong>${escapeHtml(answer || "미확인")}번</strong>
+            <span>기준 개념</span>
+            <strong>${escapeHtml(practiceAnswerLabel(question))}번</strong>
             <p>${escapeHtml(correctChoice)}</p>
           </article>
           <article>
-            <span>검토 필요</span>
-            <strong>${explanationInfo.supplemental ? "해설 보강" : "원해설 있음"}</strong>
-            <p>${explanationInfo.supplemental ? "원문 해설이 짧아 강의록 근거 확인이 필요합니다." : "저장된 해설을 기준으로 복습할 수 있습니다."}</p>
+            <span>해설 상태</span>
+            <strong>${explanationInfo.supplemental ? "선지 비교 중심" : "원해설 연결"}</strong>
+            <p>${explanationInfo.supplemental ? "각 선지가 어떤 개념을 가리키는지 먼저 설명합니다." : "정답지 해설과 근거 DB를 함께 연결합니다."}</p>
           </article>
         </div>
+        <div class="point-checklist">
+          <span>풀이 순서</span>
+          <ol>
+            <li>질문이 묻는 평가 항목을 먼저 확인합니다.</li>
+            <li>지문·제시자료에서 결정 단서를 찾습니다.</li>
+            <li>각 선지의 개념이 그 기준에 맞는지 확인합니다.</li>
+          </ol>
+        </div>
+        ${renderPracticeRagEvidence(ragEvidenceState, { compact: true })}
       </section>
     `;
   }
@@ -727,9 +2924,12 @@ function renderPracticeTabPanel(context) {
     return `
       <section class="practice-tool-panel media-panel">
         <div class="tool-panel-kicker">검사/자료</div>
-        <h3>제시자료 ${escapeHtml(mediaCount)}개 · 추가 지문 ${stimulus ? "있음" : "없음"}</h3>
-        ${stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(stimulus)}</blockquote>` : '<p class="muted">이 문항에는 별도 제시문이 저장되어 있지 않습니다.</p>'}
-        ${renderPracticeMedia(question.media_refs || []) || '<p class="muted">연결된 이미지/검사자료가 없습니다. 추후 자료 DB와 매핑하면 이 영역에 X-ray, CT, ECG, 병리 이미지가 표시됩니다.</p>'}
+        <h3>제시자료 ${escapeHtml(mediaCount)}개 · 추가 지문 ${stimulus && !stimulusIsPlaceholder ? "있음" : "없음"}</h3>
+        ${stimulus && !stimulusIsPlaceholder ? `<blockquote class="practice-stimulus">${escapeHtml(stimulus)}</blockquote>` : '<p class="muted">이 문항에는 별도 제시문이 저장되어 있지 않습니다.</p>'}
+        ${renderPracticeMedia(question.media_refs || []) || (stimulusIsPlaceholder
+          ? '<p class="muted">원본 문항에는 그림 표시가 있으나, 아직 해당 이미지 파일이 문항과 연결되지 않았습니다. 이미지 인덱싱 시 이 영역에 제시자료가 표시됩니다.</p>'
+          : '<p class="muted">연결된 이미지/검사자료가 없습니다. 추후 자료 DB와 매핑하면 이 영역에 X-ray, CT, ECG, 병리 이미지가 표시됩니다.</p>'
+        )}
         <div class="source-stack"><span>문항 출처</span><div>${sourceBlock}</div></div>
       </section>
     `;
@@ -739,41 +2939,48 @@ function renderPracticeTabPanel(context) {
     const conceptChips = (conceptTags.length ? conceptTags : [conceptLabel])
       .map((tag) => `<span class="provenance-chip">${escapeHtml(practiceLabelText(tag))}</span>`)
       .join("");
+    const sourceTitle = currentPracticeExam?.summary?.course_name || question?.source_exam || "학교 기출/강의자료";
     return `
       <section class="practice-tool-panel note-panel">
         <div class="tool-panel-kicker">개념 노트</div>
         <h3>${escapeHtml(conceptLabel)}</h3>
-        <p>이 문항은 향후 학교 강의록 요약, 관련 기출, 오답률 데이터를 같은 개념 노드로 묶는 기준점이 됩니다.</p>
+        <p>이 문항은 ${escapeHtml(sourceTitle)}에서 추출된 개념 노드로 저장됩니다. 같은 태그의 기출, 강의록 페이지, 오답률 데이터를 묶으면 파트별 랜덤 풀이와 교수 리포트의 기준이 됩니다.</p>
         <div class="source-stack"><span>연결 태그</span><div>${conceptChips}</div></div>
         <div class="source-stack"><span>근거 자료</span><div>${sourceBlock}</div></div>
-        <button type="button" class="secondary-button compact-action" data-page-link="student-concepts">개념 그래프 열기</button>
+        ${renderPracticeRagEvidence(ragEvidenceState)}
+        <div class="concept-note-actions">
+          <button type="button" class="secondary-button compact-action" data-page-link="student-library">관련 세트 보기</button>
+          <button type="button" class="secondary-button compact-action" data-practice-bookmark>북마크에 추가</button>
+        </div>
       </section>
     `;
   }
 
   if (currentPracticeTab === "anki") {
+    const ankiCandidates = buildPracticeAnkiCandidates({
+      answer,
+      conceptTags,
+      explanationInfo,
+      labels,
+      question,
+      ragAnkiState,
+    });
     return `
       <section class="practice-tool-panel anki-panel">
         <div class="tool-panel-kicker">Anki 카드</div>
-        <h3>복습 카드 초안</h3>
-        <div class="anki-preview-card">
-          <span>Front</span>
-          <p>${escapeHtml(conceptLabel)}에서 이 문항의 정답 기준은?</p>
+        <h3>핵심 문장 기반 cloze 카드</h3>
+        <p>정답 근거와 연결 근거에서 자연스러운 개념 문장을 뽑고, 외워야 할 키워드만 빈칸 처리합니다.</p>
+        ${renderPracticeAnkiCandidatePreview(ankiCandidates, ragAnkiState)}
+        <div class="anki-action-row">
+          <button type="button" class="compact-action" data-anki-dialog-open>관련 카드 찾기</button>
+          <button type="button" class="secondary-button compact-action" data-practice-bookmark>카드 후보로 저장</button>
         </div>
-        <div class="anki-preview-card">
-          <span>Back</span>
-          <p>${escapeHtml(answer || "미확인")}번 · ${escapeHtml(correctChoice)}</p>
-        </div>
-        <div class="anki-preview-card">
-          <span>Extra</span>
-          <p>${escapeHtml(explanationInfo.text)}</p>
-        </div>
-        <button type="button" class="secondary-button compact-action" data-page-link="student-review">오답/Anki 관리로 이동</button>
       </section>
     `;
   }
 
   return `
+    ${renderPracticeQuestionUnderstanding(question, labels)}
     <section class="amboss-key-info">
       <span class="amboss-avatar">P</span>
       <div>
@@ -785,8 +2992,37 @@ function renderPracticeTabPanel(context) {
   `;
 }
 
-function renderStudentPracticeQuestion() {
+function capturePracticeScrollState({ includeQuestionPane = false } = {}) {
+  return {
+    sidebarScrollTop: document.querySelector(".amboss-question-list")?.scrollTop ?? null,
+    questionPaneScrollTop: includeQuestionPane ? document.querySelector(".amboss-question-pane")?.scrollTop ?? null : null,
+  };
+}
+
+function restorePracticeScrollState(scrollState, { restoreSidebar = true, restoreQuestionPane = false } = {}) {
+  if (!scrollState) return;
+  window.requestAnimationFrame(() => {
+    const sidebar = document.querySelector(".amboss-question-list");
+    if (restoreSidebar && sidebar && scrollState.sidebarScrollTop !== null) {
+      sidebar.scrollTop = scrollState.sidebarScrollTop;
+    }
+
+    const questionPane = document.querySelector(".amboss-question-pane");
+    if (restoreQuestionPane && questionPane && scrollState.questionPaneScrollTop !== null) {
+      questionPane.scrollTop = scrollState.questionPaneScrollTop;
+    }
+  });
+}
+
+function renderStudentPracticeQuestion(options = {}) {
   if (!studentPracticeStage) return;
+  const {
+    preserveSidebarScroll = true,
+    preserveQuestionScroll = false,
+  } = options;
+  const scrollState = capturePracticeScrollState({
+    includeQuestionPane: preserveQuestionScroll,
+  });
   studentPracticeStage.className = "practice-layout amboss-layout";
   const questions = currentPracticeExam?.questions || [];
   const question = questions[currentPracticeIndex];
@@ -803,36 +3039,67 @@ function renderStudentPracticeQuestion() {
     return;
   }
 
-  const questionKey = question.question_id || String(question.question_number || currentPracticeIndex);
+  const questionKey = practiceQuestionKey(question, currentPracticeIndex);
   currentPracticeViewed.add(questionKey);
-  const selectedAnswer = currentPracticeAnswers[questionKey];
-  const answer = String(question.answer || "");
-  const revealAnswer = Boolean(selectedAnswer) && (studentPracticeMode?.value || "study") === "study";
+  const confirmedSelection = practiceNormalizeAnswerSelection(currentPracticeAnswers[questionKey]);
+  const pendingSelection = practiceNormalizeAnswerSelection(currentPracticePendingAnswers[questionKey]);
+  const hasConfirmedAnswer = confirmedSelection.length > 0;
+  const isMultiAnswer = practiceIsMultiAnswerQuestion(question);
+  const activeSelection = hasConfirmedAnswer ? confirmedSelection : pendingSelection;
+  const selectedAnswer = practiceSelectionLabel(confirmedSelection);
+  const pendingAnswer = practiceSelectionLabel(pendingSelection);
+  if (hasConfirmedAnswer) {
+    if (currentPracticeActiveQuestionKey === questionKey) stopPracticeQuestionTimer();
+  } else {
+    beginPracticeQuestionTimer(questionKey);
+  }
+  savePracticeState();
+  startPracticeTimerInterval();
+  const answer = practicePrimaryAnswer(question);
+  const answerKeys = practiceAnswerKeys(question);
+  const answerLabel = practiceAnswerLabel(question);
+  const selectedIsCorrect = hasConfirmedAnswer ? practiceSelectionIsCorrect(question, confirmedSelection) : false;
+  const expandedChoice = currentPracticeExpandedChoices[questionKey] || activeSelection[0] || answer;
+  const revealAnswer = hasConfirmedAnswer && (studentPracticeMode?.value || "study") === "study";
   const correctCount = questions.filter((item, index) => {
     const key = item.question_id || String(item.question_number || index);
-    return currentPracticeAnswers[key] && String(item.answer || "") === currentPracticeAnswers[key];
+    return practiceSelectionIsCorrect(item, currentPracticeAnswers[key]);
   }).length;
-  const answeredCount = Object.keys(currentPracticeAnswers).length;
+  const answeredCount = Object.values(currentPracticeAnswers).filter(practiceHasAnswerSelection).length;
   const viewedCount = currentPracticeViewed.size;
 
   const labels = question.labels || {};
   const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
   const sourceTags = practiceSourceTags(question);
+  const stimulusText = String(question.stimulus || "").trim();
+  const stimulusIsPlaceholder = isPlaceholderStimulus(stimulusText);
+  const hasVisibleMedia = (question.media_refs || []).some((item) => item.url);
   const explanationInfo = practiceExplanationInfo(question, answer, labels, conceptTags);
-  const helperStatus = selectedAnswer
+  const isBookmarked = currentPracticeBookmarks.has(questionKey);
+  const flagType = currentPracticeFlags[questionKey] || "";
+  const elapsedLabel = formatDuration(getPracticeTimeForQuestion(questionKey));
+  const timerButtonLabel = hasConfirmedAnswer
+    ? "기록 완료"
+    : currentPracticeTimerPaused ? "시간 재개" : "일시정지";
+  const timerStatusLabel = hasConfirmedAnswer
+    ? "기록 완료"
+    : currentPracticeTimerPaused ? "일시정지" : "기록 중";
+  const questionMetaChips = practiceQuestionMetaChips(question);
+  const helperStatus = hasConfirmedAnswer
     ? revealAnswer
-      ? answer === selectedAnswer ? "정답입니다." : `오답입니다. 정답은 ${answer || "미확인"}번입니다.`
+      ? selectedIsCorrect ? "정답입니다." : `오답입니다. 정답은 ${answerLabel}번입니다.`
       : "선택이 저장됐습니다. 시험 모드에서는 마지막에 해설을 확인합니다."
+    : isMultiAnswer && pendingSelection.length
+      ? `${pendingAnswer}번 선택 중입니다. 정답 확인을 눌러 채점하세요.`
     : "풀이 후 정답과 근거를 확인할 수 있습니다.";
-  const answerPanel = selectedAnswer
+  const answerPanel = hasConfirmedAnswer
     ? `
-      <section class="uworld-explanation-card ${revealAnswer && answer === selectedAnswer ? "correct" : revealAnswer ? "incorrect" : ""}">
-        <span>${revealAnswer ? answer === selectedAnswer ? "정답" : "오답" : "선택 저장"}</span>
-        <strong>${revealAnswer ? `정답 ${escapeHtml(answer || "미확인")}번` : `${escapeHtml(selectedAnswer)}번 선택됨`}</strong>
+      <section class="uworld-explanation-card ${revealAnswer && selectedIsCorrect ? "correct" : revealAnswer ? "incorrect" : ""}">
+        <span>${revealAnswer ? selectedIsCorrect ? "정답" : "오답" : "선택 저장"}</span>
+        <strong>${revealAnswer ? selectedIsCorrect ? `${escapeHtml(answerLabel)}번` : `정답 ${escapeHtml(answerLabel)}번` : `${escapeHtml(selectedAnswer)}번 선택됨`}</strong>
         ${revealAnswer
           ? `
-            ${explanationInfo.supplemental ? '<em class="explanation-source-badge">보강 해설 초안</em>' : ""}
-            <p>${escapeHtml(explanationInfo.text)}</p>
+            ${explanationInfo.text ? `<p>${escapeHtml(explanationInfo.text)}</p>` : ""}
           `
           : "<p>시험 모드에서는 세션 종료 후 해설을 확인하도록 설계할 수 있습니다.</p>"
         }
@@ -842,39 +3109,67 @@ function renderStudentPracticeQuestion() {
       <section class="uworld-explanation-card pending">
         <span>학습 패널</span>
         <strong>풀이 후 근거를 확인합니다.</strong>
-        <p>정답, 해설, 관련 개념, 복습 카드를 한 화면에 모읍니다.</p>
+        <p>정답, 해설, 출제 포인트, 복습 카드 초안을 한 화면에 모읍니다.</p>
       </section>
     `;
   const keyInfo = selectedAnswer
-    ? explanationInfo.text
-    : "풀이 후 정답 근거와 관련 개념이 표시됩니다.";
+    ? explanationInfo.text || "선지를 눌러 정답 근거와 오답 배제를 확인하세요."
+    : "풀이 후 정답 근거와 출제 포인트가 표시됩니다.";
+  const choiceExplanationDraft = revealAnswer
+    ? getPracticeChoiceExplanationState(question, answer, explanationInfo, labels, conceptTags).rows
+    : {};
   const choiceRows = practiceChoiceEntries(question)
     .map(([key, text]) => {
-      const normalizedKey = String(key);
-      const isSelected = selectedAnswer === normalizedKey;
-      const isCorrect = revealAnswer && answer === normalizedKey;
-      const isWrong = revealAnswer && isSelected && answer && answer !== normalizedKey;
+      const normalizedKey = normalizePracticeChoiceKey(key);
+      const isSelected = activeSelection.includes(normalizedKey);
+      const isPendingSelected = !hasConfirmedAnswer && isSelected;
+      const isCorrect = revealAnswer && answerKeys.includes(normalizedKey);
+      const isWrong = revealAnswer && answerKeys.length && !answerKeys.includes(normalizedKey);
       const className = [
         isSelected ? "selected" : "",
+        isPendingSelected ? "pending-selected" : "",
         isCorrect ? "correct" : "",
-        isWrong ? "incorrect" : "",
+        isWrong && isSelected ? "incorrect selected-wrong" : "",
+        isWrong && !isSelected ? "review-wrong" : "",
+        revealAnswer && expandedChoice === normalizedKey ? "expanded" : "",
       ].filter(Boolean).join(" ");
+      const choiceExplanation = revealAnswer
+        ? explanationForVisibleChoice(question, answer, normalizedKey, choiceExplanationDraft)
+        : null;
+      const shouldShowChoiceExplanation = revealAnswer
+        && choiceExplanation
+        && (
+          normalizedKey === expandedChoice
+          || confirmedSelection.includes(normalizedKey)
+          || answerKeys.includes(normalizedKey)
+        );
       return `
         <button type="button" class="amboss-choice ${className}" data-practice-choice="${escapeHtml(normalizedKey)}">
           <span>${escapeHtml(normalizedKey)}</span>
           <strong>${escapeHtml(text)}</strong>
-          <em>${isCorrect ? "정답" : isWrong ? "오답" : ""}</em>
+          <em>${isCorrect ? "정답" : isWrong && isSelected ? "내 선택" : isPendingSelected ? "선택됨" : revealAnswer ? "오답" : ""}</em>
         </button>
-        ${isCorrect ? `
-          <div class="amboss-choice-explanation ${explanationInfo.supplemental ? "supplemental" : ""}">
-            ${explanationInfo.supplemental ? '<em class="explanation-source-badge">보강 해설 초안</em>' : ""}
-            <p>${escapeHtml(explanationInfo.text)}</p>
-            <div class="source-stack"><span>출처</span><div>${sourceTags || '<span class="provenance-chip">출처 확인 필요</span>'}</div></div>
-          </div>
-        ` : ""}
+        ${shouldShowChoiceExplanation ? renderPracticeChoiceExplanation(normalizedKey, choiceExplanation, sourceTags) : ""}
       `;
     })
     .join("");
+  const multiAnswerConfirmPanel = isMultiAnswer && !hasConfirmedAnswer
+    ? `
+      <section class="practice-answer-confirm-row">
+        <div>
+          <strong>복수정답 문항</strong>
+          <p>${pendingSelection.length ? `${escapeHtml(pendingAnswer)}번 선택 중` : "정답이라고 생각하는 선지를 모두 선택하세요."}</p>
+        </div>
+        <button
+          type="button"
+          data-practice-confirm-answer
+          ${pendingSelection.length ? "" : "disabled"}
+        >
+          정답 확인
+        </button>
+      </section>
+    `
+    : "";
 
   studentPracticeStage.innerHTML = `
     <section class="amboss-practice-shell ${currentPracticeSidebarCollapsed ? "sidebar-collapsed" : ""}">
@@ -900,43 +3195,74 @@ function renderStudentPracticeQuestion() {
         ${renderPracticeSessionSidebar(questions)}
         <main class="amboss-question-pane">
           <div class="amboss-reader-toolbar">
-            <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(practiceLabelText(labels.question_type) || "과정시험")}</span>
-            <strong>${escapeHtml(viewedCount)} 열람 · ${escapeHtml(answeredCount)} 풀이 · ${escapeHtml(correctCount)} 정답</strong>
-            <button type="button" class="secondary-button" data-practice-reset>세트 변경</button>
+            <div class="reader-title-group">
+              <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(practiceQuestionTypeLabel(question))}</span>
+              ${questionMetaChips ? `<div class="question-toolbar-meta">${questionMetaChips}</div>` : ""}
+            </div>
+            <strong>
+              ${escapeHtml(viewedCount)} 열람 · ${escapeHtml(answeredCount)} 풀이 · ${escapeHtml(correctCount)} 정답 ·
+              <span data-practice-elapsed>${escapeHtml(elapsedLabel)}</span>
+              <em data-practice-timer-status>${escapeHtml(timerStatusLabel)}</em>
+            </strong>
+            <div class="reader-actions">
+              <button
+                type="button"
+                class="secondary-button timer-toggle ${currentPracticeTimerPaused ? "is-active" : ""}"
+                data-practice-timer-toggle
+                ${hasConfirmedAnswer ? "disabled" : ""}
+              >
+                ${escapeHtml(timerButtonLabel)}
+              </button>
+              <button type="button" class="secondary-button ${isBookmarked ? "is-active" : ""}" data-practice-bookmark>
+                ${isBookmarked ? "북마크됨" : "북마크"}
+              </button>
+              <button type="button" class="secondary-button" data-practice-reset>세트 변경</button>
+            </div>
           </div>
 
           <article class="amboss-vignette-card">
             <div class="question-source-row">${sourceTags}</div>
             <p class="amboss-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
-            ${question.stimulus ? `<blockquote class="practice-stimulus">${escapeHtml(question.stimulus)}</blockquote>` : ""}
+            ${stimulusText && !stimulusIsPlaceholder ? `<blockquote class="practice-stimulus">${escapeHtml(stimulusText)}</blockquote>` : ""}
+            ${stimulusIsPlaceholder && !hasVisibleMedia ? '<div class="practice-media-missing">원본 문항의 제시 이미지가 아직 문항과 연결되지 않았습니다.</div>' : ""}
             ${renderPracticeMedia(question.media_refs || [])}
           </article>
 
-          <nav class="amboss-info-tabs" aria-label="문항 학습 도구">
-            ${renderPracticeToolTabs(currentPracticeTab)}
-          </nav>
-
-          ${renderPracticeTabPanel({
-            answer,
-            answerPanel,
-            conceptTags,
-            explanationInfo,
-            helperStatus,
-            keyInfo,
-            labels,
-            question,
-            revealAnswer,
-            selectedAnswer,
-            sourceTags,
-          })}
-
           <div class="amboss-choice-list">${choiceRows}</div>
+          ${multiAnswerConfirmPanel}
+
+          ${revealAnswer ? `
+            <nav class="amboss-info-tabs" aria-label="문항 학습 도구">
+              ${renderPracticeToolTabs(currentPracticeTab)}
+            </nav>
+
+            ${renderPracticeTabPanel({
+              answer,
+              answerPanel,
+              conceptTags,
+              explanationInfo,
+              helperStatus,
+              keyInfo,
+              labels,
+              question,
+              revealAnswer,
+              selectedAnswer,
+              sourceTags,
+            })}
+          ` : ""}
 
           <section class="amboss-study-footer">
-            <div>
-              <span>개념 연결</span>
+            ${renderPracticeSessionSnapshot(questions)}
+            <div class="practice-question-controls">
+              <span>파트 라벨</span>
               <strong>${escapeHtml(practiceLabelText(conceptTags[0] || labels.cognitive_level) || "개념 매핑 필요")}</strong>
-              <p>학교 강의록, 문항 해설, 제시자료를 같은 개념 노드로 연결합니다.</p>
+              <p>추후 시험지, 기초/임상 파트, 교수자 태그 기준으로 랜덤 세트를 구성하는 기준값입니다.</p>
+              <div class="flag-action-row" aria-label="문항 검토 표시">
+                <button type="button" class="secondary-button ${flagType === "typo" ? "is-active" : ""}" data-practice-flag="typo">오탈자</button>
+                <button type="button" class="secondary-button ${flagType === "image_missing" ? "is-active" : ""}" data-practice-flag="image_missing">이미지 누락</button>
+                <button type="button" class="secondary-button ${flagType === "explanation" ? "is-active" : ""}" data-practice-flag="explanation">해설 보강</button>
+                <button type="button" class="secondary-button ${flagType === "clear" ? "is-active" : ""}" data-practice-flag="clear">표시 해제</button>
+              </div>
             </div>
           </section>
         </main>
@@ -949,6 +3275,117 @@ function renderStudentPracticeQuestion() {
       </footer>
     </section>
   `;
+  restorePracticeScrollState(scrollState, {
+    restoreSidebar: preserveSidebarScroll,
+    restoreQuestionPane: preserveQuestionScroll,
+  });
+}
+
+function currentPracticeAnkiCards() {
+  const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+  if (!question) return [];
+  const answer = practicePrimaryAnswer(question);
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  const explanationInfo = practiceExplanationInfo(question, answer, labels, conceptTags);
+  const ragAnkiState = getPracticeRagAnkiState(question, labels, conceptTags);
+  return buildPracticeAnkiCandidates({
+    answer,
+    conceptTags,
+    explanationInfo,
+    labels,
+    question,
+    ragAnkiState,
+  });
+}
+
+function selectedPracticeAnkiText() {
+  return practiceAnkiDialogCards
+    .filter((card) => practiceSelectedAnkiCardIds.has(card.cardId))
+    .map((card) => practiceAnkiStyleText ? card.ankiText : card.plainText)
+    .join("\n");
+}
+
+function renderAnkiCardDialogBody() {
+  if (!ankiCardDialogBody) return;
+  const selectedCount = practiceAnkiDialogCards
+    .filter((card) => practiceSelectedAnkiCardIds.has(card.cardId))
+    .length;
+  ankiCardDialogBody.innerHTML = `
+    <section class="anki-related-panel">
+      <div class="anki-dialog-toolbar">
+        <div>
+          <h3>Relevant cards</h3>
+          <p>문장 안에서 핵심 개념만 빈칸 처리한 카드 후보입니다.</p>
+        </div>
+        <label class="anki-style-switch">
+          <span>Anki-style text</span>
+          <input type="checkbox" data-anki-style-toggle ${practiceAnkiStyleText ? "checked" : ""} />
+          <i></i>
+        </label>
+      </div>
+      <div class="anki-candidate-list">
+        ${practiceAnkiDialogCards.length ? practiceAnkiDialogCards.map((card) => {
+          const selected = practiceSelectedAnkiCardIds.has(card.cardId);
+          const text = practiceAnkiStyleText ? card.ankiText : card.plainText;
+          return `
+            <button
+              type="button"
+              class="anki-candidate-row ${selected ? "selected" : ""} ${card.needsReview ? "needs-review" : ""}"
+              data-anki-card-toggle="${escapeHtml(card.cardId)}"
+            >
+              <span class="anki-check">${selected ? "✓" : ""}</span>
+              <div>
+                <p>${escapeHtml(text)}</p>
+                <small>${escapeHtml(card.source || "출처 확인 필요")}${card.needsReview ? " · cloze 검토 필요" : ""}</small>
+              </div>
+            </button>
+          `;
+        }).join("") : `
+          <div class="anki-empty-state">
+            <strong>카드 후보 없음</strong>
+            <p>현재 문항은 원해설이나 선지별 해설이 부족해 자동 카드 생성을 보류했습니다.</p>
+          </div>
+        `}
+      </div>
+      <footer class="anki-dialog-footer">
+        <span>${escapeHtml(selectedCount)} cards selected</span>
+        <button type="button" data-copy-anki-cards>Copy Anki text</button>
+      </footer>
+    </section>
+  `;
+}
+
+function openPracticeAnkiDialog() {
+  if (!ankiCardDialog || !ankiCardDialogBody) return;
+  practiceAnkiDialogCards = currentPracticeAnkiCards();
+  practiceSelectedAnkiCardIds = new Set(practiceAnkiDialogCards.map((card) => card.cardId));
+  renderAnkiCardDialogBody();
+  ankiCardDialog.showModal();
+}
+
+function commitPracticeAnswer(question, questionKey, selectionValue) {
+  const selectedKeys = practiceNormalizeAnswerSelection(selectionValue);
+  if (!question || !questionKey || !selectedKeys.length) return false;
+  stopPracticeQuestionTimer();
+  currentPracticeAnswers[questionKey] = practiceIsMultiAnswerQuestion(question)
+    ? selectedKeys
+    : selectedKeys[0];
+  delete currentPracticePendingAnswers[questionKey];
+  currentPracticeExpandedChoices[questionKey] = selectedKeys[0];
+  currentPracticeAnswerEvents[questionKey] = {
+    session_id: currentPracticeSessionId,
+    question_id: questionKey,
+    answered_at: new Date().toISOString(),
+    choice_selected: selectedKeys.join(","),
+    choices_selected: selectedKeys,
+    is_correct: practiceSelectionIsCorrect(question, selectedKeys),
+    time_spent_sec: getPracticeTimeForQuestion(questionKey),
+    is_bookmarked: currentPracticeBookmarks.has(questionKey),
+    flag_type: currentPracticeFlags[questionKey] || null,
+  };
+  savePracticeState();
+  return true;
 }
 
 async function startStudentPractice() {
@@ -964,19 +3401,11 @@ async function startStudentPractice() {
     if (!response.ok) {
       throw new Error(payload.detail || "문항 세트 로드 실패");
     }
-    currentPracticeExam = payload;
-    currentPracticeIndex = 0;
-    currentPracticeAnswers = {};
-    currentPracticeViewed = new Set();
-    currentPracticeTab = "key";
-    currentPracticeSidebarCollapsed = false;
-    document.body.classList.add("practice-session-active");
-    studentPracticePage?.classList.add("practice-active");
-    if (studentPracticeStatus) {
-      const summary = payload.summary || {};
-      studentPracticeStatus.textContent = `${examTitle(summary)} 세트를 열었습니다. ${payload.questions?.length || 0}문항을 풀 수 있습니다.`;
-    }
-    renderStudentPracticeQuestion();
+    const summary = payload.summary || {};
+    activatePracticePayload(
+      payload,
+      `${examTitle(summary)} 세트를 열었습니다. ${payload.questions?.length || 0}문항을 풀 수 있습니다.`
+    );
   } catch (error) {
     if (studentPracticeStatus) {
       studentPracticeStatus.textContent = `문항 세트 로드 실패: ${error.message}`;
@@ -1122,6 +3551,7 @@ function renderArchiveSets(sets) {
         </dl>
         <div class="archive-actions">
           <button type="button" class="secondary-button" data-open-set="${escapeHtml(set.set_id)}">문항 열기</button>
+          <button type="button" class="secondary-button" data-export-cbt-hwp="${escapeHtml(set.set_id)}">CBT HWP 양식</button>
           <button type="button" class="secondary-button" data-export-anki="${escapeHtml(set.set_id)}">Anki Export</button>
         </div>
       </article>
@@ -1135,6 +3565,10 @@ function renderCategoryGrid(container, mode) {
     .map((category) => {
       const metric = categoryLearningMetrics[category.key] || { progress: 0, weakness: "학습 데이터 없음" };
       const facultyCopy = mode === "faculty" ? "보강 제안" : "취약 마커";
+      const questionCount = mode === "student" ? Number(studentCategoryQuestionCounts[category.key] || 0) : null;
+      const footCopy = mode === "student"
+        ? (questionCount > 0 ? `Q ${questionCount} · ${metric.weakness}` : "라벨 준비중")
+        : `${facultyCopy} · ${metric.weakness}`;
       return `
         <button
           type="button"
@@ -1146,12 +3580,13 @@ function renderCategoryGrid(container, mode) {
           <span class="category-icon">${escapeHtml(category.icon)}</span>
           <strong>${escapeHtml(category.title)}</strong>
           <small>${escapeHtml(category.desc)}</small>
+          ${mode === "student" ? `<span class="category-count-badge">${escapeHtml(questionCount)}문항</span>` : ""}
           <span class="category-progress" aria-label="${escapeHtml(category.title)} 진행도 ${escapeHtml(metric.progress)}%">
             <b style="width: ${escapeHtml(metric.progress)}%"></b>
           </span>
           <span class="category-foot">
             <em>${escapeHtml(metric.progress)}%</em>
-            <i>${escapeHtml(facultyCopy)} · ${escapeHtml(metric.weakness)}</i>
+            <i>${escapeHtml(footCopy)}</i>
           </span>
         </button>
       `;
@@ -1159,13 +3594,18 @@ function renderCategoryGrid(container, mode) {
     .join("");
 }
 
-function selectCategory(categoryTitle, mode) {
+function selectCategory(categoryTitle, mode, categoryKey) {
   const subjectInput = form?.querySelector('input[name="subject"]');
   const unitInput = form?.querySelector('input[name="unit"]');
   if (subjectInput) subjectInput.value = categoryTitle;
   if (unitInput && !unitInput.value.trim()) unitInput.value = "미분류";
   if (mode === "student") {
-    showPage("student-concepts");
+    selectedLibraryCourseKey = categoryKey || selectedLibraryCourseKey;
+    showPage("student-library");
+    renderStudentLibraryCourseBuilder(selectedLibraryCourseKey);
+    window.requestAnimationFrame(() => {
+      studentCourseBuilder?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   } else {
     showPage("faculty-studio");
   }
@@ -1871,7 +4311,26 @@ roleButtons.forEach((button) => {
 document.addEventListener("click", (event) => {
   const categoryCard = event.target.closest("[data-category-title]");
   if (!categoryCard) return;
-  selectCategory(categoryCard.dataset.categoryTitle, categoryCard.dataset.categoryMode);
+  selectCategory(
+    categoryCard.dataset.categoryTitle,
+    categoryCard.dataset.categoryMode,
+    categoryCard.dataset.categoryKey
+  );
+});
+
+studentCourseBuilder?.addEventListener("click", (event) => {
+  const majorToggle = event.target.closest("[data-library-major-toggle]");
+  if (majorToggle) {
+    majorToggle.closest(".library-unit-card")?.classList.toggle("is-open");
+    return;
+  }
+
+  const startButton = event.target.closest("[data-library-practice-start]");
+  if (!startButton) return;
+  startStudentLibraryPractice(
+    startButton.dataset.libraryFilterId,
+    startButton.dataset.libraryPracticeScope
+  );
 });
 
 if (medlegalCaseList) {
@@ -2015,6 +4474,42 @@ if (mediaBank) {
 
 if (archiveList) {
   archiveList.addEventListener("click", async (event) => {
+    const cbtHwpButton = event.target.closest("[data-export-cbt-hwp]");
+    if (cbtHwpButton) {
+      cbtHwpButton.disabled = true;
+      const originalText = cbtHwpButton.textContent;
+      cbtHwpButton.textContent = "생성 중";
+      try {
+        const response = await fetch(
+          `/api/question-sets/${encodeURIComponent(cbtHwpButton.dataset.exportCbtHwp)}/export/cbt-hwp`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              include_unapproved: false,
+              include_answers: true,
+              include_explanations: true,
+              include_references: true,
+            }),
+          }
+        );
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || "CBT HWP 양식 생성 실패");
+        }
+        window.location.href = payload.download_url;
+      } catch (error) {
+        archiveList.insertAdjacentHTML(
+          "afterbegin",
+          `<p class="inline-error">CBT HWP 양식 생성 실패: ${escapeHtml(error.message)}</p>`
+        );
+      } finally {
+        cbtHwpButton.disabled = false;
+        cbtHwpButton.textContent = originalText;
+      }
+      return;
+    }
+
     const exportButton = event.target.closest("[data-export-anki]");
     if (exportButton) {
       exportButton.disabled = true;
@@ -2101,7 +4596,59 @@ studentPracticeStage?.addEventListener("click", (event) => {
   const tabButton = event.target.closest("[data-practice-tab]");
   if (tabButton) {
     currentPracticeTab = tabButton.dataset.practiceTab || "key";
-    renderStudentPracticeQuestion();
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
+  const timerToggleButton = event.target.closest("[data-practice-timer-toggle]");
+  if (timerToggleButton) {
+    const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+    if (!question) return;
+    const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+    if (currentPracticeTimerPaused) {
+      resumePracticeQuestionTimer(questionKey);
+    } else {
+      pausePracticeQuestionTimer();
+    }
+    savePracticeState();
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
+  const bookmarkButton = event.target.closest("[data-practice-bookmark]");
+  if (bookmarkButton) {
+    const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+    if (!question) return;
+    const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+    if (currentPracticeBookmarks.has(questionKey)) {
+      currentPracticeBookmarks.delete(questionKey);
+    } else {
+      currentPracticeBookmarks.add(questionKey);
+    }
+    savePracticeState();
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
+  const flagButton = event.target.closest("[data-practice-flag]");
+  if (flagButton) {
+    const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+    if (!question) return;
+    const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+    const flagValue = flagButton.dataset.practiceFlag || "other";
+    if (flagValue === "clear" || currentPracticeFlags[questionKey] === flagValue) {
+      delete currentPracticeFlags[questionKey];
+    } else {
+      currentPracticeFlags[questionKey] = flagValue;
+    }
+    savePracticeState();
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
+  const ankiDialogButton = event.target.closest("[data-anki-dialog-open]");
+  if (ankiDialogButton) {
+    openPracticeAnkiDialog();
     return;
   }
 
@@ -2111,24 +4658,54 @@ studentPracticeStage?.addEventListener("click", (event) => {
     return;
   }
 
+  const confirmAnswerButton = event.target.closest("[data-practice-confirm-answer]");
+  if (confirmAnswerButton) {
+    const question = currentPracticeExam?.questions?.[currentPracticeIndex];
+    if (!question) return;
+    const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+    const pendingSelection = practiceNormalizeAnswerSelection(currentPracticePendingAnswers[questionKey]);
+    if (!pendingSelection.length) return;
+    commitPracticeAnswer(question, questionKey, pendingSelection);
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
   const choiceButton = event.target.closest("[data-practice-choice]");
   if (choiceButton) {
     const question = currentPracticeExam?.questions?.[currentPracticeIndex];
     if (!question) return;
-    const questionKey = question.question_id || String(question.question_number || currentPracticeIndex);
-    currentPracticeAnswers[questionKey] = choiceButton.dataset.practiceChoice;
-    renderStudentPracticeQuestion();
+    const questionKey = practiceQuestionKey(question, currentPracticeIndex);
+    const chosen = choiceButton.dataset.practiceChoice;
+    const alreadyAnswered = practiceHasAnswerSelection(currentPracticeAnswers[questionKey]);
+    if (alreadyAnswered && (studentPracticeMode?.value || "study") === "study") {
+      currentPracticeExpandedChoices[questionKey] = chosen;
+      savePracticeState();
+      renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+      return;
+    }
+    if (practiceIsMultiAnswerQuestion(question)) {
+      const pendingSelection = practiceNormalizeAnswerSelection(currentPracticePendingAnswers[questionKey]);
+      const nextSelection = pendingSelection.includes(chosen)
+        ? pendingSelection.filter((key) => key !== chosen)
+        : [...pendingSelection, chosen];
+      if (nextSelection.length) {
+        currentPracticePendingAnswers[questionKey] = nextSelection;
+      } else {
+        delete currentPracticePendingAnswers[questionKey];
+      }
+      currentPracticeExpandedChoices[questionKey] = chosen;
+      savePracticeState();
+      renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+      return;
+    }
+    commitPracticeAnswer(question, questionKey, [chosen]);
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
     return;
   }
 
   const resetButton = event.target.closest("[data-practice-reset]");
   if (resetButton) {
-    currentPracticeExam = null;
-    currentPracticeIndex = 0;
-    currentPracticeAnswers = {};
-    currentPracticeViewed = new Set();
-    currentPracticeTab = "key";
-    currentPracticeSidebarCollapsed = false;
+    resetPracticeRuntimeState();
     document.body.classList.remove("practice-session-active");
     studentPracticePage?.classList.remove("practice-active");
     studentPracticeStage.className = "practice-layout";
@@ -2137,10 +4714,9 @@ studentPracticeStage?.addEventListener("click", (event) => {
         <p>기출/과정시험 세트를 선택하면 문항 목록이 열리고, 원하는 문제부터 풀 수 있습니다.</p>
       </article>
       <aside class="practice-helper">
-        <h3>학습 모드 도구</h3>
-        <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
-        <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-        <p>끝까지 풀지 않아도 문항별 정답/해설, 관련 개념, 복습 카드를 바로 확인할 수 있습니다.</p>
+        <h3>문항 선택형 학습</h3>
+        <button type="button" class="secondary-button" data-page-link="student-review">풀이 기록 보기</button>
+        <p>끝까지 풀지 않아도 문항별 정답/해설, 출제 포인트, 복습 카드 초안을 바로 확인할 수 있습니다.</p>
       </aside>
     `;
     if (studentPracticeStatus) {
@@ -2151,6 +4727,8 @@ studentPracticeStage?.addEventListener("click", (event) => {
 
   const navButton = event.target.closest("[data-practice-nav]");
   if (navButton) {
+    finalizePracticeQuestionTime();
+    savePracticeState();
     if (navButton.dataset.practiceNav === "prev") {
       currentPracticeIndex = Math.max(0, currentPracticeIndex - 1);
     } else {
@@ -2166,6 +4744,8 @@ studentPracticeStage?.addEventListener("click", (event) => {
   const jumpIndex = Number(jumpButton.dataset.practiceJump);
   const lastIndex = Math.max(0, (currentPracticeExam?.questions || []).length - 1);
   if (Number.isFinite(jumpIndex)) {
+    finalizePracticeQuestionTime();
+    savePracticeState();
     currentPracticeIndex = Math.max(0, Math.min(lastIndex, jumpIndex));
     renderStudentPracticeQuestion();
   }
@@ -2178,6 +4758,52 @@ lightboxClose?.addEventListener("click", () => {
 imageLightbox?.addEventListener("click", (event) => {
   if (event.target === imageLightbox) {
     imageLightbox.close();
+  }
+});
+
+ankiCardDialogClose?.addEventListener("click", () => {
+  ankiCardDialog?.close();
+});
+
+ankiCardDialog?.addEventListener("click", async (event) => {
+  if (event.target === ankiCardDialog) {
+    ankiCardDialog.close();
+    return;
+  }
+
+  const toggle = event.target.closest("[data-anki-style-toggle]");
+  if (toggle) {
+    practiceAnkiStyleText = Boolean(toggle.checked);
+    renderAnkiCardDialogBody();
+    return;
+  }
+
+  const cardButton = event.target.closest("[data-anki-card-toggle]");
+  if (cardButton) {
+    const cardId = cardButton.dataset.ankiCardToggle;
+    if (practiceSelectedAnkiCardIds.has(cardId)) {
+      practiceSelectedAnkiCardIds.delete(cardId);
+    } else {
+      practiceSelectedAnkiCardIds.add(cardId);
+    }
+    renderAnkiCardDialogBody();
+    return;
+  }
+
+  const copyButton = event.target.closest("[data-copy-anki-cards]");
+  if (copyButton) {
+    const text = selectedPracticeAnkiText();
+    if (!text) return;
+    const originalText = copyButton.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyButton.textContent = "Copied";
+    } catch (error) {
+      copyButton.textContent = "Copy failed";
+    }
+    window.setTimeout(() => {
+      copyButton.textContent = originalText;
+    }, 1300);
   }
 });
 
@@ -2220,6 +4846,41 @@ if (courseExamForm) {
       }
     } finally {
       if (courseExamButton) courseExamButton.disabled = false;
+    }
+  });
+}
+
+copyNotebookLmPrompt?.addEventListener("click", async () => {
+  const text = notebookLmPrompt?.textContent || "";
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("NotebookLM 프롬프트 복사 완료", "muted");
+  } catch (error) {
+    setStatus("프롬프트 복사 실패");
+  }
+});
+
+if (notebookLmImportForm) {
+  notebookLmImportForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await importNotebookLmQuestions();
+  });
+}
+
+if (notebookLmImportResult) {
+  notebookLmImportResult.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-open-set]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await loadQuestionSet(button.dataset.openSet);
+    } catch (error) {
+      notebookLmImportResult.insertAdjacentHTML(
+        "beforeend",
+        `<p class="inline-error">문항 세트 로드 실패: ${escapeHtml(error.message)}</p>`
+      );
+    } finally {
+      button.disabled = false;
     }
   });
 }

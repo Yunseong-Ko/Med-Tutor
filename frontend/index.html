@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>P:accine Learning OS</title>
-    <link rel="stylesheet" href="/styles.css?v=20260604-session-tabs-2" />
+    <link rel="stylesheet" href="/styles.css?v=20260625-subject-label-routing-2" />
   </head>
   <body>
     <div class="app-shell">
@@ -36,7 +36,7 @@
           <a class="active" href="#student-dashboard" data-page-link="student-dashboard">학습 홈</a>
           <a href="#student-library" data-page-link="student-library">나의 서재</a>
           <a href="#student-practice" data-page-link="student-practice">문제 풀기</a>
-          <a href="#student-concepts" data-page-link="student-concepts">개념 노트</a>
+          <a href="#student-review" data-page-link="student-review">학습 리포트</a>
           <a href="#student-review" data-page-link="student-review">복습 카드</a>
         </nav>
 
@@ -182,6 +182,61 @@
                 <button type="submit" id="courseExamButton" class="secondary-button">문항 구조화</button>
               </form>
               <div id="courseExamImportResult" class="exam-import-result" hidden></div>
+            </section>
+
+            <section class="notebooklm-import-panel">
+              <div class="notebooklm-copy">
+                <p class="section-label">NotebookLM Import</p>
+                <h3>NotebookLM 문항 초안 가져오기</h3>
+                <p>NotebookLM에서 강의록·정리본·기출을 읽힌 뒤 JSON으로 받은 문항 초안을 P:accine 검토 큐에 저장합니다.</p>
+                <details>
+                  <summary>NotebookLM에 넣을 프롬프트 보기</summary>
+                  <pre id="notebookLmPrompt">업로드한 자료만 근거로 의대 내신 대비 5지선다 문항 초안을 JSON으로 만들어줘.
+반드시 아래 형식만 출력해줘. 설명 문장이나 마크다운은 넣지 마.
+
+{
+  "questions": [
+    {
+      "stem": "문항 지문",
+      "options": ["1번 선지", "2번 선지", "3번 선지", "4번 선지", "5번 선지"],
+      "answer": 1,
+      "explanation": "정답 근거와 오답 선지 해설",
+      "references": [
+        {"source": "강의록 또는 자료명", "basis": "근거 요약"}
+      ],
+      "labels": {
+        "department": "대분과",
+        "topic": "세부 주제",
+        "assessment_domain": "평가 항목"
+      },
+      "question_type": "clinical_case"
+    }
+  ]
+}</pre>
+                  <button type="button" class="secondary-button compact-action" id="copyNotebookLmPrompt">프롬프트 복사</button>
+                </details>
+              </div>
+              <form id="notebookLmImportForm" class="notebooklm-import-form">
+                <div class="field-grid two">
+                  <label>
+                    출처 이름
+                    <input id="notebookLmSourceName" name="source_name" value="NotebookLM 문항 초안" />
+                  </label>
+                  <label>
+                    과목/단원
+                    <input id="notebookLmSubjectUnit" name="subject_unit" value="신경 및 특수감각기학 / 미분류" />
+                  </label>
+                </div>
+                <label>
+                  NotebookLM JSON
+                  <textarea id="notebookLmRawText" rows="8" placeholder='{"questions":[{"stem":"...","options":["..."],"answer":1,"explanation":"...","references":[...]}]}'></textarea>
+                </label>
+                <div class="form-actions compact">
+                  <button type="submit" class="secondary-button" id="notebookLmImportButton">검토 큐로 가져오기</button>
+                  <span>가져온 문항은 바로 배포되지 않고 문항 검토 단계로 이동합니다.</span>
+                </div>
+              </form>
+              <div id="notebookLmImportResult" class="notebooklm-import-result" hidden></div>
             </section>
 
             <section class="db-workbench">
@@ -912,8 +967,8 @@
           <section class="hero-panel student-hero">
             <div>
               <p class="section-label">Student Learning</p>
-              <h2>분과별 학습과 복습</h2>
-              <p>승인된 문항, 개념 노트, 복습 카드를 한 곳에서 확인합니다.</p>
+              <h2>문항 세트 기반 학습</h2>
+              <p>시험지 단위로 보거나, 파트별로 필요한 문항만 골라 풀 수 있습니다.</p>
             </div>
             <div class="hero-actions">
               <button type="button" data-page-link="student-library">나의 서재 열기</button>
@@ -928,9 +983,9 @@
               <p>배포된 문항이 여기에 표시됩니다.</p>
             </article>
             <article class="summary-card">
-              <span>오답 집중 개념</span>
-              <strong>준비 중</strong>
-              <p>자주 틀린 개념을 모아 보여줍니다.</p>
+              <span>파트별 랜덤 세트</span>
+              <strong>설계 중</strong>
+              <p>해부·생리·병리·임상 주제별로 N문항씩 섞어 풉니다.</p>
             </article>
             <article class="summary-card">
               <span>Anki Export</span>
@@ -951,8 +1006,8 @@
           <div class="library-hero">
             <div>
               <p class="section-label">PNU Medicine Library</p>
-              <h2>부산의대 강의록 및 시험 기출 통합 아카이브</h2>
-              <p>승인 문항, 강의 노트, 제시자료, 복습 카드를 같은 분과 구조로 찾아볼 수 있습니다.</p>
+              <h2>부산의대 문항 라이브러리</h2>
+              <p>과목, 파트, 교수자, 시험지 기준으로 문항을 고르고 바로 풀이 세트를 구성합니다.</p>
             </div>
             <div class="continue-card">
               <span>최근 학습</span>
@@ -967,17 +1022,18 @@
               <input type="search" placeholder="분과, 진단명, 핵심 개념 검색" />
             </label>
             <label>
-              자료
+              풀이 구성
               <select>
-                <option>전체 자료</option>
-                <option>문항</option>
-                <option>개념 노트</option>
-                <option>복습 카드</option>
+                <option>전체 문항</option>
+                <option>시험지 단위</option>
+                <option>파트별 랜덤</option>
+                <option>교수자별</option>
               </select>
             </label>
             <button type="button">찾기</button>
           </div>
           <div class="category-grid large" id="studentCategoryGrid"></div>
+          <section class="library-course-builder" id="studentCourseBuilder" aria-label="과목별 문항 선택"></section>
         </section>
 
         <section class="card result-card page-view" id="student-practice" data-page="student-practice">
@@ -1010,10 +1066,9 @@
               <p>구조화한 HWP/PDF 시험지를 선택하면 문항 목록이 열리고, 원하는 문제부터 풀 수 있습니다.</p>
             </article>
             <aside class="practice-helper">
-              <h3>학습 모드 도구</h3>
-              <button type="button" class="secondary-button" data-page-link="student-concepts">관련 개념 열기</button>
-              <button type="button" class="secondary-button" data-page-link="student-review">Anki 카드 만들기</button>
-              <p>문항을 끝까지 순서대로 풀 필요 없이, 필요한 번호와 개념을 골라 정답/해설/출처를 확인할 수 있습니다.</p>
+              <h3>문항 선택형 학습</h3>
+              <button type="button" class="secondary-button" data-page-link="student-review">풀이 기록 보기</button>
+              <p>끝까지 순서대로 풀 필요 없이, 필요한 번호와 파트를 골라 정답/해설/출처를 확인할 수 있습니다.</p>
             </aside>
           </div>
         </section>
@@ -1089,6 +1144,19 @@
       <p id="lightboxCaption"></p>
     </dialog>
 
-    <script src="/app.js?v=20260604-session-tabs-2"></script>
+    <dialog class="anki-card-dialog" id="ankiCardDialog" aria-label="관련 Anki 카드 찾기">
+      <div class="anki-dialog-surface">
+        <header class="anki-dialog-head">
+          <div>
+            <h2>관련 Anki 카드 찾기</h2>
+            <p>문항 해설과 근거 DB에서 핵심 개념 문장을 골라 cloze 카드로 바꿉니다.</p>
+          </div>
+          <button type="button" id="ankiCardDialogClose" aria-label="닫기">×</button>
+        </header>
+        <div id="ankiCardDialogBody"></div>
+      </div>
+    </dialog>
+
+    <script src="/app.js?v=20260625-subject-label-routing-2"></script>
   </body>
 </html>

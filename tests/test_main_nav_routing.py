@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 
-APP_PATH = "/Users/goyunseong/Documents/AI Projects/Med-Tutor/app.py"
+APP_PATH = str(Path(__file__).resolve().parents[1] / "app.py")
 
 
 def _load_get_main_page_config():
@@ -31,6 +31,7 @@ class MainNavRoutingTests(unittest.TestCase):
             pages,
             [
                 ("home", "🏠 홈"),
+                ("daily", "🩺 Daily Dx"),
                 ("generate", "📚 문제 생성"),
                 ("convert", "🧾 기출문제 변환"),
                 ("exam", "🎯 실전 시험"),
@@ -41,7 +42,7 @@ class MainNavRoutingTests(unittest.TestCase):
         get_main_page_config = _load_get_main_page_config()
         pages = get_main_page_config(True)
         self.assertEqual(pages[-1], ("admin", "🛠️ 운영"))
-        self.assertEqual(len(pages), 5)
+        self.assertEqual(len(pages), 6)
 
     def test_main_nav_uses_single_page_radio_key(self):
         source = Path(APP_PATH).read_text(encoding="utf-8")

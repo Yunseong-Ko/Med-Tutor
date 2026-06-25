@@ -20,6 +20,10 @@ fi
 
 source .venv/bin/activate
 
+# Local double-click runs should work without Supabase secrets.
+# Set AXIOMA_REQUIRE_SUPABASE=1 explicitly when testing production auth.
+export AXIOMA_REQUIRE_SUPABASE="${AXIOMA_REQUIRE_SUPABASE:-0}"
+
 if [ ! -f ".venv/.axioma_qbank_installed" ]; then
   python -m pip install --upgrade pip
   python -m pip install -r requirements.txt

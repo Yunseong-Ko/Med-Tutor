@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.services.anki_export import build_anki_export
+from src.services.cbt_hwp_export import build_cbt_hwp_export
+from src.services.choice_explanations import build_choice_explanation_draft
 from src.services.lecture_studio import (
     EXPORT_SET_DIR,
     IMAGE_DIR,
@@ -32,6 +34,13 @@ from src.services.medlegal_studio import (
     load_medlegal_submission,
     list_medlegal_cases,
     submit_medlegal_note,
+)
+from src.services.notebooklm_import import import_notebooklm_question_set
+from src.services.rag_library import (
+    DEFAULT_COURSE_ID as DEFAULT_RAG_COURSE_ID,
+    draft_anki_cards_from_evidence,
+    get_rag_index_status,
+    search_rag_evidence,
 )
 from scripts.extract_course_exam_hwp import (
     extract_file as extract_course_exam_hwp_file,
@@ -97,12 +106,37 @@ def ensure_course_exam_dirs() -> None:
 
 def course_exam_summary(record: dict) -> dict:
     questions = record.get("questions", [])
+    exam = record.get("exam", {})
+    labeling = exam.get("labeling", {})
+    def has_question_labels(question: dict) -> bool:
+        labels = question.get("labels") or {}
+        if labels.get("labeling_status") == "labeled":
+            return True
+        return any(
+            labels.get(key)
+            for key in (
+                "course_name_labeled",
+                "course_name",
+                "major_category",
+                "topic",
+                "subtopic",
+                "assessment_domain",
+                "question_type_labeled",
+                "question_type",
+                "concept_tags",
+            )
+        )
+
     return {
-        "source_exam": record.get("exam", {}).get("source_exam"),
-        "source_file": record.get("exam", {}).get("source_file"),
-        "course_name": record.get("exam", {}).get("course_name"),
-        "round_label": record.get("exam", {}).get("round_label"),
-        "parser_version": record.get("exam", {}).get("parser_version"),
+        "source_exam": exam.get("source_exam"),
+        "source_file": exam.get("source_file"),
+        "course_id": exam.get("course_id"),
+        "course_name": exam.get("course_name"),
+        "grade": exam.get("grade"),
+        "exam_date": exam.get("exam_date"),
+        "round_label": exam.get("round_label"),
+        "period_label": exam.get("period_label"),
+        "parser_version": exam.get("parser_version"),
         "question_count": len(questions),
         "expected_objective_count": record.get("exam", {}).get("objective_count_from_filename"),
         "with_answer_count": sum(1 for q in questions if q.get("answer") is not None),
@@ -114,6 +148,10 @@ def course_exam_summary(record: dict) -> dict:
             1 for q in questions if q.get("media", {}).get("media_refs")
         ),
         "extraction_warnings": record.get("exam", {}).get("extraction_warnings", []),
+        "labeling": labeling,
+        "labeled_question_count": sum(
+            1 for q in questions if has_question_labels(q)
+        ),
     }
 
 
@@ -151,6 +189,39 @@ def course_exam_media_url(asset: dict) -> str | None:
     return f"/api/course-exams/media/{quote(source_dir)}/{quote(filename)}"
 
 
+def course_exam_answer_values(question: dict) -> list[str]:
+    source = question.get("generated_answer")
+    if not source:
+        source = question.get("answer")
+    values = source if isinstance(source, list) else [source]
+    return [str(value).strip() for value in values if str(value or "").strip()]
+
+
+def course_exam_choice_count(question: dict) -> int:
+    choices = question.get("choices") or {}
+    if isinstance(choices, dict):
+        return sum(1 for value in choices.values() if str(value or "").strip())
+    if isinstance(choices, list):
+        return sum(1 for value in choices if str(value or "").strip())
+    return 0
+
+
+def course_exam_is_practice_ready(question: dict) -> bool:
+    if not str(question.get("stem") or "").strip():
+        return False
+    if not course_exam_answer_values(question):
+        return False
+    if course_exam_choice_count(question) < 2:
+        return False
+    choice_text = " ".join(
+        str(value)
+        for value in (question.get("choices") or {}).values()
+        if str(value or "").strip()
+    )
+    malformed_markers = ("<문제해설>", "<-케이스->", "@")
+    return not any(marker in choice_text for marker in malformed_markers)
+
+
 def course_exam_practice_question(question: dict, media_by_id: dict[str, dict]) -> dict:
     media_refs = []
     for ref in question.get("media", {}).get("media_refs") or []:
@@ -172,7 +243,15 @@ def course_exam_practice_question(question: dict, media_by_id: dict[str, dict]) 
         "stimulus": question.get("stimulus"),
         "choices": question.get("choices") or {},
         "answer": question.get("answer"),
+        "generated_answer": question.get("generated_answer"),
         "explanation": question.get("explanation"),
+        "key_info": question.get("key_info"),
+        "answer_rationale": question.get("answer_rationale"),
+        "choice_explanations": question.get("choice_explanations") or question.get("explanations_by_choice"),
+        "key_learning_points": question.get("key_learning_points") or [],
+        "anki_cards": question.get("anki_cards") or question.get("anki_card_candidates") or [],
+        "question_format": question.get("question_format"),
+        "sub_format": question.get("sub_format"),
         "labels": question.get("labels") or {},
         "needs_review": question.get("needs_review", True),
         "review_reasons": question.get("review_reasons") or [],
@@ -188,6 +267,44 @@ def health() -> dict[str, str]:
 @app.get("/api/models")
 def models() -> dict:
     return get_model_catalog()
+
+
+@app.get("/api/rag/status")
+def rag_status(course_id: str = DEFAULT_RAG_COURSE_ID) -> dict:
+    return get_rag_index_status(course_id)
+
+
+@app.get("/api/rag/search")
+def rag_search(q: str, course_id: str = DEFAULT_RAG_COURSE_ID, limit: int = 8) -> dict:
+    try:
+        return search_rag_evidence(q, course_id=course_id, limit=limit)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/rag/anki-draft")
+def rag_anki_draft(payload: Annotated[dict, Body()]) -> dict:
+    query = str(payload.get("query") or payload.get("q") or "").strip()
+    course_id = str(payload.get("course_id") or DEFAULT_RAG_COURSE_ID).strip()
+    limit = int(payload.get("limit") or 5)
+    try:
+        return draft_anki_cards_from_evidence(query, course_id=course_id, limit=limit)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/questions/choice-explanations/draft")
+def choice_explanation_draft(payload: Annotated[dict, Body()]) -> dict:
+    question = payload.get("question") if isinstance(payload.get("question"), dict) else payload
+    if not isinstance(question, dict):
+        raise HTTPException(status_code=400, detail="question 객체가 필요합니다.")
+    course_id = payload.get("course_id") if isinstance(payload, dict) else None
+    use_rag = form_bool(payload.get("use_rag", True)) if isinstance(payload, dict) else True
+    return build_choice_explanation_draft(question, course_id=course_id, use_rag=use_rag)
 
 
 @app.get("/api/studio/images/{filename}")
@@ -245,7 +362,7 @@ def course_exam_list(limit: int = 50) -> dict:
                 "practice_ready_count": sum(
                     1
                     for question in questions
-                    if question.get("stem") and question.get("choices") and question.get("answer")
+                    if course_exam_is_practice_ready(question)
                 ),
             }
         )
@@ -268,7 +385,7 @@ def course_exam_detail(exam_id: str, limit: int | None = None) -> dict:
     questions = [
         course_exam_practice_question(question, media_by_id)
         for question in record.get("questions", [])
-        if question.get("stem") and question.get("choices") and question.get("answer")
+        if course_exam_is_practice_ready(question)
     ]
     if limit and limit > 0:
         questions = questions[:limit]
@@ -277,6 +394,9 @@ def course_exam_detail(exam_id: str, limit: int | None = None) -> dict:
         "exam": record.get("exam", {}),
         "summary": course_exam_summary(record),
         "questions": questions,
+        "question_index": record.get("question_index") or [],
+        "subjective_questions": record.get("subjective_questions") or [],
+        "final_review_summary": record.get("final_review_summary") or {},
     }
 
 
@@ -413,6 +533,14 @@ def question_set_detail(set_id: str) -> dict:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/api/notebooklm/import")
+def import_notebooklm(payload: Annotated[dict, Body()]) -> dict:
+    try:
+        return import_notebooklm_question_set(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/medlegal/cases")
 def medlegal_cases(track: str | None = None) -> dict:
     return {"cases": list_medlegal_cases(track=track)}
@@ -472,6 +600,28 @@ def export_question_set_anki(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Anki export 생성 실패: {exc}") from exc
+
+
+@app.post("/api/question-sets/{set_id}/export/cbt-hwp")
+def export_question_set_cbt_hwp(
+    set_id: str,
+    payload: Annotated[dict | None, Body()] = None,
+) -> dict:
+    payload = payload or {}
+    try:
+        return build_cbt_hwp_export(
+            set_id,
+            include_unapproved=form_bool(payload.get("include_unapproved")),
+            include_answers=payload.get("include_answers", True) is not False,
+            include_explanations=payload.get("include_explanations", True) is not False,
+            include_references=payload.get("include_references", True) is not False,
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="문항 세트를 찾을 수 없습니다.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"CBT HWP 양식 생성 실패: {exc}") from exc
 
 
 @app.get("/api/exports/{filename}")

@@ -45,6 +45,9 @@ IMAGE_EXTS = {".bmp", ".png", ".jpg", ".jpeg", ".gif", ".wmf"}
 
 
 COURSE_ALIASES = [
+    ("혈액및종양학", "hematology_oncology"),
+    ("혈액 및 종양학", "hematology_oncology"),
+    ("혈액미종양학", "hematology_oncology"),
     ("신경 및 특수감각기학", "neuro_special_senses"),
     ("인간.사회.의료", "human_society_medicine"),
     ("인간사회의료", "human_society_medicine"),
@@ -230,12 +233,21 @@ def parse_filename(path: Path) -> dict:
     m_grade = re.search(r"\((\d+)학년\)", name)
     if m_grade:
         grade = int(m_grade.group(1))
+    else:
+        m_grade = re.search(r"(\d+)학년", name)
+        if m_grade:
+            grade = int(m_grade.group(1))
 
     exam_date = None
     m_date = re.search(r"\((20\d{2})-(\d{1,2})-(\d{1,2})\)", name)
     if m_date:
         year, month, day = m_date.groups()
         exam_date = f"{year}-{int(month):02d}-{int(day):02d}"
+    else:
+        m_date = re.search(r"(20\d{2})[.-](\d{1,2})(?:[.-](\d{1,2}))?", name)
+        if m_date:
+            year, month, day = m_date.groups()
+            exam_date = f"{year}-{int(month):02d}-{int(day):02d}" if day else f"{year}-{int(month):02d}"
 
     course_name = "unknown"
     course_id = "unknown"
@@ -244,6 +256,9 @@ def parse_filename(path: Path) -> dict:
             course_name = alias
             course_id = cid
             break
+    if "PMA" in name:
+        course_name = "PMA 임상의학종합평가"
+        course_id = "pma_clinical_comprehensive_exam"
     if course_id == "unknown" and (("임상" in name and "종합평가" in name) or "임종평" in name):
         course_name = "임상의학종합평가"
         course_id = "clinical_comprehensive_exam"
@@ -258,6 +273,12 @@ def parse_filename(path: Path) -> dict:
             round_label = f"{m_round.group(1)}차"
     elif "과정시험" in name:
         round_label = "과정시험"
+    if course_id == "pma_clinical_comprehensive_exam":
+        m_turn = re.search(r"([AB])\s*턴", name, re.IGNORECASE)
+        if m_turn:
+            round_label = f"{m_turn.group(1).upper()}군"
+        elif round_label is None:
+            round_label = "PMA"
 
     period_label = None
     m_period = re.search(r"(\d+)\s*교시", name)
@@ -272,18 +293,31 @@ def parse_filename(path: Path) -> dict:
         if m_counts.group(2):
             subjective_count = int(m_counts.group(2))
 
-    source_exam = "_".join(
-        part
-        for part in [
-            "COURSE",
-            str(grade) if grade else "X",
-            exam_date.replace("-", "") if exam_date else "DATE",
-            course_id.upper(),
-            round_label or "EXAM",
-            period_label,
-        ]
-        if part
-    )
+    if course_id == "pma_clinical_comprehensive_exam":
+        source_exam = "_".join(
+            part
+            for part in [
+                "PMA",
+                exam_date.replace("-", "") if exam_date else "DATE",
+                f"G{grade}" if grade else None,
+                round_label,
+                period_label,
+            ]
+            if part
+        )
+    else:
+        source_exam = "_".join(
+            part
+            for part in [
+                "COURSE",
+                str(grade) if grade else "X",
+                exam_date.replace("-", "") if exam_date else "DATE",
+                course_id.upper(),
+                round_label or "EXAM",
+                period_label,
+            ]
+            if part
+        )
 
     return {
         "source_exam": source_exam,
@@ -304,23 +338,30 @@ def candidate_has_choices(text: str, start: int, window: int = 5000) -> bool:
     return len(CHOICE_MARK_RE.findall(excerpt)) >= 3
 
 
-def select_question_starts(text: str) -> list[re.Match[str]]:
+def select_question_starts(text: str, *, expected_count: int | None = None) -> list[re.Match[str]]:
     matches = list(QUESTION_START_RE.finditer(text))
     selected: list[re.Match[str]] = []
     expected = 1
     for match in matches:
         number = int(match.group(1))
-        if number != expected:
+        if expected_count is not None and number > expected_count:
+            continue
+        if number < expected:
+            continue
+        if expected_count is None and number != expected:
+            continue
+        if expected_count is not None and number > expected and not selected:
+            # Do not start mid-file if the first question was not detected.
             continue
         if not candidate_has_choices(text, match.end()):
             continue
         selected.append(match)
-        expected += 1
+        expected = number + 1
     return selected
 
 
-def split_question_blocks(text: str) -> list[tuple[int, str]]:
-    starts = select_question_starts(text)
+def split_question_blocks(text: str, *, expected_count: int | None = None) -> list[tuple[int, str]]:
+    starts = select_question_starts(text, expected_count=expected_count)
     blocks: list[tuple[int, str]] = []
     for idx, match in enumerate(starts):
         start = match.start()
@@ -484,20 +525,37 @@ def parse_choice_lines(lines: list[str]) -> tuple[dict[str, str], str | None, li
 
 
 def strip_standalone_answer_line(lines: list[str]) -> tuple[list[str], str | None]:
+    def is_page_noise(value: str) -> bool:
+        value = value.strip()
+        return bool(
+            re.fullmatch(r"-\s*\d+\s*-", value)
+            or re.fullmatch(r"\d+\s*/\s*\d+", value)
+            or re.search(r"학년도.*평가.*교시", value)
+            or value == "\f"
+        )
+
+    def meaningful_neighbor(values: list[str]) -> str:
+        for candidate in values:
+            text = candidate.strip()
+            if text and not is_page_noise(text):
+                return text
+        return ""
+
     filtered: list[str] = []
     answer: str | None = None
     for idx, raw_line in enumerate(lines):
         line = raw_line.strip()
         match = re.fullmatch(r"([①②③④⑤1-5])\s*(?:정답|답)?", line)
         if match and answer is None:
-            next_line = ""
-            for candidate in lines[idx + 1 :]:
-                if candidate.strip():
-                    next_line = candidate.strip()
-                    break
+            next_line = meaningful_neighbor(lines[idx + 1 :])
+            prev_line = meaningful_neighbor(list(reversed(filtered)))
             # PDF exports sometimes put the answer marker on its own line
             # between the stem and the first choice.
-            if CHOICE_LINE_RE.match(next_line):
+            if CHOICE_LINE_RE.match(next_line) or (
+                prev_line
+                and not CHOICE_LINE_RE.match(prev_line)
+                and re.search(r"[?？]\s*$", prev_line)
+            ):
                 value = match.group(1)
                 answer = CIRCLE_TO_STR.get(value, value)
                 continue
@@ -606,10 +664,11 @@ def build_record(
 def extract_file(path: Path, *, media_root: Path | None = None) -> dict:
     meta = parse_filename(path)
     text = extract_hwp_text(path)
-    blocks = split_question_blocks(text)
+    objective_count = meta.get("objective_count_from_filename")
+    blocks = split_question_blocks(text, expected_count=objective_count)
     question_media_map, bindata_map, media_positions = build_question_media_map(
         path,
-        objective_count=meta.get("objective_count_from_filename"),
+        objective_count=objective_count,
     )
 
     media_assets: list[dict] = []
@@ -663,6 +722,23 @@ def extract_file(path: Path, *, media_root: Path | None = None) -> dict:
             )
         questions.append(build_record(meta, number, block, media_refs=media_refs))
 
+    extracted_numbers = [question["question_number"] for question in questions]
+    missing_question_numbers: list[int] = []
+    extraction_warnings: list[dict] = []
+    if objective_count:
+        extracted_number_set = set(extracted_numbers)
+        missing_question_numbers = [
+            number for number in range(1, objective_count + 1) if number not in extracted_number_set
+        ]
+        if missing_question_numbers:
+            extraction_warnings.append(
+                {
+                    "code": "question_number_gap",
+                    "message": "Some expected objective question numbers were not detected by the HWP text parser.",
+                    "missing_question_numbers": missing_question_numbers,
+                }
+            )
+
     return {
         "exam": {
             **meta,
@@ -671,6 +747,8 @@ def extract_file(path: Path, *, media_root: Path | None = None) -> dict:
             "extracted_question_count": len(questions),
             "media_asset_count": len(media_assets),
             "media_linked_question_count": len([q for q in questions if q["media"]["media_refs"]]),
+            "missing_question_numbers": missing_question_numbers,
+            "extraction_warnings": extraction_warnings,
         },
         "media_assets": media_assets,
         "media_positions": media_positions,

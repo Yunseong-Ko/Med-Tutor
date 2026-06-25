@@ -51,6 +51,22 @@ Assets가 안 보이거나 다운로드가 안 될 때:
 4. 학습 모드 또는 시험 모드로 바로 풀이를 시작합니다.
 5. 필요 시 API 키를 입력합니다(운영 정책에 따라 서버 측 설정 가능).
 
+### HTML/CSS Studio Prototype
+Streamlit과 별도로 교수용 Studio UI를 확인하려면 FastAPI 기반 프로토타입을 실행합니다.
+
+```bash
+python -m uvicorn api_server:app --host 127.0.0.1 --port 8000 --reload
+```
+
+브라우저에서 `http://127.0.0.1:8000`으로 접속하면 강의자료 업로드, 기출 유형 참고, 승인 근거자료 업로드, PMA식 문항 초안 생성을 확인할 수 있습니다.
+API 키가 없으면 `프롬프트만 생성` 모드로 추출 텍스트와 생성 프롬프트를 `data_private/studio/` 아래에 저장합니다.
+모델 제공자는 `자동`, `Claude Code 계정`, `Claude API`, `OpenAI API`, `Google Gemini`, `프롬프트만 생성` 중 선택할 수 있습니다.
+`Claude Code 계정`은 로컬에 로그인된 `claude` CLI를 사용하고, API 방식은 각각 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` 환경변수를 사용합니다.
+교수용 이미지 문항 제작은 `Media Bank`를 중심으로 동작합니다. 환자 사진, CT/MRI/X-ray, 초음파, 병리 슬라이드, ECG/EEG 등을 먼저 저장한 뒤 문항 생성 시 선택하거나 설명을 붙여 사용할 수 있습니다.
+로컬 저장 구조와 향후 SQLite/Postgres 확장 모델은 `docs/Studio_Data_Model.md`에 정리되어 있습니다.
+DB 전환 시 기준이 되는 초기 테이블 설계는 `schemas/axioma_studio_schema.sql`에 두었습니다.
+교수/학생 역할 분리, 분과별 서재, 개념/레퍼런스 연결 계획은 `docs/Role_Based_Learning_OS_Plan.md`에 정리되어 있습니다.
+
 ### Mobile Version (iOS/Android WebView)
 1. 이 방식은 웹 UI를 앱 컨테이너(WebView)로 여는 방식입니다. 핵심 화면/기능은 웹과 동일합니다.
 2. 기본 목적은 모바일에서 `풀이 중심` 사용입니다. 문항 생성/대용량 업로드는 PC 사용을 권장합니다.
@@ -83,7 +99,7 @@ flutter run -d ios
 python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+AXIOMA_REQUIRE_SUPABASE=0 streamlit run app.py
 ```
 - Dependency: `requirements.txt` 기준
 - Env/Secrets:
@@ -91,6 +107,7 @@ streamlit run app.py
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (로그인/영구 사용자 데이터 분리용)
 - `AXIOMA_REQUIRE_SUPABASE` (기본값 `1`, `1`이면 Supabase 미설정 시 앱 시작 차단)
 - `AXIOMA_REQUIRE_SUPABASE=1`일 때는 Supabase 저장 실패 시 로컬 파일 폴백을 하지 않음
+- 로컬 데모 실행은 `AXIOMA_REQUIRE_SUPABASE=0`으로 실행하거나 `start_axioma_qbank.command`/`.bat`을 사용합니다.
 - 데이터 경로: `AXIOMA_QBANK_DATA_DIR`(또는 레거시 `MEDTUTOR_DATA_DIR`)를 설정하면 저장 파일 위치를 고정할 수 있음
 - 주요 로컬 데이터 파일:
 - 글로벌: `questions.json`, `exam_history.json`, `user_settings.json`, `audit_log.jsonl`
