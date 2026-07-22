@@ -1090,6 +1090,110 @@ def test_answer_template_matches_question_shape(query: str, expected: str) -> No
     assert medical_copilot.detect_answer_template(query) == expected
 
 
+@pytest.mark.parametrize(
+    ("query", "intents", "expected_level", "expected_hops", "expected_sections"),
+    [
+        (
+            "뇌출혈 분류랑 치료 가이드라인좀",
+            ["treatment", "classification"],
+            "overview",
+            0,
+            [2, 4],
+        ),
+        (
+            "천식 치료 원리를 설명해줘",
+            ["treatment"],
+            "focused",
+            1,
+            [3, 5],
+        ),
+        (
+            "EGFR amplification의 기전과 치료 선택 기준을 단계별로 자세히 설명해줘",
+            ["mechanism", "treatment"],
+            "deep_dive",
+            1,
+            [4, 6],
+        ),
+    ],
+)
+def test_question_scope_controls_breadth_and_depth(
+    query: str,
+    intents: list[str],
+    expected_level: str,
+    expected_hops: int,
+    expected_sections: list[int],
+) -> None:
+    scope = medical_copilot.classify_question_scope(
+        query,
+        intents,
+        answer_template=medical_copilot.detect_answer_template(query),
+    )
+
+    assert scope["level"] == expected_level
+    assert scope["ontology_relation_hops"] == expected_hops
+    assert scope["section_range"] == expected_sections
+    schema = medical_copilot._answer_schema(["H1"], scope)
+    assert schema["properties"]["sections"]["maxItems"] == expected_sections[-1]
+    assert schema["properties"]["tables"]["maxItems"] == scope["table_limit"]
+
+
+def test_overview_scope_does_not_expand_ontology_edges(
+    copilot_root: Path,
+) -> None:
+    concept_path = copilot_root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    payload["concepts"]["asthma"]["edges"] = {
+        "diagnosed_by": [{"id": "spirometry", "in_registry": True}],
+        "treated_with": [{"id": "controller_therapy", "in_registry": True}],
+    }
+    payload["concepts"]["spirometry"] = {
+        "node_type": "test_procedure",
+        "specialty": "pulmonology",
+        "edges": {},
+        "evidence": {},
+    }
+    payload["concepts"]["controller_therapy"] = {
+        "node_type": "treatment",
+        "specialty": "pulmonology",
+        "edges": {},
+        "evidence": {},
+    }
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    def composer(prompt: str, context: dict) -> dict:
+        assert context["answer_scope"]["level"] == "overview"
+        assert context["answer_scope"]["max_output_tokens"] == 5000
+        scaffold = context["ontology_answer_scaffold"][0]
+        assert scaffold["relations"] == []
+        assert scaffold["relation_scope"]["max_hops"] == 0
+        assert '"level": "overview"' in prompt
+        return {
+            "answer_summary": "천식의 핵심 개요입니다.",
+            "direct_answer_supported": True,
+            "key_points": [{"text": "가변적 기류 제한이 핵심입니다.", "citations": ["H1"]}],
+            "sections": [
+                {
+                    "id": "overview",
+                    "title": "핵심 개요",
+                    "body": "증상 변동성과 가변적 기류 제한을 함께 봅니다. [H1]",
+                    "citations": ["H1"],
+                }
+            ],
+            "tables": [],
+            "uncertainties": [],
+            "suggested_followups": [],
+        }
+
+    response = build_medical_copilot_response(
+        "천식 전반을 한눈에 정리해줘",
+        composer=composer,
+        root=copilot_root,
+    )
+
+    assert response["blocked"] is False
+    assert response["answer_scope"]["level"] == "overview"
+
+
 def test_cml_mechanism_query_prioritizes_pathogenesis_pages(
     copilot_root: Path,
 ) -> None:

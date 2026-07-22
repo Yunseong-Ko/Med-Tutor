@@ -516,6 +516,113 @@ def detect_answer_template(query: str) -> str:
     return "clinical_overview"
 
 
+QUERY_SCOPE_OVERVIEW_RE = re.compile(
+    r"(?:개요|요약|정리|한눈에|전반적|전체적|폭넓게|overview|overview\s+of|summary)",
+    re.IGNORECASE,
+)
+QUERY_SCOPE_DEEP_RE = re.compile(
+    r"(?:자세히|상세히|세세하게|구체적으로|단계별|근거까지|예외까지|전부\s*(?:설명|알려)|"
+    r"deep\s*dive|in[-\s]?depth|comprehensive|step[-\s]?by[-\s]?step)",
+    re.IGNORECASE,
+)
+QUERY_SCOPE_SPECIFIC_RE = re.compile(
+    r"(?:병태생리|기전|감별|진단\s*기준|검사\s*기준|적응증|금기|예후\s*인자|"
+    r"바이오마커|유전자|변이|증폭|수용체|신호\s*경로|"
+    r"pathophysiology|pathogenesis|mechanism|differential|criteria|"
+    r"indication|contraindication|biomarker|mutation|amplification|signaling)",
+    re.IGNORECASE,
+)
+
+
+def classify_question_scope(
+    query: str,
+    intents: Iterable[str] = (),
+    *,
+    answer_template: str = "",
+) -> dict[str, Any]:
+    """Select breadth/depth budgets without treating the classifier as evidence.
+
+    Breadth and depth are deliberately separate.  A broad overview may route
+    to several reviewed sibling chapters, but it does not traverse ontology
+    edges.  A precise question stays on fewer concepts and may use only direct
+    (one-hop) audited relations; deeper prose comes from the selected Harrison
+    passages, never from recursively expanding the graph.
+    """
+
+    text = _clean_text(query)
+    tokens = _tokens(text)
+    normalized_intents = list(dict.fromkeys(_clean_text(item) for item in intents if _clean_text(item)))
+    template = answer_template or detect_answer_template(text)
+    explicit_deep = bool(QUERY_SCOPE_DEEP_RE.search(text))
+    semantically_specific = bool(QUERY_SCOPE_SPECIFIC_RE.search(text))
+    broad_language = bool(QUERY_SCOPE_OVERVIEW_RE.search(text))
+    short_multi_axis_overview = bool(
+        len(normalized_intents) >= 2
+        and len(tokens) <= 10
+        and len(text) <= 80
+        and (
+            template == "classification_or_staging"
+            or GUIDELINE_CONTEXT_RE.search(text)
+        )
+        and not semantically_specific
+    )
+
+    if explicit_deep or len(text) >= 180 or (semantically_specific and len(tokens) >= 4):
+        level = "deep_dive"
+        reason = "explicit_or_semantically_specific_detail"
+        profile = {
+            "ontology_relation_hops": 1,
+            "ontology_relation_limit": 8,
+            "include_adjacent_relation_slots": True,
+            "concept_limit": 3,
+            "evidence_limit": 6,
+            "key_point_range": [4, 6],
+            "section_range": [4, 6],
+            "table_limit": 3,
+            "followup_limit": 3,
+            "max_output_tokens": 7000,
+        }
+    elif template == "brief_topic" or broad_language or short_multi_axis_overview:
+        level = "overview"
+        reason = "broad_or_short_multi_axis_request"
+        profile = {
+            "ontology_relation_hops": 0,
+            "ontology_relation_limit": 0,
+            "include_adjacent_relation_slots": False,
+            # Umbrella topics may need several reviewed sibling nodes even
+            # though graph-edge traversal itself remains disabled.
+            "concept_limit": 3,
+            "evidence_limit": 4,
+            "key_point_range": [3, 4],
+            "section_range": [2, 4],
+            "table_limit": 1,
+            "followup_limit": 3,
+            "max_output_tokens": 5000,
+        }
+    else:
+        level = "focused"
+        reason = "single_topic_or_axis_request"
+        profile = {
+            "ontology_relation_hops": 1,
+            "ontology_relation_limit": 4,
+            "include_adjacent_relation_slots": False,
+            "concept_limit": 2,
+            "evidence_limit": 4,
+            "key_point_range": [3, 5],
+            "section_range": [3, 5],
+            "table_limit": 2,
+            "followup_limit": 2,
+            "max_output_tokens": 6000,
+        }
+
+    return {
+        "level": level,
+        "reason": reason,
+        "policy": "question_breadth_controls_graph_radius_question_specificity_controls_answer_depth",
+        **profile,
+    }
+
+
 def _ontology_followup_candidates(
     concepts: list[dict[str, Any]],
     intents: list[str],
@@ -647,6 +754,9 @@ def build_ontology_answer_scaffold(
     concepts: list[dict[str, Any]],
     intents: list[str],
     *,
+    max_relation_hops: int = 1,
+    max_relations: int = 12,
+    include_adjacent_relation_slots: bool = True,
     root: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Build an answer outline without transmitting unapproved ontology prose.
@@ -706,13 +816,18 @@ def build_ontology_answer_scaffold(
                     target_specialty = _concept_specialty_bucket(target_id, target)
                     if not source_specialty or target_specialty != source_specialty:
                         continue
-                relations.append(
-                    {
-                        "relation": relation,
-                        "target_concept_id": target_id,
-                        "section_slot": slot,
-                    }
-                )
+                if int(max_relation_hops or 0) < 1:
+                    continue
+                if not include_adjacent_relation_slots and slot not in requested_slots:
+                    continue
+                if len(relations) < max(0, int(max_relations or 0)):
+                    relations.append(
+                        {
+                            "relation": relation,
+                            "target_concept_id": target_id,
+                            "section_slot": slot,
+                        }
+                    )
 
         ordered_requested = [
             slot for slot in ONTOLOGY_SLOT_ORDER if slot in requested_slots
@@ -725,7 +840,12 @@ def build_ontology_answer_scaffold(
                 "concept_id": concept_id,
                 "requested_slots": ordered_requested,
                 "available_slots": ordered_available,
-                "relations": relations[:12],
+                "relations": relations[: max(0, int(max_relations or 0))],
+                "relation_scope": {
+                    "max_hops": 1 if int(max_relation_hops or 0) >= 1 else 0,
+                    "max_relations": max(0, int(max_relations or 0)),
+                    "adjacent_slots_included": bool(include_adjacent_relation_slots),
+                },
                 "content_policy": "structure_only_requires_harrison_or_released_g_evidence",
             }
         )
@@ -1911,8 +2031,17 @@ def _provider_status() -> dict[str, Any]:
     return {"provider": provider, "model": model, "available": available}
 
 
-def _answer_schema(allowed_source_ids: Iterable[str] = ()) -> dict[str, Any]:
+def _answer_schema(
+    allowed_source_ids: Iterable[str] = (),
+    answer_scope: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     allowed = sorted({_clean_text(item) for item in allowed_source_ids if _clean_text(item)})
+    scope = answer_scope if isinstance(answer_scope, dict) else {}
+    key_point_range = scope.get("key_point_range") or [3, 6]
+    section_range = scope.get("section_range") or [1, 6]
+    key_point_max = max(1, min(6, int(key_point_range[-1])))
+    section_max = max(1, min(6, int(section_range[-1])))
+    table_max = max(1, min(3, int(scope.get("table_limit") or 3)))
 
     def citation_schema() -> dict[str, Any]:
         item_schema: dict[str, Any] = {"type": "string"}
@@ -1931,7 +2060,7 @@ def _answer_schema(allowed_source_ids: Iterable[str] = ()) -> dict[str, Any]:
             "key_points": {
                 "type": "array",
                 "minItems": 3,
-                "maxItems": 6,
+                "maxItems": key_point_max,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -1945,7 +2074,7 @@ def _answer_schema(allowed_source_ids: Iterable[str] = ()) -> dict[str, Any]:
             "sections": {
                 "type": "array",
                 "minItems": 1,
-                "maxItems": 6,
+                "maxItems": section_max,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -1960,7 +2089,7 @@ def _answer_schema(allowed_source_ids: Iterable[str] = ()) -> dict[str, Any]:
             },
             "tables": {
                 "type": "array",
-                "maxItems": 3,
+                "maxItems": table_max,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -2003,16 +2132,23 @@ def _anthropic_answer_schema(schema: dict[str, Any] | None = None) -> dict[str, 
 
     def visit(node: Any) -> None:
         if isinstance(node, dict):
+            constraints: list[str] = []
             if node.get("type") == "array" and int(node.get("minItems") or 0) > 1:
                 # Anthropic structured outputs currently accepts array
                 # minItems only as 0 or 1. The stricter count remains in the
                 # prompt and our normalizer still caps all public arrays.
+                constraints.append(f"Return at least {int(node['minItems'])} items.")
                 node["minItems"] = 1
             if node.get("type") == "array":
                 # Anthropic's constrained-decoding schema subset rejects
                 # maxItems. Output size is still bounded by the prompt, token
                 # limit, and the normalizer/validator after generation.
-                node.pop("maxItems", None)
+                maximum = node.pop("maxItems", None)
+                if maximum is not None:
+                    constraints.append(f"Return at most {int(maximum)} items.")
+            if constraints:
+                existing = _clean_text(node.get("description"))
+                node["description"] = " ".join([existing, *constraints]).strip()
             for value in node.values():
                 visit(value)
         elif isinstance(node, list):
@@ -2235,6 +2371,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
     payload = {
         "mode": context.get("mode"),
         "answer_template": context.get("answer_template") or detect_answer_template(query),
+        "answer_scope": context.get("answer_scope") or {},
         "question": query,
         "recent_conversation": context.get("history") or [],
         "detected_intents": context.get("intents") or [],
@@ -2268,6 +2405,12 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - mcq_vignette: answer_summary를 '정답: ...'으로 시작하고, 단서 해석·정답 근거·다른 선택지가 아닌 이유 순서.
   - brief_topic: 근거 범위에서 짧은 개요를 제공하고, 의미가 여러 개인 용어라면 suggested_followups에 구체 질문 3개를 제안.
 - answer_summary는 질문에 대한 직접 답을 1~2문장으로 쓴다. '일반 학습 개념을 정리했다' 같은 형식적 문구로 대신하지 않는다.
+- answer_scope는 질문 범위에 따른 출력 예산 계약이다. 반드시 아래처럼 따른다.
+  - overview: 넓게 물은 질문이다. 핵심 분류와 대표 치료 원칙만 얕고 정확하게 설명한다. key_points 3~4개, sections 2~4개, tables 최대 1개로 제한한다. 세부 예외·희귀 아형·약제별 미세 차이는 후속 질문으로 넘긴다.
+  - focused: 한 질환 또는 한 축에 초점을 둔 질문이다. key_points 3~5개, sections 3~5개, tables 최대 2개로 설명한다.
+  - deep_dive: 구체적인 기전·기준·바이오마커·감별·단계별 설명을 요구한 질문이다. 제공된 근거 범위 안에서 핵심 경로, 적용 조건, 예외와 한계까지 자세히 설명한다. key_points 4~6개, sections 4~6개, tables 최대 3개로 제한한다.
+- overview라고 해서 새로운 질환 관계를 폭넓게 추론하지 않는다. ontology_answer_scaffold의 relation_scope.max_hops를 넘지 말고, relations가 비어 있으면 질문에 직접 매칭된 개념과 검토된 Harrison route만 사용한다.
+- deep_dive도 Ontology를 재귀적으로 확장하지 않는다. 깊이는 선택된 Harrison 근거를 자세히 설명하는 방식으로 확보하며, relation_scope에 없는 2-hop 관계를 새로 만들지 않는다.
 - reviewed_retrieval_scope가 intracranial_hemorrhage_umbrella이면 먼저 뇌실질내·지주막하·외상성 경막외/경막하 출혈처럼 해부학적 구획을 짧게 구분한 뒤 각 구획의 일반 치료 원칙을 설명한다. concept_id가 traumatic_intracranial_hemorrhage_route인 H 근거가 뒷받침하는 외상성 extra-axial 축을 임의로 생략하지 않는다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
@@ -2326,7 +2469,12 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
             start=1,
         )
     )
-    schema = _answer_schema(allowed_source_ids)
+    answer_scope = context.get("answer_scope") if isinstance(context.get("answer_scope"), dict) else {}
+    schema = _answer_schema(allowed_source_ids, answer_scope)
+    max_output_tokens = max(
+        4000,
+        min(7000, int(answer_scope.get("max_output_tokens") or 7000)),
+    )
     if provider == "claude-cli":
         binary = _claude_binary()
         if not binary:
@@ -2379,9 +2527,9 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
                 # Anthropic to stop mid-JSON on the public Railway service.
                 # The JSON parser could then mistake a balanced nested
                 # {text, citations} object inside that truncated document for
-                # the whole answer.  Give the structured answer enough room;
-                # the prompt and normalizer still cap public sections/tables.
-                "max_tokens": 7000,
+                # the whole answer.  Give the structured answer a scope-aware
+                # ceiling; the prompt and normalizer also cap sections/tables.
+                "max_tokens": max_output_tokens,
                 "temperature": 0,
                 "system": "Return only valid JSON matching the requested schema.",
                 "messages": [{"role": "user", "content": prompt}],
@@ -2436,6 +2584,7 @@ def _validated_answer(
     allowed_sources: set[str],
     source_aliases: dict[str, list[str]] | None = None,
     answer_template: str = "clinical_overview",
+    answer_scope: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
@@ -2457,6 +2606,12 @@ def _validated_answer(
         for source_id, aliases in (source_aliases or {}).items()
         if source_id in allowed_sources
     }
+    scope = answer_scope if isinstance(answer_scope, dict) else {}
+    key_point_range = scope.get("key_point_range") or [3, 6]
+    section_range = scope.get("section_range") or [1, 6]
+    key_point_limit = max(1, min(6, int(key_point_range[-1])))
+    section_limit = max(1, min(6, int(section_range[-1])))
+    table_limit = max(1, min(3, int(scope.get("table_limit") or 3)))
 
     def resolve_citations(raw_citations: Any, inline_text: str = "") -> list[str]:
         values = raw_citations or []
@@ -2496,6 +2651,8 @@ def _validated_answer(
                 "citations": citations,
             }
         )
+        if len(sections) >= section_limit:
+            break
     if not sections:
         return None
 
@@ -2509,7 +2666,7 @@ def _validated_answer(
             citations = []
         if text and citations:
             key_points.append({"text": text, "citations": citations})
-        if len(key_points) >= 6:
+        if len(key_points) >= key_point_limit:
             break
     if not key_points:
         key_points = [
@@ -2549,7 +2706,7 @@ def _validated_answer(
                 "citations": citations,
             }
         )
-        if len(tables) >= 3:
+        if len(tables) >= table_limit:
             break
     if not tables and answer_template in {
         "comparison",
@@ -2703,16 +2860,24 @@ def build_medical_copilot_response(
         ),
         *([] if answer_template != "mechanism" or "mechanism" in guideline_intents else ["mechanism"]),
     ]
+    answer_scope = classify_question_scope(
+        normalized_query,
+        intents,
+        answer_template=answer_template,
+    )
     concepts = match_ontology_concepts(
         routing_query,
         concept_id=concept_id,
-        limit=4,
+        limit=int(answer_scope["concept_limit"]),
         root=resolved_root,
     )
     specialty_route = detect_specialty(routing_query, concepts, specialty)
     supplemental_harrison_routes = _supplemental_harrison_routes(routing_query)
     retrieval_concepts = [*concepts, *supplemental_harrison_routes]
-    harrison_limit = 6 if supplemental_harrison_routes else 4
+    harrison_limit = max(
+        6 if supplemental_harrison_routes else 0,
+        int(answer_scope["evidence_limit"]),
+    )
     harrison_public, harrison_internal = retrieve_harrison_evidence(
         normalized_query,
         retrieval_concepts,
@@ -2838,6 +3003,11 @@ def build_medical_copilot_response(
     ontology_answer_scaffold = build_ontology_answer_scaffold(
         concepts,
         intents,
+        max_relation_hops=int(answer_scope["ontology_relation_hops"]),
+        max_relations=int(answer_scope["ontology_relation_limit"]),
+        include_adjacent_relation_slots=bool(
+            answer_scope["include_adjacent_relation_slots"]
+        ),
         root=resolved_root,
     )
     provider = _provider_status()
@@ -2884,6 +3054,7 @@ def build_medical_copilot_response(
         context = {
             "mode": normalized_mode,
             "answer_template": answer_template,
+            "answer_scope": answer_scope,
             "history": safe_history,
             "intents": intents,
             "concepts": concepts,
@@ -2945,6 +3116,7 @@ def build_medical_copilot_response(
                 allowed_sources,
                 source_aliases,
                 answer_template=context["answer_template"],
+                answer_scope=answer_scope,
             )
             if answer is None and composer is None:
                 # A schema-valid provider response can still contain empty
@@ -2965,6 +3137,7 @@ def build_medical_copilot_response(
                     allowed_sources,
                     source_aliases,
                     answer_template=context["answer_template"],
+                    answer_scope=answer_scope,
                 )
             if answer and answer.get("direct_answer_supported") is False:
                 answer_status = "answer_withheld_direct_support_missing"
@@ -2978,7 +3151,7 @@ def build_medical_copilot_response(
                 )
             if answer:
                 answer["suggested_followups"] = (
-                    ontology_followup_candidates[:3]
+                    ontology_followup_candidates[: int(answer_scope["followup_limit"])]
                     if answer.get("direct_answer_supported") is True
                     else []
                 )
@@ -3040,6 +3213,7 @@ def build_medical_copilot_response(
         ),
         "detected_intents": intents,
         "answer_template": detect_answer_template(normalized_query),
+        "answer_scope": answer_scope,
         "specialty_route": specialty_route,
         "ontology": {
             "matches": concepts,
