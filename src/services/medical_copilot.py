@@ -101,6 +101,71 @@ DIAGNOSTIC_STANDARD_RE = re.compile(
     re.IGNORECASE,
 )
 
+CASE_VIGNETTE_REQUEST_RE = re.compile(
+    r"(?:환자|증례|case|vignette|가장\s*가능성\s*높은\s*진단|"
+    r"진단과.*검사|처치는\??$|이유를\s*설명)",
+    re.IGNORECASE,
+)
+CASE_VIGNETTE_DATA_RE = re.compile(
+    r"(?:\b(?:Hb|Hgb|MCV|MCH|WBC|ANC|PLT|Cr|Na|K|Ca|pH|PaCO2|PaO2)\b\s*[:=]?\s*\d|"
+    r"\d+(?:\.\d+)?\s*(?:g/dL|mg/dL|mmol/L|mEq/L|fL|mmHg|bpm|회/분)|"
+    r"말초혈액도말|혈액도말|검사\s*소견|관찰[돼되]|호소해|내원)",
+    re.IGNORECASE,
+)
+
+# Reviewed clue packs route educational vignettes to textbook chapters. They
+# are routing metadata only: the model never receives the explanatory prose in
+# the ontology registry, and every public medical statement must still cite a
+# retrieved Harrison passage or a released G claim.
+CASE_VIGNETTE_RULES = (
+    {
+        "route_id": "macrocytic_neurologic_cobalamin_v1",
+        "profile": "megaloblastic_anemia_cobalamin_differential",
+        "signal_groups": {
+            "macrocytosis": (
+                re.compile(r"\bMCV\b\s*[:=]?\s*(?:10[1-9]|1[1-9]\d|[2-9]\d{2})", re.IGNORECASE),
+                re.compile(r"(?:대구성|거대적혈모구|macrocyt)", re.IGNORECASE),
+            ),
+            "megaloblastic_smear": (
+                re.compile(r"hypersegmented\s+neutrophil", re.IGNORECASE),
+                re.compile(r"과분엽\s*호중구", re.IGNORECASE),
+            ),
+            "neurologic_feature": (
+                re.compile(r"(?:손|발|사지).{0,8}(?:저림|감각|둔화)", re.IGNORECASE),
+                re.compile(r"(?:paresthesia|numbness|neurologic|neuropathy)", re.IGNORECASE),
+            ),
+            "folate_safety_question": (
+                re.compile(r"(?:엽산|fol(?:ate|ic\s+acid)).{0,20}(?:먼저|단독|안\s*되는|위험)", re.IGNORECASE),
+            ),
+        },
+        "minimum_signal_groups": 2,
+        "concept_routes": (
+            ("megaloblastic_anemia", "syndrome_and_primary_harrison_route"),
+            ("vitamin_b12_deficiency", "leading_diagnosis"),
+            ("folate_deficiency", "key_differential_and_safety_contrast"),
+        ),
+        "display_labels": {
+            "megaloblastic_anemia": "거대적혈모구빈혈",
+            "vitamin_b12_deficiency": "비타민 B12(코발라민) 결핍",
+            "folate_deficiency": "엽산 결핍",
+        },
+        "harrison_pointer_override": {
+            "chapter": 104,
+            "title": "Megaloblastic Anemias",
+            "printed_page": 780,
+        },
+        "retrieval_axes": ("diagnosis", "mechanism", "treatment"),
+        "required_structure": (
+            "most_likely_diagnosis",
+            "case_clue_interpretation_table",
+            "confirmatory_tests",
+            "key_differential",
+            "treatment_safety_reasoning",
+            "one_line_exam_takeaway",
+        ),
+    },
+)
+
 MODE_ALIASES = {
     "study_qa": "concept",
     "qa": "concept",
@@ -374,6 +439,21 @@ QUERY_TERM_EXPANSIONS = {
         "ras",
         "raf",
     ),
+    "hypersegmented neutrophil": (
+        "hypersegmented neutrophils",
+        "megaloblastic anemia",
+        "cobalamin",
+        "folic acid",
+    ),
+    "과분엽 호중구": (
+        "hypersegmented neutrophils",
+        "megaloblastic anemia",
+        "cobalamin",
+        "folic acid",
+    ),
+    "MCV": ("macrocytic", "macrocytosis", "megaloblastic anemia"),
+    "저림": ("paresthesia", "neurologic", "neuropathy"),
+    "엽산": ("folate", "folic acid", "cobalamin"),
 }
 
 # Known high-confidence corrections for legacy seed pointers that were mapped
@@ -503,6 +583,8 @@ def detect_answer_template(query: str) -> str:
     text = _clean_text(query).lower()
     if re.search(r"[①②③④⑤]|(?:^|\s)[1-5][.)]\s|정답|옳은 것은|처치는\??$", text):
         return "mcq_vignette"
+    if CASE_VIGNETTE_REQUEST_RE.search(text) and CASE_VIGNETTE_DATA_RE.search(text):
+        return "case_vignette"
     if any(term in text for term in ("차이", "비교", " vs ", " versus ")):
         return "comparison"
     if any(term in text for term in ("staging", "stage", "병기", "분류", "classification", "score")):
@@ -677,6 +759,14 @@ ANSWER_ARCHETYPE_STRUCTURES = {
         "why_other_choices_are_wrong",
         "one_line_takeaway",
     ],
+    "clinical_vignette_reasoning": [
+        "most_likely_diagnosis",
+        "case_clue_interpretation_table",
+        "confirmatory_tests",
+        "key_differential",
+        "management_implication_if_asked",
+        "one_line_exam_takeaway",
+    ],
     "single_topic_brief": [
         "direct_definition_or_scope",
         "three_key_points",
@@ -822,6 +912,7 @@ def build_answer_contract(
         "treatment_or_regimen": "treatment_strategy",
         "mechanism": "mechanism_chain",
         "mcq_vignette": "mcq_reasoning",
+        "case_vignette": "clinical_vignette_reasoning",
         "brief_topic": "single_topic_brief",
         "clinical_overview": "single_topic_overview",
     }.get(template, "single_topic_overview")
@@ -857,6 +948,24 @@ def apply_answer_contract_to_scope(
     contract: dict[str, Any],
 ) -> dict[str, Any]:
     adjusted = dict(scope)
+    if contract.get("archetype") == "clinical_vignette_reasoning":
+        adjusted.update(
+            {
+                "level": "deep_dive",
+                "reason": "clinical_vignette_reasoning_contract",
+                "ontology_relation_hops": 0,
+                "ontology_relation_limit": 0,
+                "include_adjacent_relation_slots": False,
+                "concept_limit": 3,
+                "evidence_limit": 8,
+                "key_point_range": [3, 5],
+                "section_range": [4, 6],
+                "table_limit": 2,
+                "followup_limit": 2,
+                "max_output_tokens": 7500,
+            }
+        )
+        return adjusted
     if contract.get("archetype") != "multi_entity_comparison":
         return adjusted
     entity_count = len(contract.get("entity_ids") or [])
@@ -878,6 +987,48 @@ def apply_answer_contract_to_scope(
     return adjusted
 
 
+def apply_case_vignette_contract(
+    contract: dict[str, Any],
+    case_route: dict[str, Any],
+    concepts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not case_route.get("detected"):
+        return contract
+    result = dict(contract)
+    concept_ids = [
+        _clean_text(item.get("concept_id"))
+        for item in concepts[:3]
+        if _clean_text(item.get("concept_id"))
+    ]
+    labels = [
+        _clean_text(item.get("label"))
+        for item in concepts[:3]
+        if _clean_text(item.get("label"))
+    ]
+    result.update(
+        {
+            "archetype": "clinical_vignette_reasoning",
+            "profile": case_route.get("profile") or "generic_case_vignette",
+            "entity_ids": concept_ids,
+            "entity_labels": labels,
+            "entity_full_labels": labels,
+            "case_clue_groups": list(case_route.get("matched_clue_groups") or []),
+            "candidate_roles": list(case_route.get("candidate_roles") or []),
+            "retrieval_axes": list(
+                case_route.get("retrieval_axes")
+                or ("diagnosis", "mechanism", "treatment")
+            ),
+            "required_structure": list(
+                case_route.get("required_structure")
+                or ANSWER_ARCHETYPE_STRUCTURES["clinical_vignette_reasoning"]
+            ),
+            "required_evidence_entity_ids": concept_ids[:1],
+            "coverage_policy": "primary_case_syndrome_requires_harrison_evidence",
+        }
+    )
+    return result
+
+
 def attach_answer_contract_coverage(
     contract: dict[str, Any],
     harrison_sources: list[dict[str, Any]],
@@ -887,7 +1038,11 @@ def attach_answer_contract_coverage(
     result = dict(contract)
     entity_ids = [
         _clean_text(item)
-        for item in result.get("entity_ids") or []
+        for item in (
+            result.get("required_evidence_entity_ids")
+            or result.get("entity_ids")
+            or []
+        )
         if _clean_text(item)
     ]
     by_entity = {
@@ -920,6 +1075,40 @@ def validate_answer_contract(
             "status": "not_applicable",
             "passed": False,
             "missing_entity_ids": list(contract.get("entity_ids") or []),
+        }
+    if contract.get("archetype") == "clinical_vignette_reasoning":
+        searchable = _normalized(
+            " ".join(
+                f"{section.get('title') or ''} {section.get('body') or ''}"
+                for section in answer.get("sections") or []
+            )
+        )
+        required = set(contract.get("required_structure") or [])
+        missing_slots: list[str] = []
+        if "most_likely_diagnosis" in required and not any(
+            marker in searchable for marker in ("진단", "가장가능성", "diagnosis")
+        ):
+            missing_slots.append("most_likely_diagnosis")
+        if "confirmatory_tests" in required and not any(
+            marker in searchable for marker in ("확인검사", "검사", "test")
+        ):
+            missing_slots.append("confirmatory_tests")
+        if "treatment_safety_reasoning" in required and not any(
+            marker in searchable
+            for marker in ("치료상주의", "엽산", "투여", "치료", "주의")
+        ):
+            missing_slots.append("treatment_safety_reasoning")
+        table_present = bool(answer.get("tables"))
+        evidence_complete = bool(
+            (contract.get("evidence_coverage") or {}).get("complete")
+        )
+        passed = not missing_slots and table_present and evidence_complete
+        return {
+            "status": "passed" if passed else "failed",
+            "passed": passed,
+            "missing_required_slots": missing_slots,
+            "case_clue_table_present": table_present,
+            "primary_evidence_complete": evidence_complete,
         }
     if contract.get("archetype") != "multi_entity_comparison":
         return {"status": "passed", "passed": True, "missing_entity_ids": []}
@@ -1378,6 +1567,15 @@ def _alias_in_query(query: str, alias: str) -> bool:
     cleaned_alias = _clean_text(alias).lower()
     if not cleaned_alias:
         return False
+    if _clean_text(alias) == "FL":
+        # The lymphoma abbreviation must not match the femtoliter unit `fL`
+        # in an MCV value inside an anemia vignette.
+        return bool(
+            re.search(
+                r"(?<![A-Za-z0-9])FL(?![A-Za-z0-9])",
+                _clean_text(query),
+            )
+        )
     return bool(
         re.search(
             rf"(?<![a-z0-9]){re.escape(cleaned_alias)}(?![a-z0-9])",
@@ -1555,6 +1753,9 @@ def match_ontology_concepts(
     # English terms are useful inside the selected Harrison chapter, but using
     # them here can introduce unrelated nodes (e.g. "growth" from EGFR).
     query_tokens = set(_tokens(query_clean))
+    if re.search(r"\d+(?:\.\d+)?\s*fL(?![A-Za-z])", query_clean):
+        # `fL` is a laboratory unit, not the follicular lymphoma acronym FL.
+        query_tokens.discard("fl")
     symptom_matches = {
         item_id: [
             term
@@ -1694,6 +1895,92 @@ def match_ontology_concepts(
             }
         )
     return results
+
+
+def route_case_vignette(
+    query: str,
+    *,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Route a clue combination to reviewed concepts without making a claim."""
+
+    template = detect_answer_template(query)
+    if template not in {"case_vignette", "mcq_vignette"}:
+        return {
+            "detected": False,
+            "matched": False,
+            "route_id": None,
+            "matches": [],
+        }
+    for rule in CASE_VIGNETTE_RULES:
+        matched_groups = [
+            group
+            for group, patterns in (rule.get("signal_groups") or {}).items()
+            if any(pattern.search(query) for pattern in patterns)
+        ]
+        if len(matched_groups) < int(rule.get("minimum_signal_groups") or 1):
+            continue
+        concept_matches: list[dict[str, Any]] = []
+        candidate_roles: list[dict[str, str]] = []
+        for concept_id, role in rule.get("concept_routes") or ():
+            resolved = match_ontology_concepts(
+                query,
+                concept_id=concept_id,
+                limit=1,
+                root=root,
+            )
+            if not resolved:
+                continue
+            item = dict(resolved[0])
+            pointer = dict(item.get("harrison") or {})
+            pointer.update(rule.get("harrison_pointer_override") or {})
+            item.update(
+                match_score=100.0,
+                match_basis=[f"case_clue:{group}" for group in matched_groups],
+                harrison=pointer,
+                case_role=role,
+                ontology_status="reviewed_case_route_only_not_medical_claim",
+            )
+            display_label = (rule.get("display_labels") or {}).get(concept_id)
+            if display_label:
+                item["label"] = display_label
+            concept_matches.append(item)
+            candidate_roles.append({"concept_id": concept_id, "role": role})
+        required_structure = list(rule.get("required_structure") or ())
+        if "folate_safety_question" not in matched_groups:
+            required_structure = [
+                item
+                for item in required_structure
+                if item != "treatment_safety_reasoning"
+            ]
+        return {
+            "detected": True,
+            "matched": bool(concept_matches),
+            "route_id": rule.get("route_id"),
+            "profile": rule.get("profile"),
+            "matched_clue_groups": matched_groups,
+            "candidate_roles": candidate_roles,
+            "retrieval_axes": list(rule.get("retrieval_axes") or ()),
+            "required_structure": required_structure,
+            "matches": concept_matches,
+            "routing_only": True,
+            "medical_claim_approval": False,
+        }
+    return {
+        "detected": True,
+        "matched": False,
+        "route_id": "generic_case_vignette_unresolved",
+        "profile": "generic_case_vignette",
+        "matched_clue_groups": [],
+        "candidate_roles": [],
+        "retrieval_axes": ["diagnosis", "mechanism", "treatment"],
+        "required_structure": list(
+            ANSWER_ARCHETYPE_STRUCTURES["clinical_vignette_reasoning"]
+        ),
+        "matches": [],
+        "routing_only": True,
+        "medical_claim_approval": False,
+    }
 
 
 def _supplemental_harrison_routes(query: str) -> list[dict[str, Any]]:
@@ -2768,6 +3055,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
         "answer_template": context.get("answer_template") or detect_answer_template(query),
         "answer_scope": context.get("answer_scope") or {},
         "answer_contract": context.get("answer_contract") or {},
+        "case_vignette_route": context.get("case_vignette_route") or {},
         "question": query,
         "recent_conversation": context.get("history") or [],
         "detected_intents": context.get("intents") or [],
@@ -2815,6 +3103,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - treatment_strategy: 치료 결론 → key points → 적응 조건과 우선 선택 → 선택지 표 → 기전·모니터링·주요 주의점 → 예외.
   - mechanism_chain: 기전 결론 → key points → 출발점-경로-결과 → 임상 결과 → 필요한 비교표 → 암기 포인트.
   - mcq_reasoning: 정답 → 핵심 단서 → 단계별 추론 → 오답 배제 → 한 줄 정리.
+  - clinical_vignette_reasoning: 가장 가능성 높은 진단 → 증례 단서 해석표 → 확인검사 → 핵심 감별 → 질문한 치료상 주의 이유 → 시험용 한 줄 정리.
   - single_topic_overview: 직접 개요 → key points → 정의·핵심 기전 → 대표 소견·진단 → 일반 치료 방향 → 암기 포인트.
   - single_topic_brief: 정의·범위 → 핵심 3개 → 뜻이 모호할 때만 검증된 후속 질문.
 - answer_contract.archetype=multi_entity_comparison이면 다음을 모두 지킨다.
@@ -2825,6 +3114,13 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - 이어서 감별에 도움이 되는 '빠르게 구분하는 법' 비교표와 '시험용 암기 포인트' section을 만든다. 상충하는 분류 기준이나 근거 한계는 uncertainties에 분리한다.
   - evidence_coverage.complete=true이면 일부 세부 항목이 근거에 없다는 이유만으로 네 질환 전체 답변을 보류하지 않는다. 확인되지 않은 세부 셀만 '제공된 근거에서 확인되지 않음'으로 표시한다.
   - evidence_coverage.complete=false이면 누락 entity를 주변 지식으로 채우지 말고 direct_answer_supported=false로 둔다.
+- answer_contract.archetype=clinical_vignette_reasoning이면 다음을 모두 지킨다.
+  - 사용자가 제시한 수치·증상·검사 소견은 '증례의 전제'로 다시 언급할 수 있다. 그 수치를 일반 진단 역치나 권고 기준으로 확대하지 않는다.
+  - answer_summary는 '이 교육용 증례에서 가장 가능성 높은 진단은 ...'으로 직접 시작한다. 실제 환자에 대한 확정 진단이나 처방이라고 표현하지 않는다.
+  - case_vignette_route.matched_clue_groups는 검색 경로일 뿐 의학 근거가 아니다. 각 단서의 해석, 진단 후보, 확인검사, 치료상 주의점은 H 또는 승인된 G로 다시 뒷받침한다.
+  - 첫 표는 '증례 단서 / 해석 / 진단에 주는 의미' 열을 사용한다. 이어서 '가장 가능성 높은 진단', '확인해야 할 검사', 질문에 포함된 '치료상 주의 이유'를 각각 별도 section으로 만든다.
+  - 증례가 여러 요구를 포함해도 H 근거가 각각의 핵심을 직접 뒷받침하면 direct_answer_supported=true로 둔다. 사용자가 입력한 사례 수치가 Harrison 발췌문에 그대로 반복되지 않는다는 이유만으로 보류하지 않는다.
+  - 근거가 뒷받침하는 가장 가까운 증후군·질환 수준까지만 답하고, 근거에 없는 원인 아형이나 환자별 치료 용량을 추정하지 않는다.
 - reviewed_retrieval_scope가 intracranial_hemorrhage_umbrella이면 먼저 뇌실질내·지주막하·외상성 경막외/경막하 출혈처럼 해부학적 구획을 짧게 구분한 뒤 각 구획의 일반 치료 원칙을 설명한다. concept_id가 traumatic_intracranial_hemorrhage_route인 H 근거가 뒷받침하는 외상성 extra-axial 축을 임의로 생략하지 않는다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
@@ -3264,6 +3560,10 @@ def build_medical_copilot_response(
     routing_query = _clean_text(f"{normalized_query} {str(case_text or '')[:3000]}")
     guideline_intents = detect_guideline_intents(routing_query)
     answer_template = detect_answer_template(normalized_query)
+    case_vignette_route = route_case_vignette(
+        routing_query,
+        root=resolved_root,
+    )
     intents = [
         *guideline_intents,
         *(
@@ -3274,6 +3574,12 @@ def build_medical_copilot_response(
         ),
         *([] if answer_template != "mechanism" or "mechanism" in guideline_intents else ["mechanism"]),
     ]
+    if case_vignette_route.get("matched"):
+        intents = list(
+            dict.fromkeys(
+                [*intents, *(case_vignette_route.get("retrieval_axes") or [])]
+            )
+        )
     answer_scope = classify_question_scope(
         normalized_query,
         intents,
@@ -3285,15 +3591,35 @@ def build_medical_copilot_response(
         limit=8,
         root=resolved_root,
     )
+    if case_vignette_route.get("matched"):
+        merged_candidates: list[dict[str, Any]] = []
+        seen_candidate_ids: set[str] = set()
+        for item in [
+            *(case_vignette_route.get("matches") or []),
+            *candidate_concepts,
+        ]:
+            candidate_id = _clean_text(item.get("concept_id"))
+            if not candidate_id or candidate_id in seen_candidate_ids:
+                continue
+            seen_candidate_ids.add(candidate_id)
+            merged_candidates.append(item)
+        candidate_concepts = merged_candidates[:8]
     answer_contract = build_answer_contract(
         normalized_query,
         candidate_concepts,
         intents,
         answer_template=answer_template,
     )
+    answer_contract = apply_case_vignette_contract(
+        answer_contract,
+        case_vignette_route,
+        candidate_concepts,
+    )
     answer_scope = apply_answer_contract_to_scope(answer_scope, answer_contract)
     contract_entity_ids = answer_contract.get("entity_ids") or []
-    if answer_contract.get("archetype") == "multi_entity_comparison":
+    if answer_contract.get("archetype") == "clinical_vignette_reasoning":
+        concepts = candidate_concepts[: int(answer_scope["concept_limit"])]
+    elif answer_contract.get("archetype") == "multi_entity_comparison":
         concept_by_id = {
             _clean_text(item.get("concept_id")): item
             for item in candidate_concepts
@@ -3349,6 +3675,22 @@ def build_medical_copilot_response(
         answer_contract,
         harrison_public,
     )
+    case_vignette_public = {
+        key: case_vignette_route.get(key)
+        for key in (
+            "detected",
+            "matched",
+            "route_id",
+            "profile",
+            "matched_clue_groups",
+            "candidate_roles",
+            "retrieval_axes",
+            "required_structure",
+            "routing_only",
+            "medical_claim_approval",
+        )
+        if key in case_vignette_route
+    }
 
     primary_concept_id = str((concepts[0] if concepts else {}).get("concept_id") or "")
     routed_specialty = str(specialty_route.get("specialty") or "")
@@ -3518,6 +3860,7 @@ def build_medical_copilot_response(
             "answer_template": answer_template,
             "answer_scope": answer_scope,
             "answer_contract": answer_contract,
+            "case_vignette_route": case_vignette_public,
             "history": safe_history,
             "intents": intents,
             "concepts": concepts,
@@ -3604,6 +3947,9 @@ def build_medical_copilot_response(
                     "그대로 포함한 별도 section을 만들고, 각 section에는 "
                     "evidence_coverage.source_ids_by_entity에서 그 entity에 배정된 H 번호를 넣어라. "
                     "최소 한 개의 전체 비교표도 반드시 만들어라. 계약: "
+                    "answer_contract가 clinical_vignette_reasoning이면 '가장 가능성 높은 진단', "
+                    "'확인해야 할 검사', 질문에 치료상 주의가 있으면 그 이유를 각각 별도 section으로 "
+                    "만들고, 증례 단서 해석표를 최소 한 개 만들어라. "
                     + json.dumps(answer_contract, ensure_ascii=False),
                     context,
                 )
@@ -3697,6 +4043,7 @@ def build_medical_copilot_response(
         "answer_template": answer_template,
         "answer_scope": answer_scope,
         "answer_contract": answer_contract,
+        "case_vignette_route": case_vignette_public,
         "specialty_route": specialty_route,
         "ontology": {
             "matches": concepts,

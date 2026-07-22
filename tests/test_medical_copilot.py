@@ -277,6 +277,74 @@ def _add_leukemia_comparison_fixture(root: Path) -> None:
     pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
 
 
+def _add_megaloblastic_case_fixture(root: Path) -> None:
+    concept_path = root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    for concept_id, aliases in (
+        ("megaloblastic_anemia", ["거대적혈모구빈혈", "megaloblastic anemia"]),
+        ("vitamin_b12_deficiency", []),
+        ("folate_deficiency", ["엽산결핍증", "folate deficiency"]),
+    ):
+        payload["concepts"][concept_id] = {
+            "node_type": "disease",
+            "aliases": aliases,
+            "specialty": "hematology_oncology",
+            "edges": {},
+            "evidence": {
+                "harrison": {
+                    "edition": "22e",
+                    "chapter": 104,
+                    "title": "Megaloblastic Anemias",
+                    "page": 780,
+                }
+            },
+        }
+    payload["concepts"]["follicular_lymphoma"] = {
+        "node_type": "neoplasm",
+        "aliases": ["소포림프종", "follicular lymphoma", "FL"],
+        "specialty": "hematology_oncology",
+        "edges": {},
+        "evidence": {
+            "harrison": {
+                "edition": "22e",
+                "chapter": 113,
+                "title": "Non-Hodgkin Lymphomas",
+                "page": 860,
+            }
+        },
+    }
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    pages_path = root / medical_copilot.HARRISON_PAGES_RELATIVE_PATH
+    rows = [json.loads(line) for line in pages_path.read_text(encoding="utf-8").splitlines()]
+    rows.extend(
+        [
+            {
+                "chapter": 104,
+                "pdf_page": 4,
+                "printed_page": 783,
+                "source_file": "104_Megaloblastic Anemias.pdf",
+                "segment_text": "DIAGNOSIS Macro-ovalocytes and hypersegmented neutrophils suggest megaloblastic anemia. Serum cobalamin, methylmalonic acid, homocysteine, and folate help distinguish cobalamin from folate deficiency.",
+            },
+            {
+                "chapter": 104,
+                "pdf_page": 5,
+                "printed_page": 784,
+                "source_file": "104_Megaloblastic Anemias.pdf",
+                "segment_text": "TREATMENT Folic acid can improve the anemia of cobalamin deficiency while neurologic injury progresses, so cobalamin deficiency must be excluded and treated.",
+            },
+            {
+                "chapter": 104,
+                "pdf_page": 8,
+                "printed_page": 787,
+                "source_file": "104_Megaloblastic Anemias.pdf",
+                "segment_text": "PATHOPHYSIOLOGY Cobalamin deficiency causes megaloblastic hematopoiesis and neurologic dysfunction. Methylmalonic acid is elevated in cobalamin deficiency.",
+            },
+        ]
+    )
+    pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+
 def test_status_and_korean_ontology_route(copilot_root: Path) -> None:
     status = get_medical_copilot_status(root=copilot_root)
     assert status["ready"] is True
@@ -2328,3 +2396,130 @@ def test_leukemia_comparison_contract_reaches_model_as_fixed_answer_shape(
     ]
     assert len(result["answer"]["tables"]) == 2
     assert result["quality_validation"]["answer_contract"]["passed"] is True
+
+
+def test_case_vignette_routes_lab_clues_without_matching_fl_unit(
+    copilot_root: Path,
+) -> None:
+    _add_megaloblastic_case_fixture(copilot_root)
+    query = (
+        "혈색소 8.5 g/dL, MCV 112 fL이고 말초혈액도말에서 hypersegmented "
+        "neutrophil이 관찰돼. 환자는 양쪽 발의 저림도 호소해. 가장 가능성 높은 "
+        "진단과 확인해야 할 검사를 제시하고, 엽산만 먼저 투여하면 안 되는 이유를 설명해줘."
+    )
+
+    assert match_ontology_concepts(query, root=copilot_root) == []
+    result = build_medical_copilot_response(
+        query,
+        generate_answer=False,
+        root=copilot_root,
+    )
+
+    assert result["answer_template"] == "case_vignette"
+    assert result["answer_contract"]["archetype"] == "clinical_vignette_reasoning"
+    assert result["answer_contract"]["profile"] == "megaloblastic_anemia_cobalamin_differential"
+    assert result["case_vignette_route"]["matched_clue_groups"] == [
+        "macrocytosis",
+        "megaloblastic_smear",
+        "neurologic_feature",
+        "folate_safety_question",
+    ]
+    assert [item["concept_id"] for item in result["ontology_matches"]] == [
+        "megaloblastic_anemia",
+        "vitamin_b12_deficiency",
+        "folate_deficiency",
+    ]
+    assert all(item["chapter"] == 104 for item in result["harrison_sources"])
+    assert result["answer_contract"]["evidence_coverage"]["complete"] is True
+    assert "follicular_lymphoma" not in {
+        item["concept_id"] for item in result["harrison_sources"]
+    }
+
+
+def test_case_vignette_contract_returns_diagnosis_tests_and_safety_reasoning(
+    monkeypatch: pytest.MonkeyPatch,
+    copilot_root: Path,
+) -> None:
+    _add_megaloblastic_case_fixture(copilot_root)
+    monkeypatch.setattr(
+        medical_copilot,
+        "_provider_status",
+        lambda: {
+            "provider": "anthropic",
+            "model": "test-model",
+            "available": True,
+            "reason": None,
+        },
+    )
+    query = (
+        "혈색소 8.5 g/dL, MCV 112 fL이고 말초혈액도말에서 hypersegmented "
+        "neutrophil이 관찰돼. 환자는 양쪽 발의 저림도 호소해. 가장 가능성 높은 "
+        "진단과 확인해야 할 검사를 제시하고, 엽산만 먼저 투여하면 안 되는 이유를 설명해줘."
+    )
+
+    def composer(prompt: str, context: dict) -> dict:
+        assert context["answer_contract"]["archetype"] == "clinical_vignette_reasoning"
+        assert context["case_vignette_route"]["route_id"] == "macrocytic_neurologic_cobalamin_v1"
+        assert "사용자가 제시한 수치·증상·검사 소견" in prompt
+        source_ids = [item["source_id"] for item in context["harrison_internal"]]
+        return {
+            "answer_summary": "이 교육용 증례에서 가장 가능성 높은 진단은 비타민 B12 결핍에 의한 거대적혈모구빈혈이다.",
+            "direct_answer_supported": True,
+            "key_points": [
+                {"text": "대구성과 과분엽 호중구는 거대적혈모구빈혈을 시사한다.", "citations": [source_ids[0]]},
+                {"text": "신경학적 소견은 B12 결핍을 우선 고려하게 한다.", "citations": [source_ids[-1]]},
+                {"text": "엽산 단독 투여 전 B12 결핍을 배제해야 한다.", "citations": [source_ids[1]]},
+            ],
+            "sections": [
+                {
+                    "id": "diagnosis",
+                    "title": "가장 가능성 높은 진단",
+                    "body": f"비타민 B12 결핍에 의한 거대적혈모구빈혈이 가장 가능성이 높다. [{source_ids[0]}]",
+                    "citations": [source_ids[0]],
+                },
+                {
+                    "id": "tests",
+                    "title": "확인해야 할 검사",
+                    "body": f"혈청 B12와 대사 표지자를 확인한다. [{source_ids[0]}]",
+                    "citations": [source_ids[0]],
+                },
+                {
+                    "id": "differential",
+                    "title": "핵심 감별",
+                    "body": f"엽산 결핍과 감별한다. [{source_ids[0]}]",
+                    "citations": [source_ids[0]],
+                },
+                {
+                    "id": "safety",
+                    "title": "엽산만 먼저 투여하면 안 되는 이유",
+                    "body": f"빈혈은 호전되어도 신경학적 손상이 진행할 수 있다. [{source_ids[1]}]",
+                    "citations": [source_ids[1]],
+                },
+            ],
+            "tables": [
+                {
+                    "title": "증례 단서 해석",
+                    "columns": ["증례 단서", "해석", "진단에 주는 의미"],
+                    "rows": [["MCV 증가·과분엽 호중구", "거대적혈모구성 변화", "B12·엽산 감별"]],
+                    "citations": [source_ids[0]],
+                }
+            ],
+            "uncertainties": [],
+            "suggested_followups": [],
+        }
+
+    result = build_medical_copilot_response(
+        query,
+        composer=composer,
+        root=copilot_root,
+    )
+
+    assert result["answer_status"] == "grounded_learning_draft"
+    assert result["blocked"] is False
+    assert result["quality_validation"]["answer_contract"]["passed"] is True
+    assert [item["title"] for item in result["answer"]["sections"]] == [
+        "가장 가능성 높은 진단",
+        "확인해야 할 검사",
+        "핵심 감별",
+        "엽산만 먼저 투여하면 안 되는 이유",
+    ]
