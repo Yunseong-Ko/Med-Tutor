@@ -582,9 +582,9 @@ def test_safe_bold_markers_survive_for_student_typography(copilot_root: Path) ->
     assert "**가변적 기류 제한**" in response["answer"]["sections"][0]["body"]
 
 
-def test_ontology_followups_are_bounded_and_axis_aware(copilot_root: Path) -> None:
+def test_ontology_followups_hide_axes_without_direct_harrison_anchor(copilot_root: Path) -> None:
     def composer(_prompt: str, context: dict) -> dict:
-        assert len(context["ontology_followup_candidates"]) == 3
+        assert context["ontology_followup_candidates"] == []
         return {
             "answer_summary": "천식 진단 개요입니다.",
             "direct_answer_supported": True,
@@ -609,11 +609,43 @@ def test_ontology_followups_are_bounded_and_axis_aware(copilot_root: Path) -> No
     )
 
     followups = response["answer"]["suggested_followups"]
-    assert len(followups) == 3
+    assert followups == []
+
+
+def test_ontology_followups_are_single_axis_and_harrison_preflighted(
+    copilot_root: Path,
+) -> None:
+    pages_path = copilot_root / medical_copilot.HARRISON_PAGES_RELATIVE_PATH
+    rows = [json.loads(line) for line in pages_path.read_text(encoding="utf-8").splitlines()]
+    rows.extend(
+        [
+            {
+                "chapter": 1,
+                "pdf_page": 3,
+                "printed_page": 12,
+                "segment_text": "Asthma pathophysiology involves chronic airway inflammation and variable airflow obstruction.",
+            },
+            {
+                "chapter": 1,
+                "pdf_page": 4,
+                "printed_page": 13,
+                "segment_text": "Asthma treatment and management use controller therapy with monitoring of response.",
+            },
+        ]
+    )
+    pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+    concepts = match_ontology_concepts("천식", root=copilot_root)
+
+    followups = medical_copilot._ontology_followup_candidates(
+        concepts,
+        [],
+        root=copilot_root,
+    )
+
     assert followups == [
-        "천식의 핵심 병태생리와 기전은?",
-        "천식의 치료 선택 원칙은?",
-        "천식의 추적관찰과 치료 반응 평가는 어떻게 해?",
+        "천식의 진단 원리와 핵심 검사 소견을 Harrison 기준으로 설명해줘",
+        "천식의 핵심 병태생리와 기전을 Harrison 기준으로 설명해줘",
+        "천식의 일반적인 치료 원칙을 Harrison 기준으로 설명해줘",
     ]
 
 
@@ -965,11 +997,10 @@ def test_cml_mechanism_query_prioritizes_pathogenesis_pages(
     assert response["answer_status"] == "grounded_learning_draft"
     assert response["blocked"] is False
     assert {row["printed_page"] for row in response["harrison_sources"][:2]} == {834, 835}
-    assert response["answer"]["suggested_followups"] == [
-        "만성골수성백혈병의 진단 기준과 주요 감별 포인트는?",
-        "만성골수성백혈병의 치료 선택 원칙은?",
-        "만성골수성백혈병의 추적관찰과 치료 반응 평가는 어떻게 해?",
-    ]
+    # This fixture contains mechanism passages only. Do not advertise a
+    # diagnosis/treatment/follow-up question that the next retrieval cannot
+    # directly ground.
+    assert response["answer"]["suggested_followups"] == []
 
 
 def test_harrison_fulltext_fallback_is_not_blocked_by_missing_ontology(

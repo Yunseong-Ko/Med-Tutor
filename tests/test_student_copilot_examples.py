@@ -47,7 +47,22 @@ class StudentCopilotExampleTests(unittest.TestCase):
     def test_student_bundle_cache_key_changes_with_example_release(self):
         html = INDEX_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("/student-v3/app.js?v=20260722-verified-registry-v7", html)
+        self.assertIn("/student-v3/app.js?v=20260722-followup-evidence-v8", html)
+
+    def test_citation_click_is_scoped_to_its_own_answer_card(self):
+        text = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('data-citation-source="${esc(cite)}"', text)
+        self.assertIn('button.closest("[data-answer-instance]")', text)
+        self.assertIn('answerCard?.querySelectorAll("[data-evidence-source]")', text)
+        self.assertNotIn('document.getElementById(button.dataset.citationTarget)', text)
+
+    def test_followup_keeps_concept_route_for_next_request(self):
+        text = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('data-followup-concept="${esc(followupConceptId)}"', text)
+        self.assertIn('state.pendingCopilotConceptId = button.dataset.followupConcept || ""', text)
+        self.assertIn('query: question, history, concept_id: conceptId', text)
 
 
 if __name__ == "__main__":

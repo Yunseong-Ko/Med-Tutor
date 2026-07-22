@@ -48,6 +48,7 @@ const state = {
   assistantBusy: false,
   assistantResult: null,
   assistantQuery: "",
+  pendingCopilotConceptId: "",
   clearChatConfirm: false,
   activeCopilotJobId: "",
   copilotRunToken: 0,
@@ -688,6 +689,7 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
   const harrison = result.harrison_sources || [];
   const approvedClaims = result.approved_guideline_claims || [];
   const concepts = result.ontology_matches || result.ontology?.matches || [];
+  const followupConceptId = String(concepts[0]?.concept_id || "").trim();
   const reasons = result.reasons || result.block_reasons || [];
   const answerStatus = copilotAnswerStatus({result, answer, approvedClaims, blocked});
   const keyPoints = (answer?.key_points || []).slice(0, focusMode ? 5 : undefined);
@@ -696,7 +698,7 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
   const followups = (answer?.suggested_followups || []).slice(0, focusMode ? 3 : undefined);
   const ontologyLabels = concepts.slice(0, 8).map((item) => item.label || item.title || item);
   const evidenceId = (cite) => `evidence-${safeInstance}-${String(cite || "")}`;
-  const citationButtons = (cites) => cites.map((cite) => `<button type="button" data-citation-target="${esc(evidenceId(cite))}">${esc(cite)}</button>`).join("");
+  const citationButtons = (cites) => cites.map((cite) => `<button type="button" data-citation-source="${esc(cite)}" aria-label="이 답변의 ${esc(cite)} 근거 위치 보기">${esc(cite)}</button>`).join("");
   const sectionRows = sections.map((section, index) => {
     const cites = citationIds(section);
     const content = `<div class="section-copy">${sectionBody(section.body)}</div>${cites.length ? `<div class="citation-row"><span>근거</span>${citationButtons(cites)}</div>` : ""}`;
@@ -721,8 +723,8 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
   const evidenceMarkup = `<div class="copilot-evidence-below">
       <div class="evidence-divider"><span>근거와 탐색 경로</span><small>종류별 역할을 구분해 표시합니다</small></div>
       ${ontologyLabels.length ? `<section class="evidence-group ontology-evidence"><div class="evidence-heading"><h4>Ontology 해석</h4><span>탐색 정보 · 근거 아님</span></div><div class="concept-chips">${ontologyLabels.map((label) => `<span>${esc(label)}</span>`).join("")}</div></section>` : ""}
-      ${harrison.length ? `<section class="evidence-group"><div class="evidence-heading"><h4>Harrison 22판 위치</h4><span>원문 발췌 없이 위치만 표시</span></div><div class="harrison-source-grid">${harrison.map((item) => `<article id="${esc(evidenceId(item.source_id))}"><b>${esc(item.source_id)}</b><div><strong>${esc(item.title)}</strong><small>${esc(item.edition || "22e")} · Ch.${esc(item.chapter)} · p.${esc(item.printed_page || "확인 필요")}</small></div></article>`).join("")}</div></section>` : `<div class="evidence-empty">직접 연결된 Harrison 위치가 없습니다.</div>`}
-      ${approvedClaims.length ? `<section class="evidence-group"><div class="evidence-heading"><h4>교수 승인 국내 가이드라인 claim</h4><span>승인 범위 안에서만 사용</span></div><div class="approved-claim-grid">${approvedClaims.map((claim) => `<article id="${esc(evidenceId(claim.source_id))}"><b>${esc(claim.source_id)}</b><div><strong>${esc(claim.object_text)}</strong><small>${esc(claim.population)} · ${esc(claim.source_title)} · p.${esc(claim.page || "확인")} ${claim.effective_version ? `· ${esc(claim.effective_version)}` : ""}</small><span>원문 변경·재검토 기한 만료 시 자동 차단</span></div><div class="claim-actions">${claim.official_landing_url ? `<a href="${esc(claim.official_landing_url)}" target="_blank" rel="noopener noreferrer">공식 원문 ↗</a>` : `<span>링크 확인 중</span>`}<a href="#review/medical">복습으로 이동 →</a></div></article>`).join("")}</div></section>` : `<div class="guideline-boundary"><strong>승인된 국내 권고 claim이 아직 없습니다</strong><span>관련 문서의 위치만 안내하며 권고 내용을 추측하지 않아요.</span></div>`}
+      ${harrison.length ? `<section class="evidence-group"><div class="evidence-heading"><h4>Harrison 22판 위치</h4><span>원문 발췌 없이 위치만 표시</span></div><div class="harrison-source-grid">${harrison.map((item) => `<article id="${esc(evidenceId(item.source_id))}" data-evidence-source="${esc(item.source_id)}"><b>${esc(item.source_id)}</b><div><strong>${esc(item.title)}</strong><small>${esc(item.edition || "22e")} · Ch.${esc(item.chapter)} · p.${esc(item.printed_page || "확인 필요")}</small></div></article>`).join("")}</div></section>` : `<div class="evidence-empty">직접 연결된 Harrison 위치가 없습니다.</div>`}
+      ${approvedClaims.length ? `<section class="evidence-group"><div class="evidence-heading"><h4>교수 승인 국내 가이드라인 claim</h4><span>승인 범위 안에서만 사용</span></div><div class="approved-claim-grid">${approvedClaims.map((claim) => `<article id="${esc(evidenceId(claim.source_id))}" data-evidence-source="${esc(claim.source_id)}"><b>${esc(claim.source_id)}</b><div><strong>${esc(claim.object_text)}</strong><small>${esc(claim.population)} · ${esc(claim.source_title)} · p.${esc(claim.page || "확인")} ${claim.effective_version ? `· ${esc(claim.effective_version)}` : ""}</small><span>원문 변경·재검토 기한 만료 시 자동 차단</span></div><div class="claim-actions">${claim.official_landing_url ? `<a href="${esc(claim.official_landing_url)}" target="_blank" rel="noopener noreferrer">공식 원문 ↗</a>` : `<span>링크 확인 중</span>`}<a href="#review/medical">복습으로 이동 →</a></div></article>`).join("")}</div></section>` : `<div class="guideline-boundary"><strong>승인된 국내 권고 claim이 아직 없습니다</strong><span>관련 문서의 위치만 안내하며 권고 내용을 추측하지 않아요.</span></div>`}
       ${rawGuidelines.length ? `<section class="evidence-group related-documents"><div class="evidence-heading"><h4>함께 확인할 대한민국 가이드라인</h4><span>답변 근거 아님</span></div><ul class="assistant-sources">${assistantSourceRows(rawGuidelines)}</ul></section>` : ""}
     </div>`;
   return `<article data-answer-instance="${esc(safeInstance)}" aria-busy="${isRevealing}" class="assistant-answer copilot-document ${blocked ? "blocked" : ""} ${focusMode ? "focus-mode" : "full-mode"} ${isRevealing ? "is-typing" : ""}">
@@ -736,7 +738,7 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
     ${reasons.length && !answer ? `<div class="block-reasons"><strong>현재 답변을 보류한 이유</strong>${reasons.map((reason) => `<span>${esc(reasonLabel(reason))}</span>`).join("")}</div>` : ""}
     ${answer?.uncertainties?.length ? `<aside class="answer-uncertainty"><strong>불확실성 · 지도전문의와 확인</strong><ul>${answer.uncertainties.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></aside>` : ""}
     ${focusMode ? `<details class="focus-detail-group focus-evidence"><summary><span>근거·출처 확인</span><small>${harrison.length + approvedClaims.length}개 직접 근거</small></summary>${evidenceMarkup}</details>` : evidenceMarkup}
-    ${followups.length ? `<section class="answer-section focus-next"><h4>${focusMode ? "다음 한 가지를 골라 이어가기" : "이어서 물어볼 질문"}</h4><div class="prompt-presets followups">${followups.map((item) => `<button type="button" data-prompt="${esc(item)}">${esc(item)}</button>`).join("")}</div></section>` : ""}
+    ${followups.length ? `<section class="answer-section focus-next"><h4>${focusMode ? "다음 한 가지를 골라 이어가기" : "이어서 물어볼 질문"}</h4><small>현재 Harrison 근거에서 답변 가능한 질문만 표시합니다.</small><div class="prompt-presets followups">${followups.map((item) => `<button type="button" data-prompt="${esc(item)}" data-followup-concept="${esc(followupConceptId)}">${esc(item)}</button>`).join("")}</div></section>` : ""}
     <div class="answer-caveat">학습용 초안이며 환자별 진단·처방 지시가 아닙니다. 실제 실습에서는 지도전문의·병원 지침·원문을 확인하세요.</div>
   </article>`;
 }
@@ -982,6 +984,8 @@ async function cancelActiveCopilotJob({notifyServer = true} = {}) {
 
 async function submitStudyQa(question) {
   const mode = "concept";
+  const conceptId = state.pendingCopilotConceptId;
+  state.pendingCopilotConceptId = "";
   const history = state.clinicalMessages.slice(-6).map((message) => message.role === "user"
     ? {role: "user", content: message.redacted ? "" : message.content}
     : {role: "assistant", content: message.result?.answer?.answer_summary || message.result?.message || "근거 검색 결과"});
@@ -998,7 +1002,7 @@ async function submitStudyQa(question) {
   renderCopilotIfVisible();
   startCopilotTimer();
   try {
-    const payload = await api("/api/student/medical-copilot/jobs", {method: "POST", body: JSON.stringify({mode, query: question, history})});
+    const payload = await api("/api/student/medical-copilot/jobs", {method: "POST", body: JSON.stringify({mode, query: question, history, concept_id: conceptId})});
     const job = payload.job || payload;
     if (runToken !== state.copilotRunToken) return;
     if (job.status === "done") {
@@ -1105,6 +1109,7 @@ function bindClinicalActions(active) {
     });
     document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
       state.assistantQuery = button.dataset.prompt;
+      state.pendingCopilotConceptId = button.dataset.followupConcept || "";
       const textarea = document.querySelector("#study-question");
       if (textarea) { textarea.value = state.assistantQuery; textarea.focus(); }
       const send = document.querySelector("[data-send-question]");
@@ -1114,19 +1119,28 @@ function bindClinicalActions(active) {
     document.querySelector("[data-cancel-clear]")?.addEventListener("click", () => { state.clearChatConfirm = false; renderClinical(); });
     document.querySelector("[data-confirm-clear]")?.addEventListener("click", () => { stopCopilotReveal(); state.clinicalMessages = []; state.assistantResult = null; state.assistantQuery = ""; state.clearChatConfirm = false; renderClinical(); });
     document.querySelector("[data-cancel-copilot]")?.addEventListener("click", () => cancelActiveCopilotJob());
-    document.querySelectorAll("[data-citation-target]").forEach((button) => button.addEventListener("click", () => {
-      const target = document.getElementById(button.dataset.citationTarget);
+    document.querySelectorAll("[data-citation-source]").forEach((button) => button.addEventListener("click", () => {
+      const answerCard = button.closest("[data-answer-instance]");
+      const sourceId = button.dataset.citationSource;
+      const target = [...(answerCard?.querySelectorAll("[data-evidence-source]") || [])]
+        .find((item) => item.dataset.evidenceSource === sourceId);
       if (!target) return;
-      const enclosingDetails = target.closest("details");
-      if (enclosingDetails) enclosingDetails.open = true;
-      target.scrollIntoView({behavior: "smooth", block: "center"});
-      target.classList.remove("citation-pulse");
-      requestAnimationFrame(() => target.classList.add("citation-pulse"));
+      let enclosingDetails = target.closest("details");
+      while (enclosingDetails && answerCard?.contains(enclosingDetails)) {
+        enclosingDetails.open = true;
+        enclosingDetails = enclosingDetails.parentElement?.closest("details");
+      }
+      requestAnimationFrame(() => {
+        target.scrollIntoView({behavior: "smooth", block: "center"});
+        target.classList.remove("citation-pulse");
+        requestAnimationFrame(() => target.classList.add("citation-pulse"));
+      });
       setTimeout(() => target.classList.remove("citation-pulse"), 1300);
     }));
     const questionInput = document.querySelector("#study-question");
     questionInput?.addEventListener("input", (event) => {
       state.assistantQuery = event.target.value;
+      state.pendingCopilotConceptId = "";
       const send = document.querySelector("[data-send-question]");
       if (send) send.disabled = state.assistantBusy || !state.assistantQuery.trim();
     });

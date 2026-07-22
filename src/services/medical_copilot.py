@@ -430,32 +430,60 @@ def detect_answer_template(query: str) -> str:
 
 
 def _ontology_followup_candidates(
-    concepts: list[dict[str, Any]], intents: list[str]
+    concepts: list[dict[str, Any]],
+    intents: list[str],
+    *,
+    root: Path | None = None,
 ) -> list[str]:
-    """Create bounded, non-assertive next questions from the routed concept and axis."""
+    """Return only next questions with a deterministic Harrison axis hit.
+
+    Ontology edges are routing hints, not proof that a new question can be
+    answered. Every recommendation therefore runs through the same Harrison
+    locator and must contain an explicit axis anchor in the bounded private
+    passage before it can be shown to a learner.
+    """
     if not concepts:
         return []
     label = _clean_text(concepts[0].get("label") or concepts[0].get("concept_id"))
     if not label:
         return []
-    questions = {
-        "diagnosis": f"{label}의 진단 기준과 주요 감별 포인트는?",
-        "mechanism": f"{label}의 핵심 병태생리와 기전은?",
-        "treatment": f"{label}의 치료 선택 원칙은?",
-        "safety": f"{label} 치료에서 확인할 금기와 주의점은?",
-        "follow_up": f"{label}의 추적관찰과 치료 반응 평가는 어떻게 해?",
+    questions: dict[str, str] = {
+        "diagnosis": f"{label}의 진단 원리와 핵심 검사 소견을 Harrison 기준으로 설명해줘",
+        "mechanism": f"{label}의 핵심 병태생리와 기전을 Harrison 기준으로 설명해줘",
+        "treatment": f"{label}의 일반적인 치료 원칙을 Harrison 기준으로 설명해줘",
     }
     if "treatment" in intents or "indication" in intents or "contraindication" in intents:
-        order = ("mechanism", "safety", "follow_up")
+        order = ("mechanism", "diagnosis")
     elif "diagnosis" in intents or "screening" in intents:
-        order = ("mechanism", "treatment", "follow_up")
-    elif "follow_up" in intents:
-        order = ("diagnosis", "treatment", "safety")
+        order = ("mechanism", "treatment")
     elif "mechanism" in intents:
-        order = ("diagnosis", "treatment", "follow_up")
+        order = ("diagnosis", "treatment")
     else:
         order = ("diagnosis", "mechanism", "treatment")
-    return [questions[key] for key in order]
+
+    supported: list[str] = []
+    for axis in order:
+        question = questions[axis]
+        try:
+            _public, internal = retrieve_harrison_evidence(
+                question,
+                concepts[:1],
+                [axis],
+                limit=3,
+                root=_root(root),
+            )
+        except (FileNotFoundError, ValueError, json.JSONDecodeError):
+            continue
+        anchors = tuple(term.lower() for term in INTENT_TERMS.get(axis, ()))
+        if not anchors or not any(
+            any(anchor in _clean_text(row.get("text")).lower() for anchor in anchors)
+            for row in internal
+        ):
+            continue
+        supported.append(question)
+        if len(supported) >= 3:
+            break
+    return supported
 
 
 ONTOLOGY_RELATION_SLOTS = {
@@ -2106,7 +2134,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 - answer_summary는 질문에 대한 직접 답을 1~2문장으로 쓴다. '일반 학습 개념을 정리했다' 같은 형식적 문구로 대신하지 않는다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
-- suggested_followups는 ontology_followup_candidates에서 최대 3개만 고른다. 후보가 비어 있을 때만 근거 범위 안의 질문을 직접 만든다.
+- suggested_followups는 사전 Harrison 축 검사를 통과한 ontology_followup_candidates에서만 고른다. 후보가 비어 있으면 빈 배열로 두며 새 질문을 직접 만들지 않는다.
 - ontology_answer_scaffold는 답변의 빠진 축을 줄이기 위한 구조 힌트다. requested_slots를 우선 확인하되, 해당 축을 H 또는 승인된 G가 실제로 뒷받침할 때만 section을 만든다.
 - ontology_answer_scaffold의 concept_id·relation·target_concept_id는 근거가 아니며 그 이름만 보고 의학적 사실을 만들지 않는다. scaffold에는 승인되지 않은 설명문이 없고, 모든 실제 문장은 harrison_evidence 또는 approved_korean_guideline_claims에서 다시 확인해야 한다.
 - 질문의 핵심 결론을 H 또는 승인된 G 근거가 직접 뒷받침하면 direct_answer_supported=true, 그렇지 않으면 false로 둔다.
@@ -2640,7 +2668,11 @@ def build_medical_copilot_response(
         and not approved_guideline_claims
         and guideline_query_policy["requires_released_claim"]
     )
-    ontology_followup_candidates = _ontology_followup_candidates(concepts, intents)
+    ontology_followup_candidates = _ontology_followup_candidates(
+        concepts,
+        intents,
+        root=resolved_root,
+    )
     ontology_answer_scaffold = build_ontology_answer_scaffold(
         concepts,
         intents,
@@ -2678,7 +2710,7 @@ def build_medical_copilot_response(
             ],
             "tables": [],
             "uncertainties": ["연결된 최신 국내 가이드라인 claim의 의료 검토와 release가 필요합니다."],
-            "suggested_followups": ontology_followup_candidates[:3],
+            "suggested_followups": [],
         }
         answer_status = "answer_withheld_current_guideline_claim_pending"
         message = "최신 국내 가이드라인은 찾았지만 사람 승인 전인 세부 권고를 Harrison 값으로 대체하지 않았습니다."
@@ -2755,14 +2787,11 @@ def build_medical_copilot_response(
                     else "Harrison 22판 근거에 기반한 학습용 답변 초안입니다. 국내 가이드라인은 승인된 claim이 없어 출처 후보만 연결했습니다."
                 )
             if answer:
-                answer["suggested_followups"] = list(
-                    dict.fromkeys(
-                        [
-                            *ontology_followup_candidates,
-                            *(answer.get("suggested_followups") or []),
-                        ]
-                    )
-                )[:3]
+                answer["suggested_followups"] = (
+                    ontology_followup_candidates[:3]
+                    if answer.get("direct_answer_supported") is True
+                    else []
+                )
                 if entailment_judge and answer.get("direct_answer_supported") is True:
                     try:
                         shadow_prompt, shadow_context = _build_entailment_shadow_prompt(
