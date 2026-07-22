@@ -252,6 +252,7 @@ def test_anthropic_provider_uses_schema_constrained_output(
         @staticmethod
         def json() -> dict:
             return {
+                "stop_reason": "end_turn",
                 "content": [
                     {
                         "type": "text",
@@ -286,6 +287,7 @@ def test_anthropic_provider_uses_schema_constrained_output(
     )
 
     output_format = captured["json"]["output_config"]["format"]
+    assert captured["json"]["max_tokens"] == 7000
     assert output_format["type"] == "json_schema"
     assert output_format["schema"]["required"] == [
         "answer_summary",
@@ -302,6 +304,39 @@ def test_anthropic_provider_uses_schema_constrained_output(
     assert "maxItems" not in output_format["schema"]["properties"]["tables"]
     citations_schema = output_format["schema"]["properties"]["sections"]["items"]["properties"]["citations"]
     assert citations_schema["minItems"] == 1
+
+
+def test_anthropic_provider_rejects_truncated_structured_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict:
+            # A balanced nested object can remain at the tail of a truncated
+            # structured response.  It must not be treated as the answer.
+            return {
+                "stop_reason": "max_tokens",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            {"text": "잘린 내부 항목", "citations": ["H1"]},
+                            ensure_ascii=False,
+                        ),
+                    }
+                ],
+            }
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(medical_copilot.requests, "post", lambda *_args, **_kwargs: FakeResponse())
+
+    with pytest.raises(RuntimeError, match="max_tokens"):
+        medical_copilot._compose_with_model(
+            "prompt",
+            {"provider": {"provider": "anthropic", "model": "claude-sonnet-4-6"}},
+        )
 
 
 def test_answer_schema_constrains_citations_to_retrieved_sources() -> None:

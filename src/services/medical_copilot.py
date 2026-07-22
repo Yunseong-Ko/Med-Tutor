@@ -2374,7 +2374,14 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
             },
             json={
                 "model": model,
-                "max_tokens": 3600,
+                # Composite learning answers can contain several cited
+                # sections plus a comparison table.  A 3.6k ceiling caused
+                # Anthropic to stop mid-JSON on the public Railway service.
+                # The JSON parser could then mistake a balanced nested
+                # {text, citations} object inside that truncated document for
+                # the whole answer.  Give the structured answer enough room;
+                # the prompt and normalizer still cap public sections/tables.
+                "max_tokens": 7000,
                 "temperature": 0,
                 "system": "Return only valid JSON matching the requested schema.",
                 "messages": [{"role": "user", "content": prompt}],
@@ -2389,9 +2396,17 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
         )
         if response.status_code >= 400:
             raise RuntimeError(f"의료 챗봇 모델 호출 실패: {response.status_code}")
+        response_payload = response.json()
+        stop_reason = _clean_text(response_payload.get("stop_reason"))
+        if stop_reason in {"max_tokens", "refusal", "model_context_window_exceeded"}:
+            # Structured-output guarantees do not apply to truncated or
+            # refused responses.  Never feed such content to the permissive
+            # JSON wrapper parser, because an inner object may be syntactically
+            # valid while the required top-level answer is incomplete.
+            raise RuntimeError(f"의료 챗봇 모델 응답 미완료: {stop_reason}")
         text = "".join(
             block.get("text", "")
-            for block in response.json().get("content") or []
+            for block in response_payload.get("content") or []
             if isinstance(block, dict) and block.get("type") == "text"
         )
         return _parse_model_json(text)
