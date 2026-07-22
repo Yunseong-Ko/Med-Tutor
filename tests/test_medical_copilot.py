@@ -124,6 +124,94 @@ def copilot_root(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _add_intracranial_hemorrhage_fixture(root: Path) -> None:
+    concept_path = root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    payload["concepts"].update(
+        {
+            "intracerebral_hemorrhage": {
+                "node_type": "disease",
+                "aliases": ["뇌내출혈", "Intracerebral hemorrhage", "ICH"],
+                "specialty": "neurology",
+                "edges": {},
+                "evidence": {
+                    "harrison": {
+                        "edition": "22e",
+                        "chapter": 439,
+                        "title": "Intracerebral Hemorrhage",
+                        "page": 3452,
+                    }
+                },
+            },
+            "subarachnoid_hemorrhage": {
+                "node_type": "disease",
+                "aliases": [],
+                "specialty": "neurology",
+                "edges": {},
+                "evidence": {
+                    "harrison": {
+                        "edition": "22e",
+                        "chapter": 440,
+                        "title": "Subarachnoid Hemorrhage",
+                        "page": 3457,
+                    }
+                },
+            },
+        }
+    )
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    pages_path = root / medical_copilot.HARRISON_PAGES_RELATIVE_PATH
+    rows = [json.loads(line) for line in pages_path.read_text(encoding="utf-8").splitlines()]
+    rows.extend(
+        [
+            {
+                "chapter": 439,
+                "pdf_page": 2,
+                "printed_page": 3453,
+                "source_file": "439_Intracerebral Hemorrhage.pdf",
+                "segment_text": "CLASSIFICATION Intracerebral hemorrhage is classified by anatomic location and cause. Intraventricular extension is assessed separately.",
+            },
+            {
+                "chapter": 439,
+                "pdf_page": 4,
+                "printed_page": 3455,
+                "source_file": "439_Intracerebral Hemorrhage.pdf",
+                "segment_text": "TREATMENT ACUTE MANAGEMENT includes stabilization, blood pressure management, reversal of coagulopathy, intracranial pressure care, and selected surgery.",
+            },
+            {
+                "chapter": 440,
+                "pdf_page": 3,
+                "printed_page": 3459,
+                "source_file": "440_Subarachnoid Hemorrhage.pdf",
+                "segment_text": "CLASSIFICATION Subarachnoid hemorrhage severity is described with clinical and imaging grading systems.",
+            },
+            {
+                "chapter": 440,
+                "pdf_page": 4,
+                "printed_page": 3460,
+                "source_file": "440_Subarachnoid Hemorrhage.pdf",
+                "segment_text": "TREATMENT Subarachnoid hemorrhage management secures the aneurysm and addresses hydrocephalus and delayed cerebral ischemia.",
+            },
+            {
+                "chapter": 454,
+                "pdf_page": 2,
+                "printed_page": 3571,
+                "source_file": "454_Concussion and Other Traumatic Brain Injuries.pdf",
+                "segment_text": "CLASSIFICATION Traumatic intracranial injury includes epidural hematoma, subdural hematoma, contusion, and axonal injury.",
+            },
+            {
+                "chapter": 454,
+                "pdf_page": 5,
+                "printed_page": 3574,
+                "source_file": "454_Concussion and Other Traumatic Brain Injuries.pdf",
+                "segment_text": "TREATMENT OF HEAD INJURY prioritizes stabilization, prevention of secondary injury, monitoring, and neurosurgical treatment when indicated.",
+            },
+        ]
+    )
+    pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+
 def test_status_and_korean_ontology_route(copilot_root: Path) -> None:
     status = get_medical_copilot_status(root=copilot_root)
     assert status["ready"] is True
@@ -1812,3 +1900,120 @@ def test_bipolar_query_expansion_prioritizes_acute_mania_treatment(
     )
 
     assert public[0]["printed_page"] == 3668
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "뇌출혈 분류랑 치료 가이드라인좀",
+        "Intracrnial hemorrhage 치료 가이드라인좀",
+    ],
+)
+def test_intracranial_hemorrhage_umbrella_routes_only_neurologic_evidence(
+    query: str,
+    copilot_root: Path,
+) -> None:
+    _add_intracranial_hemorrhage_fixture(copilot_root)
+
+    matches = match_ontology_concepts(query, root=copilot_root)
+    result = build_medical_copilot_response(
+        query,
+        generate_answer=False,
+        root=copilot_root,
+    )
+
+    assert {item["concept_id"] for item in matches} == {
+        "intracerebral_hemorrhage",
+        "subarachnoid_hemorrhage",
+    }
+    assert result["answer_status"] == "retrieval_ready_answer_not_requested"
+    assert [item["chapter"] for item in result["harrison_sources"]] == [
+        439,
+        439,
+        440,
+        440,
+        454,
+        454,
+    ]
+    assert all(
+        item["concept_id"]
+        in {
+            "intracerebral_hemorrhage",
+            "subarachnoid_hemorrhage",
+            "traumatic_intracranial_hemorrhage_route",
+        }
+        for item in result["harrison_sources"]
+    )
+
+
+def test_intracranial_hemorrhage_composite_answer_reaches_model_with_all_axes(
+    monkeypatch: pytest.MonkeyPatch,
+    copilot_root: Path,
+) -> None:
+    _add_intracranial_hemorrhage_fixture(copilot_root)
+    monkeypatch.setattr(
+        medical_copilot,
+        "_provider_status",
+        lambda: {
+            "provider": "anthropic",
+            "model": "test-model",
+            "available": True,
+            "reason": None,
+        },
+    )
+
+    def composer(prompt: str, context: dict) -> dict:
+        assert context["intents"] == ["treatment", "classification"]
+        assert context["reviewed_retrieval_scope"] == "intracranial_hemorrhage_umbrella"
+        assert "traumatic_intracranial_hemorrhage_route" in prompt
+        return {
+            "answer_summary": "두개내출혈은 해부학적 구획을 먼저 구분하고 유형별 응급 치료 원칙을 적용한다.",
+            "direct_answer_supported": True,
+            "key_points": [
+                {
+                    "text": "분류는 뇌실질내·지주막하·외상성 경막외/경막하 축으로 나눈다.",
+                    "citations": ["H1", "H3", "H5"],
+                },
+                {
+                    "text": "초기 안정화 뒤 출혈 유형과 원인에 맞는 처치를 시행한다.",
+                    "citations": ["H2", "H4", "H6"],
+                },
+            ],
+            "sections": [
+                {
+                    "id": "classification",
+                    "title": "해부학적 분류",
+                    "body": "뇌실질내·지주막하·경막외·경막하 출혈을 구분한다. [H1] [H3] [H5]",
+                    "citations": ["H1", "H3", "H5"],
+                },
+                {
+                    "id": "treatment",
+                    "title": "유형별 치료 원칙",
+                    "body": "안정화 후 출혈 구획과 원인에 맞는 일반 치료 원칙을 적용한다. [H2] [H4] [H6]",
+                    "citations": ["H2", "H4", "H6"],
+                },
+            ],
+            "tables": [
+                {
+                    "title": "두개내출혈 분류와 치료 축",
+                    "columns": ["구획", "핵심 원칙"],
+                    "rows": [["뇌실질내/지주막하/외상성", "유형별 평가와 치료"]],
+                    "citations": ["H1", "H2", "H3", "H4", "H5", "H6"],
+                }
+            ],
+            "uncertainties": ["구체적인 최신 국내 수치 권고는 승인된 G claim이 필요하다."],
+            "suggested_followups": [],
+        }
+
+    result = build_medical_copilot_response(
+        "뇌출혈 분류랑 치료 가이드라인좀",
+        composer=composer,
+        root=copilot_root,
+    )
+
+    assert result["answer_status"] == "grounded_learning_draft"
+    assert result["answer"]["direct_answer_supported"] is True
+    assert {section["id"] for section in result["answer"]["sections"]} == {
+        "classification",
+        "treatment",
+    }

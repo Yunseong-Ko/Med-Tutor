@@ -133,6 +133,23 @@ SYMPTOM_ROUTING_TERMS = {
     ),
 }
 
+# Broad learner wording for bleeding inside the skull.  These expressions are
+# deliberately treated as an umbrella route rather than as a synonym for a
+# single compartment: the retrieval layer assembles the reviewed ICH, SAH and
+# traumatic intracranial injury chapters before the model writes an overview.
+INTRACRANIAL_HEMORRHAGE_UMBRELLA_TERMS = (
+    "뇌출혈",
+    "뇌 출혈",
+    "두개내출혈",
+    "두개내 출혈",
+    "brain hemorrhage",
+    "brain haemorrhage",
+    "intracranial hemorrhage",
+    "intracranial haemorrhage",
+    "intracrnial hemorrhage",
+    "intracrnial haemorrhage",
+)
+
 # Common learner wording that should resolve to an existing canonical node.
 # These are retrieval aliases only; they do not create new medical claims.
 CONCEPT_QUERY_ALIASES = {
@@ -201,6 +218,10 @@ CONCEPT_QUERY_ALIASES = {
         "면역성 혈소판 감소증",
         "ITP",
     ),
+    "intracerebral_hemorrhage": (
+        *INTRACRANIAL_HEMORRHAGE_UMBRELLA_TERMS,
+        "spontaneous intracerebral hemorrhage",
+    ),
     "migraine": (
         "편두통",
     ),
@@ -215,6 +236,13 @@ CONCEPT_QUERY_ALIASES = {
     "schizophrenia": (
         "조현병",
         "정신분열병",
+    ),
+    "subarachnoid_hemorrhage": (
+        *INTRACRANIAL_HEMORRHAGE_UMBRELLA_TERMS,
+        "지주막하출혈",
+        "지주막하 출혈",
+        "subarachnoid hemorrhage",
+        "SAH",
     ),
     "systemic_lupus_erythematosus": (
         "전신홍반루푸스",
@@ -248,6 +276,59 @@ QUERY_TERM_EXPANSIONS = {
     "변비": ("constipation",),
     "망상적혈구": ("reticulocyte", "corrected reticulocyte count"),
     "빈혈": ("anemia",),
+    "뇌출혈": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+        "intraventricular hemorrhage",
+    ),
+    "뇌 출혈": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+        "intraventricular hemorrhage",
+    ),
+    "두개내출혈": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+        "intraventricular hemorrhage",
+    ),
+    "두개내 출혈": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+        "intraventricular hemorrhage",
+    ),
+    "intracranial hemorrhage": (
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+        "intraventricular hemorrhage",
+    ),
+    "intracranial haemorrhage": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+    ),
+    "intracrnial hemorrhage": (
+        "intracranial hemorrhage",
+        "intracerebral hemorrhage",
+        "subarachnoid hemorrhage",
+        "subdural hematoma",
+        "epidural hematoma",
+    ),
     "수두": ("varicella", "chickenpox"),
     "대상포진": ("varicella zoster", "herpes zoster"),
     "병태생리": ("pathogenesis", "pathophysiology", "signal transduction", "signaling pathway"),
@@ -332,8 +413,14 @@ HARRISON_AXIS_PRINTED_PAGE_HINTS = {
     ("atrial_fibrillation", "diagnosis"): 1948,
     ("bipolar_disorder", "treatment"): 3668,
     ("hyperkalemia", "treatment"): 361,
+    ("intracerebral_hemorrhage", "classification"): 3453,
+    ("intracerebral_hemorrhage", "treatment"): 3455,
     ("pulmonary_embolism", "diagnosis"): 2159,
     ("pulmonary_embolism", "treatment"): 2164,
+    ("subarachnoid_hemorrhage", "classification"): 3459,
+    ("subarachnoid_hemorrhage", "treatment"): 3460,
+    ("traumatic_intracranial_hemorrhage_route", "classification"): 3571,
+    ("traumatic_intracranial_hemorrhage_route", "treatment"): 3574,
 }
 
 # A reviewed page can contain several long sections.  Anchors affect only the
@@ -499,6 +586,7 @@ ONTOLOGY_RELATION_SLOTS = {
 }
 
 ONTOLOGY_INTENT_SLOTS = {
+    "classification": "diagnosis",
     "diagnosis": "diagnosis",
     "screening": "diagnosis",
     "mechanism": "mechanism",
@@ -654,6 +742,14 @@ GENERIC_CONCEPT_TOKENS = {
 }
 
 INTENT_TERMS = {
+    "classification": (
+        "classification",
+        "type",
+        "types",
+        "anatomic compartment",
+        "intraparenchymal",
+        "extra-axial",
+    ),
     "diagnosis": ("diagnosis", "diagnostic", "criteria", "evaluation", "test", "testing"),
     "treatment": ("treatment", "therapy", "management", "drug", "medication"),
     "indication": ("indication", "eligible", "selection"),
@@ -1133,6 +1229,45 @@ def match_ontology_concepts(
     return results
 
 
+def _supplemental_harrison_routes(query: str) -> list[dict[str, Any]]:
+    """Add reviewed textbook locators for a true umbrella topic.
+
+    The ontology currently has canonical ICH and SAH nodes but no top-level
+    traumatic intracranial hemorrhage node.  A broad learner query still needs
+    the head-injury chapter to distinguish extra-axial hematomas.  This helper
+    contributes locator metadata only; it does not expose or synthesize an
+    ontology claim and is never used for guideline-source approval.
+    """
+
+    normalized_query = _normalized(query)
+    if not any(
+        _normalized(term) and _normalized(term) in normalized_query
+        for term in INTRACRANIAL_HEMORRHAGE_UMBRELLA_TERMS
+    ):
+        return []
+    return [
+        {
+            "concept_id": "traumatic_intracranial_hemorrhage_route",
+            "label": "외상성 두개내출혈",
+            "node_type": "reviewed_harrison_query_route",
+            "specialty": "neurology",
+            "match_score": 100.0,
+            "match_basis": ["reviewed_intracranial_hemorrhage_umbrella_route"],
+            "harrison": {
+                "edition": "22e",
+                "chapter": 454,
+                "title": "Concussion and Other Traumatic Brain Injuries",
+                "printed_page": 3570,
+                "pointer_scope": "chapter_and_page_locator_not_verbatim_quote",
+                "needs_review": True,
+            },
+            "ontology_links": [],
+            "ontology_status": "retrieval_route_only_not_ontology_claim",
+            "needs_review": True,
+        }
+    ]
+
+
 def _passage_terms(query: str, intents: list[str], concept: dict[str, Any]) -> list[str]:
     terms = [token for token in _expanded_query_tokens(query) if re.search(r"[a-z]", token)]
     concept_id = str(concept.get("concept_id") or "")
@@ -1333,7 +1468,7 @@ def retrieve_harrison_evidence(
 
         candidates = ranked_pages(terms, prefer_early=mechanism_search)
         requested_axes = [
-            axis for axis in ("diagnosis", "treatment", "mechanism")
+            axis for axis in ("classification", "diagnosis", "treatment", "mechanism")
             if axis in effective_intents
         ]
         selected: list[tuple[float, dict[str, Any], list[str]]] = []
@@ -1550,7 +1685,7 @@ def retrieve_harrison_fulltext_fallback(
 
     ranked = ranked_pages(terms)
     requested_axes = [
-        axis for axis in ("diagnosis", "treatment", "mechanism") if axis in intents
+        axis for axis in ("classification", "diagnosis", "treatment", "mechanism") if axis in intents
     ]
     selected: list[tuple[float, int, dict[str, Any], list[str]]] = []
     selected_keys: set[tuple[int, int]] = set()
@@ -2116,6 +2251,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
         "korean_guideline_metadata": guidelines,
         "approved_korean_guideline_claims": approved_claims,
         "ontology_followup_candidates": context.get("ontology_followup_candidates") or [],
+        "reviewed_retrieval_scope": context.get("reviewed_retrieval_scope"),
         "current_korean_guideline_requires_released_claim": bool(
             context.get("current_guideline_claim_pending")
         ),
@@ -2126,12 +2262,13 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 - AMBOSS Clinical Care처럼 결론을 먼저 제시하고, 읽자마자 학습에 쓸 수 있는 밀도 높은 답변을 만든다.
 - answer_template에 맞춰 구조를 바꾼다.
   - comparison: 정의·공식/기준·해석 차이·비교표 순서.
-  - classification_or_staging: 분류 기준·단계별 표·임상적 의미 순서.
+  - classification_or_staging: 분류 기준·단계별 표·임상적 의미 순서. treatment intent도 함께 있으면 분류와 치료 원칙을 별도 section으로 모두 다룬다.
   - treatment_or_regimen: 적응 조건·선택지/기전·주요 유의점·비교표 순서.
   - mechanism: 표적/출발점·신호 또는 생리 경로·임상적 결과 순서.
   - mcq_vignette: answer_summary를 '정답: ...'으로 시작하고, 단서 해석·정답 근거·다른 선택지가 아닌 이유 순서.
   - brief_topic: 근거 범위에서 짧은 개요를 제공하고, 의미가 여러 개인 용어라면 suggested_followups에 구체 질문 3개를 제안.
 - answer_summary는 질문에 대한 직접 답을 1~2문장으로 쓴다. '일반 학습 개념을 정리했다' 같은 형식적 문구로 대신하지 않는다.
+- reviewed_retrieval_scope가 intracranial_hemorrhage_umbrella이면 먼저 뇌실질내·지주막하·외상성 경막외/경막하 출혈처럼 해부학적 구획을 짧게 구분한 뒤 각 구획의 일반 치료 원칙을 설명한다. concept_id가 traumatic_intracranial_hemorrhage_route인 H 근거가 뒷받침하는 외상성 extra-axial 축을 임의로 생략하지 않는다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
 - suggested_followups는 사전 Harrison 축 검사를 통과한 ontology_followup_candidates에서만 고른다. 후보가 비어 있으면 빈 배열로 두며 새 질문을 직접 만들지 않는다.
@@ -2141,6 +2278,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 - 질문이 둘 이상의 세부 요구(예: 진단 기준과 초기 평가, 진단과 치료)를 포함하면 모든 요구를 각각 H 또는 승인된 G가 직접 뒷받침할 때만 direct_answer_supported=true로 둔다. 일부만 근거가 있으면 false로 둔다.
 - 단, 개념 이해·병태생리·기전·진단 원리·일반 치료 원칙·공부 방법을 묻는 학습형 질문은 특정 국내 권고 수치(나이·간격·목표치·우선약·용량)를 요구하지 않는 한, 제공된 Harrison 근거가 그 개념의 핵심을 다루면 direct_answer_supported=true로 둔다. 질문이 '국내 가이드라인'이나 특정 국가 관점을 언급했다는 사실만으로 false로 두지 않는다. 국내 권고 세부의 부재는 current_korean_guideline_requires_released_claim=true일 때만 보류 사유가 되며, 그 경우에도 Harrison으로 설명 가능한 개념·기전·일반 원칙 부분은 정상적으로 답한다.
 - 숫자 기준·역치·기간은 제공된 발췌문이나 승인된 G claim에 그 숫자가 실제로 있을 때만 쓴다. 모델의 사전지식이나 기억에서 보충하지 않는다.
+- H 발췌문이 해외 학회 지침을 인용하더라도 그 지침을 '현재' 또는 '최신'이라고 표현하지 않는다. 승인된 최신성 근거가 없으면 'Harrison 22e가 요약한 권고'로 범위를 명시한다.
 - uncertainties는 근거 밖 내용을 답변 본문에 포함하기 위한 예외가 아니다. 근거 밖 세부사항은 본문에서 제거하고 필요한 근거가 없다고만 적는다.
 - current_korean_guideline_requires_released_claim=true인데 승인된 G가 없으면, Harrison의 해외·일반 기준으로 국내 나이·간격·목표치·우선약·적응증을 확정하지 말고 direct_answer_supported=false로 둔다.
 - direct_answer_supported=false이면 인접 질환·다른 약제·주변 병태생리로 답을 채우지 않는다. answer_summary에서 직접 근거가 부족함을 밝히고, sections는 '현재 확인 가능한 범위' 한 개만, tables는 빈 배열로 둔다.
@@ -2152,7 +2290,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 - 원문 문장을 길게 복사하지 않는다. 발췌문은 답변에 노출하지 않고 반드시 재서술한다.
 - 각 section은 실제 내용을 뒷받침하는 H 또는 승인된 G 번호를 하나 이상 citations에 넣는다. 근거가 없으면 그 section을 만들지 않는다.
 - 각 key_point와 table에도 실제 내용을 뒷받침하는 H 또는 승인된 G 번호를 하나 이상 citations에 넣는다.
-- detected_intents에 diagnosis, treatment, mechanism이 둘 이상 있으면 요청된 각 축을 직접 다루는 section을 최소 하나씩 만들고, 각 section에 해당 축을 뒷받침하는 근거 번호를 붙인다.
+- detected_intents에 classification, diagnosis, treatment, mechanism이 둘 이상 있으면 요청된 각 축을 직접 다루는 section을 최소 하나씩 만들고, 각 section에 해당 축을 뒷받침하는 근거 번호를 붙인다.
 - 진단과 초기 치료를 함께 물으면 합병증·수술 적응증만으로 치료 축을 대신하지 말고, 근거에 있는 초기 처치 원칙·치료 순서·모니터링을 직접 설명한다.
 - 치료 근거에 핵심 치료·일차 치료와 보조·구제 치료가 함께 있으면 핵심 치료를 먼저 설명하고, 수술·기기·구제 치료를 앞세워 대체하지 않는다.
 - M 번호는 가이드라인의 서지 메타데이터일 뿐이다. M 번호만으로 진단·치료·용량·적응증·금기 내용을 만들지 않는다.
@@ -2542,6 +2680,12 @@ def build_medical_copilot_response(
     answer_template = detect_answer_template(normalized_query)
     intents = [
         *guideline_intents,
+        *(
+            ["classification"]
+            if answer_template == "classification_or_staging"
+            and "classification" not in guideline_intents
+            else []
+        ),
         *([] if answer_template != "mechanism" or "mechanism" in guideline_intents else ["mechanism"]),
     ]
     concepts = match_ontology_concepts(
@@ -2551,13 +2695,16 @@ def build_medical_copilot_response(
         root=resolved_root,
     )
     specialty_route = detect_specialty(routing_query, concepts, specialty)
+    supplemental_harrison_routes = _supplemental_harrison_routes(routing_query)
+    retrieval_concepts = [*concepts, *supplemental_harrison_routes]
+    harrison_limit = 6 if supplemental_harrison_routes else 4
     harrison_public, harrison_internal = retrieve_harrison_evidence(
         normalized_query,
-        concepts,
+        retrieval_concepts,
         intents,
-        limit=4,
+        limit=harrison_limit,
         root=resolved_root,
-    ) if concepts else ([], [])
+    ) if retrieval_concepts else ([], [])
     if not harrison_public:
         harrison_public, harrison_internal = retrieve_harrison_fulltext_fallback(
             normalized_query,
@@ -2732,6 +2879,11 @@ def build_medical_copilot_response(
             "guideline_query_policy": guideline_query_policy,
             "ontology_followup_candidates": ontology_followup_candidates,
             "ontology_answer_scaffold": ontology_answer_scaffold,
+            "reviewed_retrieval_scope": (
+                "intracranial_hemorrhage_umbrella"
+                if supplemental_harrison_routes
+                else None
+            ),
             "provider": provider,
         }
         try:
