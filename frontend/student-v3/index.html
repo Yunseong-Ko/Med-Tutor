@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f2a29">
+  <title>P:accine · 학생 학습</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="/student-v3/app.css?v=20260722-typewriter-v5">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="P:accine 학생 홈">
+      <span class="brand-mark">P</span>
+      <span><strong>P:accine</strong><small>PNU Medicine · Student</small></span>
+    </a>
+    <nav class="topnav" aria-label="학생 학습 메뉴">
+      <a href="#home" data-route="home">홈</a>
+      <a href="#library" data-route="library">나의 서재</a>
+      <a href="#concepts" data-route="concepts">개념 노트</a>
+      <a href="#review" data-route="review">복습</a>
+      <a href="#clinical" data-route="clinical">의료 챗봇</a>
+      <a href="#report" data-route="report">리포트</a>
+    </nav>
+    <div class="top-actions">
+      <a class="ghost-button" href="/cpx-osce/">CPX/OSCE</a>
+      <span class="connection"><i></i>학습 데이터 연결</span>
+    </div>
+  </header>
+
+  <main id="app" class="page" aria-live="polite">
+    <section class="loading-state"><span class="spinner"></span><p>학습 데이터를 불러오는 중입니다.</p></section>
+  </main>
+
+  <nav class="bottomnav" aria-label="모바일 학생 학습 메뉴">
+    <a href="#home" data-route="home"><b>⌂</b><span>홈</span></a>
+    <a href="#library" data-route="library"><b>▤</b><span>서재</span></a>
+    <a href="#concepts" data-route="concepts"><b>◇</b><span>개념</span></a>
+    <a href="#review" data-route="review"><b>↻</b><span>복습</span></a>
+    <a href="#clinical" data-route="clinical"><b>✦</b><span>챗봇</span></a>
+    <a href="#report" data-route="report"><b>▥</b><span>리포트</span></a>
+  </nav>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/student-v3/app.js?v=20260722-verified-registry-v7" defer></script>
+</body>
+</html>
