@@ -212,6 +212,78 @@ def _add_intracranial_hemorrhage_fixture(root: Path) -> None:
     pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
 
 
+def _add_acute_mi_composite_fixture(root: Path) -> None:
+    concept_path = root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    payload["concepts"]["acute_myocardial_infarction"] = {
+        "disease_concept_id": "acute_myocardial_infarction",
+        "node_type": "disease",
+        "aliases": ["심근경색", "myocardial infarction", "MI"],
+        "specialty": "cardiology",
+        "edges": {},
+        "evidence": {
+            "harrison": {
+                "edition": "22e",
+                "chapter": 284,
+                "title": "Ischemic Heart Disease",
+                "page": 2090,
+                "needs_review": True,
+            }
+        },
+    }
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    pages_path = root / medical_copilot.HARRISON_PAGES_RELATIVE_PATH
+    rows = [json.loads(line) for line in pages_path.read_text(encoding="utf-8").splitlines()]
+    rows.extend(
+        [
+            {
+                "chapter": 284,
+                "pdf_page": 1,
+                "printed_page": 2090,
+                "source_file": "284_Ischemic Heart Disease.pdf",
+                "segment_text": "Myocardial ischemia reflects an imbalance between myocardial oxygen supply and demand and can progress to infarction.",
+            },
+            {
+                "chapter": 284,
+                "pdf_page": 2,
+                "printed_page": 2091,
+                "source_file": "284_Ischemic Heart Disease.pdf",
+                "segment_text": "PATHOPHYSIOLOGY Plaque disruption, platelet activation, coronary thrombus, ischemia, and myocardial necrosis form the acute infarction sequence.",
+            },
+            {
+                "chapter": 285,
+                "pdf_page": 1,
+                "printed_page": 2106,
+                "source_file": "285_Non-ST-Segment Elevation Acute Coronary Syndrome.pdf",
+                "segment_text": "PATHOPHYSIOLOGY NSTEMI and unstable angina commonly follow plaque disruption and a nonocclusive thrombus with myocardial necrosis distinguishing infarction.",
+            },
+            {
+                "chapter": 285,
+                "pdf_page": 4,
+                "printed_page": 2109,
+                "source_file": "285_Non-ST-Segment Elevation Acute Coronary Syndrome.pdf",
+                "segment_text": "TREATMENT NSTEMI management includes antiplatelet and anticoagulant therapy followed by a risk-based invasive strategy and secondary prevention.",
+            },
+            {
+                "chapter": 286,
+                "pdf_page": 1,
+                "printed_page": 2113,
+                "source_file": "286_ST-Segment Elevation Myocardial Infarction.pdf",
+                "segment_text": "PATHOPHYSIOLOGY STEMI most often follows plaque rupture or erosion, coronary thrombus, persistent ischemia, and myocardial necrosis.",
+            },
+            {
+                "chapter": 286,
+                "pdf_page": 5,
+                "printed_page": 2117,
+                "source_file": "286_ST-Segment Elevation Myocardial Infarction.pdf",
+                "segment_text": "TREATMENT Acute STEMI requires prompt reperfusion, with primary PCI or fibrinolysis selected by the clinical setting, plus antithrombotic therapy and complication surveillance.",
+            },
+        ]
+    )
+    pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+
 def _add_leukemia_comparison_fixture(root: Path) -> None:
     concept_path = root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
     payload = json.loads(concept_path.read_text(encoding="utf-8"))
@@ -1268,6 +1340,136 @@ def test_question_scope_controls_breadth_and_depth(
     schema = medical_copilot._answer_schema(["H1"], scope)
     assert schema["properties"]["sections"]["maxItems"] == expected_sections[-1]
     assert schema["properties"]["tables"]["maxItems"] == scope["table_limit"]
+
+
+def test_mi_mechanism_and_treatment_keeps_both_axes_and_three_chapters(
+    copilot_root: Path,
+) -> None:
+    _add_acute_mi_composite_fixture(copilot_root)
+    query = "MI의 병태생리와 치료법에 대해 설명해줘"
+
+    assert medical_copilot.detect_answer_template(query) == "treatment_or_regimen"
+    assert medical_copilot.detect_learning_axes(query) == ["mechanism", "treatment"]
+
+    result = build_medical_copilot_response(
+        query,
+        generate_answer=False,
+        root=copilot_root,
+    )
+
+    assert {"mechanism", "treatment"}.issubset(result["detected_intents"])
+    assert result["answer_contract"]["archetype"] == "acute_mi_mechanism_and_management"
+    assert result["answer_contract"]["profile"] == "acute_myocardial_infarction_composite_learning"
+    assert result["answer_scope"]["max_output_tokens"] == 9000
+    assert result["answer_contract"]["evidence_coverage"]["complete"] is True
+    assert {item["chapter"] for item in result["harrison_sources"]} == {284, 285, 286}
+    assert {item["printed_page"] for item in result["harrison_sources"]}.issuperset(
+        {2091, 2106, 2109, 2113, 2117}
+    )
+    assert {item["concept_id"] for item in result["harrison_sources"]} == {
+        "acute_mi_foundation_route",
+        "acute_mi_nstemi_route",
+        "acute_mi_stemi_route",
+    }
+
+
+def test_mi_composite_contract_requires_complete_learning_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    copilot_root: Path,
+) -> None:
+    _add_acute_mi_composite_fixture(copilot_root)
+    monkeypatch.setattr(
+        medical_copilot,
+        "_provider_status",
+        lambda: {
+            "provider": "anthropic",
+            "model": "test-model",
+            "available": True,
+            "reason": None,
+        },
+    )
+
+    def composer(prompt: str, context: dict) -> dict:
+        assert context["reviewed_retrieval_scope"] == "acute_myocardial_infarction_composite"
+        assert context["answer_contract"]["evidence_coverage"]["complete"] is True
+        assert "안정형 협심증의 항허혈 약물만 설명해" in prompt
+        by_chapter = {
+            item["chapter"]: item["source_id"]
+            for item in context["harrison_internal"]
+        }
+        foundation = by_chapter[284]
+        nstemi = by_chapter[285]
+        stemi = by_chapter[286]
+        return {
+            "answer_summary": "심근경색은 급성 허혈이 심근 괴사로 진행하는 질환이며, 급성 치료는 항혈전 치료와 신속한 재관류를 중심으로 STEMI와 NSTEMI 전략을 구분한다.",
+            "direct_answer_supported": True,
+            "key_points": [
+                {"text": "죽상경화반 손상과 혈전이 Type 1 MI의 핵심 기전이다.", "citations": [foundation, stemi]},
+                {"text": "STEMI는 재관류 전략이 치료의 중심이다.", "citations": [stemi]},
+                {"text": "NSTEMI는 항혈전 치료와 위험도 기반 침습 전략을 사용한다.", "citations": [nstemi]},
+                {"text": "합병증 감시와 이차예방이 이어진다.", "citations": [nstemi, stemi]},
+            ],
+            "sections": [
+                {
+                    "id": "pathophysiology",
+                    "title": "병태생리와 Type 1·Type 2 기전",
+                    "body": f"죽상경화반 손상 뒤 관상동맥 혈전과 허혈이 심근 괴사로 이어진다. 산소 공급-요구 불균형은 별도 기전으로 구분한다. [{foundation}] [{stemi}]",
+                    "citations": [foundation, stemi],
+                },
+                {
+                    "id": "classification",
+                    "title": "STEMI와 NSTEMI 구분",
+                    "body": f"STEMI와 NSTEMI는 급성 심근경색의 치료 경로를 나누는 핵심 분류다. [{nstemi}] [{stemi}]",
+                    "citations": [nstemi, stemi],
+                },
+                {
+                    "id": "initial",
+                    "title": "초기 항혈전 치료",
+                    "body": f"초기에는 항혈소판·항응고 전략과 합병증 감시를 함께 시행한다. [{nstemi}] [{stemi}]",
+                    "citations": [nstemi, stemi],
+                },
+                {
+                    "id": "stemi",
+                    "title": "STEMI 재관류",
+                    "body": f"STEMI는 신속한 PCI 중심 재관류가 핵심이며 상황에 따라 섬유소용해를 검토한다. [{stemi}]",
+                    "citations": [stemi],
+                },
+                {
+                    "id": "nstemi",
+                    "title": "NSTEMI 위험도 기반 전략",
+                    "body": f"NSTEMI는 항혈전 치료 후 임상 위험도에 따라 침습적 평가 시점을 정한다. [{nstemi}]",
+                    "citations": [nstemi],
+                },
+                {
+                    "id": "aftercare",
+                    "title": "합병증과 2차 예방",
+                    "body": f"부정맥·심부전 등 합병증을 감시하고 퇴원 뒤 이차예방을 이어간다. [{nstemi}] [{stemi}]",
+                    "citations": [nstemi, stemi],
+                },
+            ],
+            "tables": [
+                {
+                    "title": "STEMI와 NSTEMI 비교",
+                    "columns": ["구분", "STEMI", "NSTEMI"],
+                    "rows": [["치료 방향", "신속한 재관류", "항혈전 치료와 위험도 기반 침습 전략"]],
+                    "citations": [nstemi, stemi],
+                }
+            ],
+            "uncertainties": ["정확한 최신 시간 기준은 승인된 현재 지침에서 별도 확인한다."],
+            "suggested_followups": [],
+        }
+
+    result = build_medical_copilot_response(
+        "MI의 병태생리와 치료법에 대해 설명해줘",
+        composer=composer,
+        root=copilot_root,
+    )
+
+    assert result["answer_status"] == "grounded_learning_draft"
+    assert result["blocked"] is False
+    assert result["quality_validation"]["answer_contract"]["passed"] is True
+    assert len(result["answer"]["sections"]) == 6
+    assert result["answer"]["tables"][0]["title"] == "STEMI와 NSTEMI 비교"
 
 
 def test_overview_scope_does_not_expand_ontology_edges(

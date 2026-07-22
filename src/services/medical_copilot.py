@@ -488,6 +488,11 @@ HARRISON_INTENT_POINTERS = {
 # Curated within-chapter locators for broad chapters where another disease's
 # uppercase treatment heading can otherwise outrank the requested topic.
 HARRISON_AXIS_PRINTED_PAGE_HINTS = {
+    ("acute_mi_foundation_route", "mechanism"): 2091,
+    ("acute_mi_nstemi_route", "mechanism"): 2106,
+    ("acute_mi_nstemi_route", "treatment"): 2109,
+    ("acute_mi_stemi_route", "mechanism"): 2113,
+    ("acute_mi_stemi_route", "treatment"): 2117,
     ("acute_pancreatitis", "diagnosis"): 2745,
     ("acute_pancreatitis", "treatment"): 2747,
     ("atrial_fibrillation", "diagnosis"): 1948,
@@ -596,6 +601,43 @@ def detect_answer_template(query: str) -> str:
     if len(_tokens(text)) <= 2 and len(text) <= 40:
         return "brief_topic"
     return "clinical_overview"
+
+
+LEARNING_AXIS_PATTERNS = {
+    "classification": re.compile(
+        r"(?:분류|유형|병기|staging|stage|classification|types?)",
+        re.IGNORECASE,
+    ),
+    "diagnosis": re.compile(
+        r"(?:진단|검사|소견|diagnos|evaluation|tests?)",
+        re.IGNORECASE,
+    ),
+    "mechanism": re.compile(
+        r"(?:병태생리|병인|발병\s*기전|기전|pathophysiology|pathogenesis|mechanism)",
+        re.IGNORECASE,
+    ),
+    "treatment": re.compile(
+        r"(?:치료|처치|요법|약제|약물|management|treatment|therapy|regimen)",
+        re.IGNORECASE,
+    ),
+}
+
+
+def detect_learning_axes(query: str) -> list[str]:
+    """Keep every explicitly requested learning axis.
+
+    ``detect_answer_template`` intentionally chooses one presentation shape.
+    It must not also decide which evidence axes survive: a learner can ask for
+    pathophysiology *and* treatment in the same sentence.  These labels are
+    routing metadata only and never become medical claims.
+    """
+
+    text = _clean_text(query)
+    return [
+        axis
+        for axis, pattern in LEARNING_AXIS_PATTERNS.items()
+        if pattern.search(text)
+    ]
 
 
 QUERY_SCOPE_OVERVIEW_RE = re.compile(
@@ -720,6 +762,17 @@ LEUKEMIA_COMPARISON_LABELS = {
 }
 
 ANSWER_ARCHETYPE_STRUCTURES = {
+    "acute_mi_mechanism_and_management": [
+        "direct_mi_summary",
+        "key_points",
+        "pathophysiology_type1_and_type2",
+        "stemi_nstemi_classification_table",
+        "initial_management_and_antithrombotic_strategy",
+        "stemi_reperfusion",
+        "nstemi_risk_based_strategy",
+        "complications_and_secondary_prevention",
+        "evidence_boundaries",
+    ],
     "two_axis_comparison": [
         "direct_difference_summary",
         "key_points",
@@ -822,6 +875,41 @@ def build_answer_contract(
     """Choose a stable response archetype independently of answer depth."""
 
     template = answer_template or detect_answer_template(query)
+    requested_axes = list(
+        dict.fromkeys(
+            [
+                *detect_learning_axes(query),
+                *(_clean_text(item) for item in intents if _clean_text(item)),
+            ]
+        )
+    )
+    concept_ids = {
+        _clean_text(item.get("concept_id"))
+        for item in concepts
+        if _clean_text(item.get("concept_id"))
+    }
+    if (
+        "acute_myocardial_infarction" in concept_ids
+        and {"mechanism", "treatment"}.issubset(requested_axes)
+    ):
+        return {
+            "archetype": "acute_mi_mechanism_and_management",
+            "profile": "acute_myocardial_infarction_composite_learning",
+            "entity_ids": ["acute_myocardial_infarction"],
+            "entity_labels": ["심근경색(MI)"],
+            "entity_full_labels": ["급성 심근경색"],
+            "comparison_dimensions": [],
+            "retrieval_axes": ["mechanism", "treatment"],
+            "required_structure": list(
+                ANSWER_ARCHETYPE_STRUCTURES["acute_mi_mechanism_and_management"]
+            ),
+            "required_evidence_entity_ids": [
+                "acute_mi_foundation_route",
+                "acute_mi_nstemi_route",
+                "acute_mi_stemi_route",
+            ],
+            "coverage_policy": "mi_foundation_nstemi_stemi_routes_all_require_harrison_evidence",
+        }
     explicit_concepts = [
         item
         for item in concepts
@@ -948,6 +1036,24 @@ def apply_answer_contract_to_scope(
     contract: dict[str, Any],
 ) -> dict[str, Any]:
     adjusted = dict(scope)
+    if contract.get("archetype") == "acute_mi_mechanism_and_management":
+        adjusted.update(
+            {
+                "level": "deep_dive",
+                "reason": "acute_mi_mechanism_and_management_contract",
+                "ontology_relation_hops": 0,
+                "ontology_relation_limit": 0,
+                "include_adjacent_relation_slots": False,
+                "concept_limit": 1,
+                "evidence_limit": 8,
+                "key_point_range": [4, 6],
+                "section_range": [5, 6],
+                "table_limit": 3,
+                "followup_limit": 3,
+                "max_output_tokens": 9000,
+            }
+        )
+        return adjusted
     if contract.get("archetype") == "clinical_vignette_reasoning":
         adjusted.update(
             {
@@ -1075,6 +1181,42 @@ def validate_answer_contract(
             "status": "not_applicable",
             "passed": False,
             "missing_entity_ids": list(contract.get("entity_ids") or []),
+        }
+    if contract.get("archetype") == "acute_mi_mechanism_and_management":
+        searchable = _normalized(
+            " ".join(
+                [
+                    _clean_text(answer.get("answer_summary")),
+                    *(
+                        f"{section.get('title') or ''} {section.get('body') or ''}"
+                        for section in answer.get("sections") or []
+                    ),
+                ]
+            )
+        )
+        required_markers = {
+            "pathophysiology": ("병태생리", "기전", "죽상", "혈전", "괴사"),
+            "stemi": ("stemi", "st분절상승"),
+            "nstemi": ("nstemi", "비st분절상승"),
+            "acute_treatment": ("재관류", "pci", "항혈전", "항혈소판"),
+            "complications_or_secondary_prevention": ("합병증", "이차예방", "2차예방"),
+        }
+        missing_slots = [
+            slot
+            for slot, markers in required_markers.items()
+            if not any(marker in searchable for marker in markers)
+        ]
+        table_present = bool(answer.get("tables"))
+        evidence_complete = bool(
+            (contract.get("evidence_coverage") or {}).get("complete")
+        )
+        passed = not missing_slots and table_present and evidence_complete
+        return {
+            "status": "passed" if passed else "failed",
+            "passed": passed,
+            "missing_required_slots": missing_slots,
+            "classification_or_treatment_table_present": table_present,
+            "composite_evidence_complete": evidence_complete,
         }
     if contract.get("archetype") == "clinical_vignette_reasoning":
         searchable = _normalized(
@@ -2022,6 +2164,65 @@ def _supplemental_harrison_routes(query: str) -> list[dict[str, Any]]:
     ]
 
 
+def _acute_mi_harrison_routes() -> list[dict[str, Any]]:
+    """Return the reviewed cross-chapter route for a complete MI overview.
+
+    Harrison separates the ischemic foundation, NSTE-ACS, and STEMI across
+    adjacent chapters.  These objects are locators only: they do not carry
+    ontology prose or pre-written treatment claims to the model.
+    """
+
+    route_specs = (
+        (
+            "acute_mi_foundation_route",
+            "심근 허혈·경색의 기초 병태생리",
+            284,
+            "Ischemic Heart Disease",
+            2090,
+            ["mechanism"],
+        ),
+        (
+            "acute_mi_nstemi_route",
+            "비ST분절상승 급성관상동맥증후군",
+            285,
+            "Non-ST-Segment Elevation Acute Coronary Syndrome (NSTEMI and UA)",
+            2106,
+            ["mechanism", "treatment"],
+        ),
+        (
+            "acute_mi_stemi_route",
+            "ST분절상승 심근경색",
+            286,
+            "ST-Segment Elevation Myocardial Infarction",
+            2113,
+            ["mechanism", "treatment"],
+        ),
+    )
+    return [
+        {
+            "concept_id": concept_id,
+            "label": label,
+            "node_type": "reviewed_harrison_query_route",
+            "specialty": "cardiology",
+            "match_score": 100.0,
+            "match_basis": ["reviewed_acute_mi_cross_chapter_route"],
+            "retrieval_axes": retrieval_axes,
+            "harrison": {
+                "edition": "22e",
+                "chapter": chapter,
+                "title": title,
+                "printed_page": printed_page,
+                "pointer_scope": "chapter_and_page_locator_not_verbatim_quote",
+                "needs_review": True,
+            },
+            "ontology_links": [],
+            "ontology_status": "retrieval_route_only_not_ontology_claim",
+            "needs_review": True,
+        }
+        for concept_id, label, chapter, title, printed_page, retrieval_axes in route_specs
+    ]
+
+
 def _passage_terms(query: str, intents: list[str], concept: dict[str, Any]) -> list[str]:
     terms = [token for token in _expanded_query_tokens(query) if re.search(r"[a-z]", token)]
     concept_id = str(concept.get("concept_id") or "")
@@ -2183,8 +2384,26 @@ def retrieve_harrison_evidence(
         chapter = pointer.get("chapter")
         if not chapter:
             continue
-        mechanism_search = "mechanism" in intents or detect_answer_template(query) == "mechanism"
-        effective_intents = list(intents)
+        reviewed_route_axes = {
+            _clean_text(axis)
+            for axis in concept.get("retrieval_axes") or []
+            if _clean_text(axis)
+        }
+        effective_intents = [
+            intent
+            for intent in intents
+            if not reviewed_route_axes
+            or intent not in {"classification", "diagnosis", "treatment", "mechanism"}
+            or intent in reviewed_route_axes
+        ]
+        if reviewed_route_axes and not any(
+            axis in effective_intents for axis in reviewed_route_axes
+        ):
+            effective_intents.extend(sorted(reviewed_route_axes))
+        mechanism_search = (
+            "mechanism" in effective_intents
+            or detect_answer_template(query) == "mechanism"
+        )
         if mechanism_search and "mechanism" not in effective_intents:
             effective_intents.append("mechanism")
         terms = _passage_terms(query, effective_intents, concept)
@@ -3104,6 +3323,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - mechanism_chain: 기전 결론 → key points → 출발점-경로-결과 → 임상 결과 → 필요한 비교표 → 암기 포인트.
   - mcq_reasoning: 정답 → 핵심 단서 → 단계별 추론 → 오답 배제 → 한 줄 정리.
   - clinical_vignette_reasoning: 가장 가능성 높은 진단 → 증례 단서 해석표 → 확인검사 → 핵심 감별 → 질문한 치료상 주의 이유 → 시험용 한 줄 정리.
+  - acute_mi_mechanism_and_management: 직접 MI 결론 → key points → Type 1/Type 2 병태생리 → STEMI/NSTEMI 구분표 → 초기 공통 처치 → STEMI 재관류 → NSTEMI 위험도 기반 전략 → 합병증·2차 예방 → 근거 경계.
   - single_topic_overview: 직접 개요 → key points → 정의·핵심 기전 → 대표 소견·진단 → 일반 치료 방향 → 암기 포인트.
   - single_topic_brief: 정의·범위 → 핵심 3개 → 뜻이 모호할 때만 검증된 후속 질문.
 - answer_contract.archetype=multi_entity_comparison이면 다음을 모두 지킨다.
@@ -3121,7 +3341,15 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - 첫 표는 '증례 단서 / 해석 / 진단에 주는 의미' 열을 사용한다. 이어서 '가장 가능성 높은 진단', '확인해야 할 검사', 질문에 포함된 '치료상 주의 이유'를 각각 별도 section으로 만든다.
   - 증례가 여러 요구를 포함해도 H 근거가 각각의 핵심을 직접 뒷받침하면 direct_answer_supported=true로 둔다. 사용자가 입력한 사례 수치가 Harrison 발췌문에 그대로 반복되지 않는다는 이유만으로 보류하지 않는다.
   - 근거가 뒷받침하는 가장 가까운 증후군·질환 수준까지만 답하고, 근거에 없는 원인 아형이나 환자별 치료 용량을 추정하지 않는다.
+- answer_contract.archetype=acute_mi_mechanism_and_management이면 다음을 모두 지킨다.
+  - 사용자는 병태생리와 치료를 함께 물었다. 안정형 협심증의 항허혈 약물만 설명해 급성 심근경색 치료를 대체하지 않는다.
+  - 병태생리는 죽상경화반 파열·미란, 혈소판·응고 활성화, 관상동맥 혈전, 허혈에서 괴사로의 진행을 근거 범위에서 연결한다. Type 1과 산소 공급-요구 불균형에 의한 Type 2를 근거가 확인하는 범위에서 구분한다.
+  - STEMI와 NSTEMI를 별도 축으로 구분하고, STEMI에는 재관류 중심 전략, NSTEMI에는 항혈전 치료와 위험도 기반 침습 전략을 각각 설명한다.
+  - 초기 공통 처치, 항혈소판·항응고 치료, 보조 약물, 합병증 감시, 퇴원 후 2차 예방을 제공된 H 근거 범위에서 정리한다.
+  - 첫 표는 STEMI/NSTEMI의 기전·심전도/손상 맥락·치료 방향 비교로 만든다. 정확한 시간창·산소포화도·DAPT 기간·용량이 발췌문에 직접 없으면 숫자를 기억으로 채우지 말고 일반 원칙까지만 답한다.
+  - evidence_coverage.complete=true이면 일부 세부 수치가 근거에 없다는 이유로 전체 답변을 보류하지 않는다. 확인된 병태생리와 일반 치료 원칙을 완결된 학습 답변으로 제공하고, 미확인 최신 수치만 uncertainties로 분리한다.
 - reviewed_retrieval_scope가 intracranial_hemorrhage_umbrella이면 먼저 뇌실질내·지주막하·외상성 경막외/경막하 출혈처럼 해부학적 구획을 짧게 구분한 뒤 각 구획의 일반 치료 원칙을 설명한다. concept_id가 traumatic_intracranial_hemorrhage_route인 H 근거가 뒷받침하는 외상성 extra-axial 축을 임의로 생략하지 않는다.
+- reviewed_retrieval_scope가 acute_myocardial_infarction_composite이면 Ch.284의 허혈·괴사 기초, Ch.285의 NSTE-ACS, Ch.286의 STEMI 근거를 하나의 학습 답변으로 조립한다. 이 route 이름과 장 번호는 검색 경로일 뿐 주장 근거가 아니며, 실제 문장은 각 H 발췌문이 확인하는 범위만 사용한다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
 - suggested_followups는 사전 Harrison 축 검사를 통과한 ontology_followup_candidates에서만 고른다. 후보가 비어 있으면 빈 배열로 두며 새 질문을 직접 만들지 않는다.
@@ -3564,16 +3792,25 @@ def build_medical_copilot_response(
         routing_query,
         root=resolved_root,
     )
-    intents = [
-        *guideline_intents,
-        *(
-            ["classification"]
-            if answer_template == "classification_or_staging"
-            and "classification" not in guideline_intents
-            else []
-        ),
-        *([] if answer_template != "mechanism" or "mechanism" in guideline_intents else ["mechanism"]),
-    ]
+    intents = list(
+        dict.fromkeys(
+            [
+                *guideline_intents,
+                *detect_learning_axes(routing_query),
+                *(
+                    ["classification"]
+                    if answer_template == "classification_or_staging"
+                    else []
+                ),
+                *(["mechanism"] if answer_template == "mechanism" else []),
+                *(
+                    ["treatment"]
+                    if answer_template == "treatment_or_regimen"
+                    else []
+                ),
+            ]
+        )
+    )
     if case_vignette_route.get("matched"):
         intents = list(
             dict.fromkeys(
@@ -3642,9 +3879,18 @@ def build_medical_copilot_response(
         concepts = candidate_concepts[: int(answer_scope["concept_limit"])]
     specialty_route = detect_specialty(routing_query, concepts, specialty)
     supplemental_harrison_routes = _supplemental_harrison_routes(routing_query)
-    retrieval_concepts = [*concepts, *supplemental_harrison_routes]
+    acute_mi_harrison_routes = (
+        _acute_mi_harrison_routes()
+        if answer_contract.get("archetype") == "acute_mi_mechanism_and_management"
+        else []
+    )
+    retrieval_concepts = (
+        acute_mi_harrison_routes
+        if acute_mi_harrison_routes
+        else [*concepts, *supplemental_harrison_routes]
+    )
     harrison_limit = max(
-        6 if supplemental_harrison_routes else 0,
+        8 if acute_mi_harrison_routes else 6 if supplemental_harrison_routes else 0,
         int(answer_scope["evidence_limit"]),
     )
     if answer_contract.get("archetype") == "multi_entity_comparison" and concepts:
@@ -3872,7 +4118,9 @@ def build_medical_copilot_response(
             "ontology_followup_candidates": ontology_followup_candidates,
             "ontology_answer_scaffold": ontology_answer_scaffold,
             "reviewed_retrieval_scope": (
-                "intracranial_hemorrhage_umbrella"
+                "acute_myocardial_infarction_composite"
+                if acute_mi_harrison_routes
+                else "intracranial_hemorrhage_umbrella"
                 if supplemental_harrison_routes
                 else None
             ),
@@ -3950,6 +4198,9 @@ def build_medical_copilot_response(
                     "answer_contract가 clinical_vignette_reasoning이면 '가장 가능성 높은 진단', "
                     "'확인해야 할 검사', 질문에 치료상 주의가 있으면 그 이유를 각각 별도 section으로 "
                     "만들고, 증례 단서 해석표를 최소 한 개 만들어라. "
+                    "answer_contract가 acute_mi_mechanism_and_management이면 병태생리, STEMI, "
+                    "NSTEMI, 재관류/항혈전 치료, 합병증 또는 2차 예방을 빠짐없이 다루고 "
+                    "STEMI/NSTEMI 비교표를 최소 한 개 만들어라. "
                     + json.dumps(answer_contract, ensure_ascii=False),
                     context,
                 )
