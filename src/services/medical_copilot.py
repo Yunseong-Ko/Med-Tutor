@@ -623,6 +623,353 @@ def classify_question_scope(
     }
 
 
+LEUKEMIA_COMPARISON_ORDER = {
+    "acute_lymphoblastic_leukemia": 0,
+    "acute_myeloid_leukemia": 1,
+    "chronic_myeloid_leukemia": 2,
+    "chronic_lymphocytic_leukemia": 3,
+}
+
+LEUKEMIA_COMPARISON_LABELS = {
+    "acute_lymphoblastic_leukemia": "ALL",
+    "acute_myeloid_leukemia": "AML",
+    "chronic_myeloid_leukemia": "CML",
+    "chronic_lymphocytic_leukemia": "CLL",
+}
+
+ANSWER_ARCHETYPE_STRUCTURES = {
+    "two_axis_comparison": [
+        "direct_difference_summary",
+        "key_points",
+        "comparison_table",
+        "one_section_per_compared_axis",
+        "clinical_or_exam_discrimination",
+        "conflicts_or_uncertainties",
+    ],
+    "classification_framework": [
+        "direct_classification_summary",
+        "key_points",
+        "classification_table",
+        "category_or_stage_sections",
+        "assessment_sequence_and_clinical_meaning",
+        "conflicts_or_uncertainties",
+    ],
+    "treatment_strategy": [
+        "direct_treatment_summary",
+        "key_points",
+        "indication_and_first_choice",
+        "treatment_options_table",
+        "mechanism_monitoring_and_major_cautions",
+        "exceptions_or_uncertainties",
+    ],
+    "mechanism_chain": [
+        "direct_mechanism_summary",
+        "key_points",
+        "trigger_to_pathway_to_effect_chain",
+        "clinical_consequences",
+        "mechanism_comparison_table_if_useful",
+        "exam_memory_points",
+    ],
+    "mcq_reasoning": [
+        "direct_answer_choice",
+        "key_clues",
+        "stepwise_reasoning",
+        "why_other_choices_are_wrong",
+        "one_line_takeaway",
+    ],
+    "single_topic_brief": [
+        "direct_definition_or_scope",
+        "three_key_points",
+        "clarifying_followups_if_ambiguous",
+    ],
+    "single_topic_overview": [
+        "direct_overview_summary",
+        "key_points",
+        "definition_and_core_mechanism",
+        "representative_findings_and_diagnosis",
+        "general_treatment_direction",
+        "exam_memory_points",
+    ],
+}
+
+
+def _concept_mention_position(query: str, concept: dict[str, Any]) -> int:
+    text = _clean_text(query).lower()
+    positions = [
+        text.find(_clean_text(alias).lower())
+        for alias in concept.get("match_basis") or []
+        if _clean_text(alias) and text.find(_clean_text(alias).lower()) >= 0
+    ]
+    return min(positions) if positions else 10**9
+
+
+def _distinct_explicit_concept_mentions(
+    query: str,
+    concepts: list[dict[str, Any]],
+) -> set[str]:
+    """Count named entities, not several ontology routes from one umbrella term."""
+
+    normalized_query = _normalized(query)
+    mentions: set[str] = set()
+    for concept in concepts:
+        matches = [
+            _normalized(alias)
+            for alias in concept.get("match_basis") or []
+            if _normalized(alias) and _normalized(alias) in normalized_query
+        ]
+        if matches:
+            mentions.add(max(matches, key=len))
+    return mentions
+
+
+def build_answer_contract(
+    query: str,
+    concepts: list[dict[str, Any]],
+    intents: Iterable[str] = (),
+    *,
+    answer_template: str = "",
+) -> dict[str, Any]:
+    """Choose a stable response archetype independently of answer depth."""
+
+    template = answer_template or detect_answer_template(query)
+    explicit_concepts = [
+        item
+        for item in concepts
+        if float(item.get("match_score") or 0) >= 48.0
+        and any(
+            not _clean_text(alias).startswith("symptom:")
+            for alias in item.get("match_basis") or []
+        )
+    ]
+    explicit_mentions = _distinct_explicit_concept_mentions(query, explicit_concepts)
+    multi_signal = bool(
+        (len(explicit_concepts) >= 3 and len(explicit_mentions) >= 3)
+        or (
+            len(explicit_concepts) >= 2
+            and len(explicit_mentions) >= 2
+            and (
+                template == "comparison"
+                or re.search(r"[,/·]|(?:와|과|및|랑)\s", _clean_text(query))
+            )
+        )
+    )
+    if multi_signal:
+        concept_ids = {_clean_text(item.get("concept_id")) for item in explicit_concepts}
+        leukemia_profile = bool(
+            concept_ids
+            and concept_ids.issubset(LEUKEMIA_COMPARISON_ORDER)
+        )
+        if leukemia_profile:
+            ordered = sorted(
+                explicit_concepts,
+                key=lambda item: LEUKEMIA_COMPARISON_ORDER.get(
+                    _clean_text(item.get("concept_id")),
+                    99,
+                ),
+            )
+            dimensions = [
+                "세포 계열·성숙 단계",
+                "급성·만성 진행 속도",
+                "골수·말초혈액 및 도말 소견",
+                "대표 분자·유전 이상",
+                "대표 임상 특징",
+                "치료 방향",
+            ]
+            profile = "hematologic_malignancy_comparison"
+        else:
+            ordered = sorted(
+                explicit_concepts,
+                key=lambda item: _concept_mention_position(query, item),
+            )
+            dimensions = [
+                "정의·분류",
+                "대표 역학·위험 맥락",
+                "핵심 임상·검사 소견",
+                "주요 기전·원인",
+                "경과·예후",
+                "치료 방향",
+            ]
+            profile = "general_multi_concept_comparison"
+        return {
+            "archetype": "multi_entity_comparison",
+            "profile": profile,
+            "entity_ids": [_clean_text(item.get("concept_id")) for item in ordered],
+            "entity_labels": [
+                LEUKEMIA_COMPARISON_LABELS.get(
+                    _clean_text(item.get("concept_id")),
+                    _clean_text(item.get("label")),
+                )
+                for item in ordered
+            ],
+            "entity_full_labels": [_clean_text(item.get("label")) for item in ordered],
+            "comparison_dimensions": dimensions,
+            "retrieval_axes": ["diagnosis", "mechanism", "treatment"],
+            "required_structure": [
+                "direct_comparison_summary",
+                "key_points",
+                "master_comparison_table",
+                "one_section_per_entity",
+                "rapid_discrimination_table",
+                "exam_memory_points",
+                "conflicts_or_uncertainties",
+            ],
+            "coverage_policy": "every_explicit_entity_requires_harrison_evidence",
+        }
+
+    archetype = {
+        "comparison": "two_axis_comparison",
+        "classification_or_staging": "classification_framework",
+        "treatment_or_regimen": "treatment_strategy",
+        "mechanism": "mechanism_chain",
+        "mcq_vignette": "mcq_reasoning",
+        "brief_topic": "single_topic_brief",
+        "clinical_overview": "single_topic_overview",
+    }.get(template, "single_topic_overview")
+    return {
+        "archetype": archetype,
+        "profile": "general_medical_learning",
+        "entity_ids": [
+            _clean_text(item.get("concept_id"))
+            for item in concepts[:1]
+            if _clean_text(item.get("concept_id"))
+        ],
+        "entity_labels": [
+            _clean_text(item.get("label"))
+            for item in concepts[:1]
+            if _clean_text(item.get("label"))
+        ],
+        "entity_full_labels": [
+            _clean_text(item.get("label"))
+            for item in concepts[:1]
+            if _clean_text(item.get("label"))
+        ],
+        "comparison_dimensions": [],
+        "retrieval_axes": list(dict.fromkeys(_clean_text(item) for item in intents if _clean_text(item))),
+        "required_structure": list(
+            ANSWER_ARCHETYPE_STRUCTURES.get(archetype, [archetype])
+        ),
+        "coverage_policy": "primary_explicit_entity_requires_harrison_evidence",
+    }
+
+
+def apply_answer_contract_to_scope(
+    scope: dict[str, Any],
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    adjusted = dict(scope)
+    if contract.get("archetype") != "multi_entity_comparison":
+        return adjusted
+    entity_count = len(contract.get("entity_ids") or [])
+    adjusted.update(
+        {
+            "reason": "multi_entity_comparison_contract",
+            "ontology_relation_hops": 0,
+            "ontology_relation_limit": 0,
+            "include_adjacent_relation_slots": False,
+            "concept_limit": max(2, min(6, entity_count)),
+            "evidence_limit": max(4, min(18, entity_count * 3)),
+            "key_point_range": [4, 6],
+            "section_range": [max(2, min(4, entity_count)), 6],
+            "table_limit": 3,
+            "followup_limit": 3,
+            "max_output_tokens": 9000,
+        }
+    )
+    return adjusted
+
+
+def attach_answer_contract_coverage(
+    contract: dict[str, Any],
+    harrison_sources: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach auditable per-entity evidence coverage without exposing excerpts."""
+
+    result = dict(contract)
+    entity_ids = [
+        _clean_text(item)
+        for item in result.get("entity_ids") or []
+        if _clean_text(item)
+    ]
+    by_entity = {
+        entity_id: [
+            _clean_text(source.get("source_id"))
+            for source in harrison_sources
+            if _clean_text(source.get("concept_id")) == entity_id
+            and _clean_text(source.get("source_id"))
+        ]
+        for entity_id in entity_ids
+    }
+    missing = [entity_id for entity_id in entity_ids if not by_entity.get(entity_id)]
+    result["evidence_coverage"] = {
+        "required_entity_ids": entity_ids,
+        "source_ids_by_entity": by_entity,
+        "missing_entity_ids": missing,
+        "complete": not missing,
+    }
+    return result
+
+
+def validate_answer_contract(
+    answer: dict[str, Any] | None,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    """Check the stable response shape after citation validation."""
+
+    if not answer or answer.get("direct_answer_supported") is not True:
+        return {
+            "status": "not_applicable",
+            "passed": False,
+            "missing_entity_ids": list(contract.get("entity_ids") or []),
+        }
+    if contract.get("archetype") != "multi_entity_comparison":
+        return {"status": "passed", "passed": True, "missing_entity_ids": []}
+
+    sections = answer.get("sections") or []
+    labels = list(contract.get("entity_labels") or [])
+    full_labels = list(contract.get("entity_full_labels") or [])
+    entity_ids = list(contract.get("entity_ids") or [])
+    coverage = contract.get("evidence_coverage") or {}
+    sources_by_entity = coverage.get("source_ids_by_entity") or {}
+    missing_entities: list[str] = []
+    uncited_entities: list[str] = []
+    for index, entity_id in enumerate(entity_ids):
+        aliases = {
+            _normalized(entity_id.replace("_", " ")),
+            _normalized(labels[index] if index < len(labels) else ""),
+            _normalized(full_labels[index] if index < len(full_labels) else ""),
+        }
+        aliases.discard("")
+        matching_sections = [
+            section
+            for section in sections
+            if any(
+                alias in _normalized(
+                    f"{section.get('title') or ''} {section.get('body') or ''}"
+                )
+                for alias in aliases
+            )
+        ]
+        if not matching_sections:
+            missing_entities.append(entity_id)
+            continue
+        allowed = set(sources_by_entity.get(entity_id) or [])
+        if allowed and not any(
+            allowed.intersection(section.get("citations") or [])
+            for section in matching_sections
+        ):
+            uncited_entities.append(entity_id)
+
+    table_count = len(answer.get("tables") or [])
+    passed = not missing_entities and not uncited_entities and table_count >= 1
+    return {
+        "status": "passed" if passed else "failed",
+        "passed": passed,
+        "missing_entity_ids": missing_entities,
+        "entity_sections_without_entity_evidence": uncited_entities,
+        "comparison_table_present": table_count >= 1,
+    }
+
+
 def _ontology_followup_candidates(
     concepts: list[dict[str, Any]],
     intents: list[str],
@@ -1677,6 +2024,54 @@ def retrieve_harrison_evidence(
     return public_rows, internal_rows
 
 
+def retrieve_harrison_evidence_per_concept(
+    query: str,
+    concepts: list[dict[str, Any]],
+    intents: list[str],
+    *,
+    per_concept_limit: int = 3,
+    total_limit: int = 18,
+    root: Path | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Guarantee evidence coverage across every explicitly requested concept."""
+
+    public_rows: list[dict[str, Any]] = []
+    internal_rows: list[dict[str, Any]] = []
+    seen: set[tuple[int, int]] = set()
+    for concept in concepts[:6]:
+        concept_public, concept_internal = retrieve_harrison_evidence(
+            query,
+            [concept],
+            intents,
+            limit=max(1, min(3, int(per_concept_limit or 3))),
+            root=root,
+        )
+        internal_by_locator = {
+            (
+                int(item.get("chapter") or -1),
+                int(item.get("chapter_pdf_page") or -1),
+            ): item
+            for item in concept_internal
+        }
+        for public in concept_public:
+            key = (
+                int(public.get("chapter") or -1),
+                int(public.get("chapter_pdf_page") or -1),
+            )
+            if key in seen:
+                continue
+            internal = internal_by_locator.get(key)
+            if not internal:
+                continue
+            seen.add(key)
+            source_id = f"H{len(public_rows) + 1}"
+            public_rows.append({**public, "source_id": source_id})
+            internal_rows.append({**internal, "source_id": source_id})
+            if len(public_rows) >= max(1, min(18, int(total_limit or 18))):
+                return public_rows, internal_rows
+    return public_rows, internal_rows
+
+
 def _chapter_title_from_page(page: dict[str, Any]) -> str:
     source_file = Path(str(page.get("source_file") or "")).stem
     title = re.sub(r"^\d+[_\s-]*", "", source_file).replace("_", " ").strip()
@@ -2372,6 +2767,7 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
         "mode": context.get("mode"),
         "answer_template": context.get("answer_template") or detect_answer_template(query),
         "answer_scope": context.get("answer_scope") or {},
+        "answer_contract": context.get("answer_contract") or {},
         "question": query,
         "recent_conversation": context.get("history") or [],
         "detected_intents": context.get("intents") or [],
@@ -2411,6 +2807,24 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
   - deep_dive: 구체적인 기전·기준·바이오마커·감별·단계별 설명을 요구한 질문이다. 제공된 근거 범위 안에서 핵심 경로, 적용 조건, 예외와 한계까지 자세히 설명한다. key_points 4~6개, sections 4~6개, tables 최대 3개로 제한한다.
 - overview라고 해서 새로운 질환 관계를 폭넓게 추론하지 않는다. ontology_answer_scaffold의 relation_scope.max_hops를 넘지 말고, relations가 비어 있으면 질문에 직접 매칭된 개념과 검토된 Harrison route만 사용한다.
 - deep_dive도 Ontology를 재귀적으로 확장하지 않는다. 깊이는 선택된 Harrison 근거를 자세히 설명하는 방식으로 확보하며, relation_scope에 없는 2-hop 관계를 새로 만들지 않는다.
+- answer_contract는 질문 표현에 따라 미리 선택된 고정 출력 계약이다. answer_scope보다 구조 규칙이 구체적이면 answer_contract를 우선한다.
+- answer_contract.required_structure의 항목을 앞에서부터 답변 순서로 사용한다. H 또는 승인된 G가 뒷받침하지 않는 선택적 세부 항목은 만들지 않되, 핵심 항목을 임의로 다른 형식으로 바꾸지 않는다.
+- answer_contract.archetype별 기본 형식은 다음과 같다.
+  - two_axis_comparison: 직접 차이 → key points → 비교표 → 각 비교축 설명 → 감별/시험 포인트 → 상충 정보.
+  - classification_framework: 분류 결론 → key points → 분류표 → 단계별 설명 → 평가 순서와 임상 의미 → 기준 차이.
+  - treatment_strategy: 치료 결론 → key points → 적응 조건과 우선 선택 → 선택지 표 → 기전·모니터링·주요 주의점 → 예외.
+  - mechanism_chain: 기전 결론 → key points → 출발점-경로-결과 → 임상 결과 → 필요한 비교표 → 암기 포인트.
+  - mcq_reasoning: 정답 → 핵심 단서 → 단계별 추론 → 오답 배제 → 한 줄 정리.
+  - single_topic_overview: 직접 개요 → key points → 정의·핵심 기전 → 대표 소견·진단 → 일반 치료 방향 → 암기 포인트.
+  - single_topic_brief: 정의·범위 → 핵심 3개 → 뜻이 모호할 때만 검증된 후속 질문.
+- answer_contract.archetype=multi_entity_comparison이면 다음을 모두 지킨다.
+  - entity_labels 순서대로 먼저 직접 비교 요약과 key points를 쓴다.
+  - 첫 표는 entity_labels를 열로, comparison_dimensions를 행으로 하는 '전체 비교' 표로 만든다. 각 셀은 제공된 근거가 확인하는 범위만 간결하게 쓴다.
+  - entity_labels의 각 항목마다 별도 section을 정확히 하나 이상 만들고, 제목에 해당 entity label을 그대로 포함한다.
+  - 각 entity section은 evidence_coverage.source_ids_by_entity에 배정된 H 번호를 최소 하나 인용한다. 다른 질환의 H 번호만으로 그 질환 section을 쓰지 않는다.
+  - 이어서 감별에 도움이 되는 '빠르게 구분하는 법' 비교표와 '시험용 암기 포인트' section을 만든다. 상충하는 분류 기준이나 근거 한계는 uncertainties에 분리한다.
+  - evidence_coverage.complete=true이면 일부 세부 항목이 근거에 없다는 이유만으로 네 질환 전체 답변을 보류하지 않는다. 확인되지 않은 세부 셀만 '제공된 근거에서 확인되지 않음'으로 표시한다.
+  - evidence_coverage.complete=false이면 누락 entity를 주변 지식으로 채우지 말고 direct_answer_supported=false로 둔다.
 - reviewed_retrieval_scope가 intracranial_hemorrhage_umbrella이면 먼저 뇌실질내·지주막하·외상성 경막외/경막하 출혈처럼 해부학적 구획을 짧게 구분한 뒤 각 구획의 일반 치료 원칙을 설명한다. concept_id가 traumatic_intracranial_hemorrhage_route인 H 근거가 뒷받침하는 외상성 extra-axial 축을 임의로 생략하지 않는다.
 - 중요한 의학 용어·결론만 **용어** 형식으로 문단당 1~3개 강조한다. 다른 Markdown은 사용하지 않는다.
 - key_points의 각 항목은 가능하면 '**짧은 라벨:** 설명' 형식으로 쓴다.
@@ -2473,7 +2887,7 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
     schema = _answer_schema(allowed_source_ids, answer_scope)
     max_output_tokens = max(
         4000,
-        min(7000, int(answer_scope.get("max_output_tokens") or 7000)),
+        min(9000, int(answer_scope.get("max_output_tokens") or 7000)),
     )
     if provider == "claude-cli":
         binary = _claude_binary()
@@ -2865,12 +3279,41 @@ def build_medical_copilot_response(
         intents,
         answer_template=answer_template,
     )
-    concepts = match_ontology_concepts(
+    candidate_concepts = match_ontology_concepts(
         routing_query,
         concept_id=concept_id,
-        limit=int(answer_scope["concept_limit"]),
+        limit=8,
         root=resolved_root,
     )
+    answer_contract = build_answer_contract(
+        normalized_query,
+        candidate_concepts,
+        intents,
+        answer_template=answer_template,
+    )
+    answer_scope = apply_answer_contract_to_scope(answer_scope, answer_contract)
+    contract_entity_ids = answer_contract.get("entity_ids") or []
+    if answer_contract.get("archetype") == "multi_entity_comparison":
+        concept_by_id = {
+            _clean_text(item.get("concept_id")): item
+            for item in candidate_concepts
+            if _clean_text(item.get("concept_id"))
+        }
+        concepts = [
+            concept_by_id[entity_id]
+            for entity_id in contract_entity_ids
+            if entity_id in concept_by_id
+        ][: int(answer_scope["concept_limit"])]
+        intents = list(
+            dict.fromkeys(
+                [
+                    *intents,
+                    *(answer_contract.get("retrieval_axes") or []),
+                ]
+            )
+        )
+    else:
+        concepts = candidate_concepts[: int(answer_scope["concept_limit"])]
     specialty_route = detect_specialty(routing_query, concepts, specialty)
     supplemental_harrison_routes = _supplemental_harrison_routes(routing_query)
     retrieval_concepts = [*concepts, *supplemental_harrison_routes]
@@ -2878,13 +3321,23 @@ def build_medical_copilot_response(
         6 if supplemental_harrison_routes else 0,
         int(answer_scope["evidence_limit"]),
     )
-    harrison_public, harrison_internal = retrieve_harrison_evidence(
-        normalized_query,
-        retrieval_concepts,
-        intents,
-        limit=harrison_limit,
-        root=resolved_root,
-    ) if retrieval_concepts else ([], [])
+    if answer_contract.get("archetype") == "multi_entity_comparison" and concepts:
+        harrison_public, harrison_internal = retrieve_harrison_evidence_per_concept(
+            normalized_query,
+            concepts,
+            intents,
+            per_concept_limit=3,
+            total_limit=harrison_limit,
+            root=resolved_root,
+        )
+    else:
+        harrison_public, harrison_internal = retrieve_harrison_evidence(
+            normalized_query,
+            retrieval_concepts,
+            intents,
+            limit=harrison_limit,
+            root=resolved_root,
+        ) if retrieval_concepts else ([], [])
     if not harrison_public:
         harrison_public, harrison_internal = retrieve_harrison_fulltext_fallback(
             normalized_query,
@@ -2892,6 +3345,10 @@ def build_medical_copilot_response(
             limit=4,
             root=resolved_root,
         )
+    answer_contract = attach_answer_contract_coverage(
+        answer_contract,
+        harrison_public,
+    )
 
     primary_concept_id = str((concepts[0] if concepts else {}).get("concept_id") or "")
     routed_specialty = str(specialty_route.get("specialty") or "")
@@ -3020,6 +3477,11 @@ def build_medical_copilot_response(
     }
     model_error: str | None = None
     composition_attempts = 0
+    contract_validation: dict[str, Any] = {
+        "status": "not_run",
+        "passed": False,
+        "missing_entity_ids": [],
+    }
     if not harrison_public and not approved_guideline_claims:
         answer_status = "evidence_insufficient"
         message = "질문과 직접 연결되는 Harrison 22판 Ontology 개념을 찾지 못했습니다. 질환명 또는 핵심 증후군을 더 구체적으로 입력해 주세요."
@@ -3055,6 +3517,7 @@ def build_medical_copilot_response(
             "mode": normalized_mode,
             "answer_template": answer_template,
             "answer_scope": answer_scope,
+            "answer_contract": answer_contract,
             "history": safe_history,
             "intents": intents,
             "concepts": concepts,
@@ -3118,6 +3581,13 @@ def build_medical_copilot_response(
                 answer_template=context["answer_template"],
                 answer_scope=answer_scope,
             )
+            contract_validation = validate_answer_contract(answer, answer_contract)
+            if (
+                answer
+                and answer.get("direct_answer_supported") is True
+                and not contract_validation.get("passed")
+            ):
+                answer = None
             if answer is None and composer is None:
                 # A schema-valid provider response can still contain empty
                 # bodies or unusable citation arrays. Retry once with the same
@@ -3129,7 +3599,12 @@ def build_medical_copilot_response(
                     model_prompt
                     + "\n\n검증 재시도: 각 section body와 key_point text를 비우지 말고, "
                     "각 citations에는 입력에 제공된 H/G source_id를 최소 1개 넣어라. "
-                    "새 사실이나 새 출처를 추가하지 마라.",
+                    "새 사실이나 새 출처를 추가하지 마라. "
+                    "answer_contract가 multi_entity_comparison이면 entity_labels 각각을 제목에 "
+                    "그대로 포함한 별도 section을 만들고, 각 section에는 "
+                    "evidence_coverage.source_ids_by_entity에서 그 entity에 배정된 H 번호를 넣어라. "
+                    "최소 한 개의 전체 비교표도 반드시 만들어라. 계약: "
+                    + json.dumps(answer_contract, ensure_ascii=False),
                     context,
                 )
                 answer = _validated_answer(
@@ -3139,6 +3614,13 @@ def build_medical_copilot_response(
                     answer_template=context["answer_template"],
                     answer_scope=answer_scope,
                 )
+                contract_validation = validate_answer_contract(answer, answer_contract)
+                if (
+                    answer
+                    and answer.get("direct_answer_supported") is True
+                    and not contract_validation.get("passed")
+                ):
+                    answer = None
             if answer and answer.get("direct_answer_supported") is False:
                 answer_status = "answer_withheld_direct_support_missing"
                 message = "질문의 핵심 결론을 직접 뒷받침하는 승인 근거가 없어 주변 지식으로 대체하지 않았습니다."
@@ -3212,8 +3694,9 @@ def build_medical_copilot_response(
             else ["grounded_answer_unavailable" if harrison_public else "ontology_or_harrison_evidence_not_found"]
         ),
         "detected_intents": intents,
-        "answer_template": detect_answer_template(normalized_query),
+        "answer_template": answer_template,
         "answer_scope": answer_scope,
+        "answer_contract": answer_contract,
         "specialty_route": specialty_route,
         "ontology": {
             "matches": concepts,
@@ -3244,6 +3727,7 @@ def build_medical_copilot_response(
             "citation_membership": "passed" if answer else "not_applicable",
             "composition_attempts": composition_attempts,
             "citation_repair_retry": composition_attempts > 1,
+            "answer_contract": contract_validation,
             "entailment_shadow": entailment_shadow,
         },
         "privacy_status": privacy,

@@ -212,6 +212,71 @@ def _add_intracranial_hemorrhage_fixture(root: Path) -> None:
     pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
 
 
+def _add_leukemia_comparison_fixture(root: Path) -> None:
+    concept_path = root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    definitions = [
+        (
+            "acute_lymphoblastic_leukemia",
+            "급성림프모구백혈병",
+            ["ALL", "acute lymphoblastic leukemia"],
+            111,
+            "ALL is an acute lymphoid precursor neoplasm. Diagnosis, molecular features, clinical findings, and treatment use a multiagent approach.",
+        ),
+        (
+            "acute_myeloid_leukemia",
+            "급성골수성백혈병",
+            ["AML", "acute myeloid leukemia"],
+            109,
+            "AML is an acute myeloid precursor neoplasm. Myeloblast morphology, genetic classification, clinical findings, and treatment guide evaluation.",
+        ),
+        (
+            "chronic_myeloid_leukemia",
+            "만성골수성백혈병",
+            ["CML", "chronic myeloid leukemia"],
+            110,
+            "CML is a chronic myeloid neoplasm associated with BCR::ABL1. Blood findings, progression, and tyrosine kinase inhibitor treatment are central.",
+        ),
+        (
+            "chronic_lymphocytic_leukemia",
+            "만성 림프구성 백혈병",
+            ["CLL", "chronic lymphocytic leukemia"],
+            112,
+            "CLL is a mature B-cell neoplasm. Blood lymphocytosis, immunophenotype, clinical course, observation, and targeted treatment guide management.",
+        ),
+    ]
+    for concept_id, label, aliases, chapter, _text in definitions:
+        payload["concepts"][concept_id] = {
+            "node_type": "disease",
+            "aliases": [label, *aliases],
+            "specialty": "hematology_oncology",
+            "edges": {},
+            "evidence": {
+                "harrison": {
+                    "edition": "22e",
+                    "chapter": chapter,
+                    "title": label,
+                    "page": 800 + chapter,
+                }
+            },
+        }
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    pages_path = root / medical_copilot.HARRISON_PAGES_RELATIVE_PATH
+    rows = [json.loads(line) for line in pages_path.read_text(encoding="utf-8").splitlines()]
+    for _concept_id, label, _aliases, chapter, text in definitions:
+        rows.append(
+            {
+                "chapter": chapter,
+                "pdf_page": 1,
+                "printed_page": 800 + chapter,
+                "source_file": f"{chapter}_{label}.pdf",
+                "segment_text": text,
+            }
+        )
+    pages_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+
 def test_status_and_korean_ontology_route(copilot_root: Path) -> None:
     status = get_medical_copilot_status(root=copilot_root)
     assert status["ready"] is True
@@ -2156,3 +2221,110 @@ def test_intracranial_hemorrhage_composite_answer_reaches_model_with_all_axes(
         "classification",
         "treatment",
     }
+
+
+def test_leukemia_comparison_contract_balances_harrison_evidence(
+    copilot_root: Path,
+) -> None:
+    _add_leukemia_comparison_fixture(copilot_root)
+
+    result = build_medical_copilot_response(
+        "ALL, CML, AML, CLL 정리좀",
+        generate_answer=False,
+        root=copilot_root,
+    )
+
+    contract = result["answer_contract"]
+    assert contract["archetype"] == "multi_entity_comparison"
+    assert contract["profile"] == "hematologic_malignancy_comparison"
+    assert contract["entity_labels"] == ["ALL", "AML", "CML", "CLL"]
+    assert contract["evidence_coverage"]["complete"] is True
+    assert contract["evidence_coverage"]["missing_entity_ids"] == []
+    assert list(contract["evidence_coverage"]["source_ids_by_entity"]) == [
+        "acute_lymphoblastic_leukemia",
+        "acute_myeloid_leukemia",
+        "chronic_myeloid_leukemia",
+        "chronic_lymphocytic_leukemia",
+    ]
+    assert {item["concept_id"] for item in result["harrison_sources"]} == set(
+        contract["entity_ids"]
+    )
+    assert result["answer_scope"]["max_output_tokens"] == 9000
+
+
+def test_leukemia_comparison_contract_reaches_model_as_fixed_answer_shape(
+    monkeypatch: pytest.MonkeyPatch,
+    copilot_root: Path,
+) -> None:
+    _add_leukemia_comparison_fixture(copilot_root)
+    monkeypatch.setattr(
+        medical_copilot,
+        "_provider_status",
+        lambda: {
+            "provider": "anthropic",
+            "model": "test-model",
+            "available": True,
+            "reason": None,
+        },
+    )
+
+    def composer(prompt: str, context: dict) -> dict:
+        contract = context["answer_contract"]
+        assert contract["entity_labels"] == ["ALL", "AML", "CML", "CLL"]
+        assert contract["evidence_coverage"]["complete"] is True
+        assert "one_section_per_entity" in prompt
+        source_ids = contract["evidence_coverage"]["source_ids_by_entity"]
+        sections = []
+        for label, entity_id in zip(contract["entity_labels"], contract["entity_ids"]):
+            source_id = source_ids[entity_id][0]
+            sections.append(
+                {
+                    "id": label.lower(),
+                    "title": f"{label} 핵심 정리",
+                    "body": f"{label}의 세포 계열, 핵심 소견과 치료 방향을 정리한다. [{source_id}]",
+                    "citations": [source_id],
+                }
+            )
+        all_sources = [source_ids[entity_id][0] for entity_id in contract["entity_ids"]]
+        return {
+            "answer_summary": "네 백혈병은 세포 계열과 급성·만성 경과를 먼저 나누어 비교한다.",
+            "direct_answer_supported": True,
+            "key_points": [
+                {"text": f"{label} 핵심", "citations": [source_id]}
+                for label, source_id in zip(contract["entity_labels"], all_sources)
+            ],
+            "sections": sections,
+            "tables": [
+                {
+                    "title": "전체 비교",
+                    "columns": ["항목", "ALL", "AML", "CML", "CLL"],
+                    "rows": [["진행", "급성", "급성", "만성", "만성"]],
+                    "citations": all_sources,
+                },
+                {
+                    "title": "빠르게 구분하는 법",
+                    "columns": ["소견", "질환"],
+                    "rows": [["계열과 성숙도", "ALL·AML·CML·CLL"]],
+                    "citations": all_sources,
+                },
+            ],
+            "uncertainties": [],
+            "suggested_followups": [],
+        }
+
+    result = build_medical_copilot_response(
+        "ALL, CML, AML, CLL 정리좀",
+        composer=composer,
+        root=copilot_root,
+    )
+
+    assert result["answer_status"] == "grounded_learning_draft"
+    assert result["blocked"] is False
+    assert [section["title"].split()[0] for section in result["answer"]["sections"]] == [
+        "ALL",
+        "AML",
+        "CML",
+        "CLL",
+    ]
+    assert len(result["answer"]["tables"]) == 2
+    assert result["quality_validation"]["answer_contract"]["passed"] is True
