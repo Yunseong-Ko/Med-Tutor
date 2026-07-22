@@ -2687,6 +2687,7 @@ def build_medical_copilot_response(
         "blocks_answer": False,
     }
     model_error: str | None = None
+    composition_attempts = 0
     if not harrison_public and not approved_guideline_claims:
         answer_status = "evidence_insufficient"
         message = "질문과 직접 연결되는 Harrison 22판 Ontology 개념을 찾지 못했습니다. 질환명 또는 핵심 증후군을 더 구체적으로 입력해 주세요."
@@ -2734,7 +2735,9 @@ def build_medical_copilot_response(
             "provider": provider,
         }
         try:
-            raw_answer = (composer or _compose_with_model)(_build_model_prompt(normalized_query, context), context)
+            model_prompt = _build_model_prompt(normalized_query, context)
+            composition_attempts = 1
+            raw_answer = (composer or _compose_with_model)(model_prompt, context)
             allowed_sources = {item["source_id"] for item in harrison_public}
             allowed_sources.update(
                 f"G{index}" for index, _claim in enumerate(approved_guideline_claims, start=1)
@@ -2776,6 +2779,26 @@ def build_medical_copilot_response(
                 source_aliases,
                 answer_template=context["answer_template"],
             )
+            if answer is None and composer is None:
+                # A schema-valid provider response can still contain empty
+                # bodies or unusable citation arrays. Retry once with the same
+                # bounded evidence and stricter formatting instructions. Never
+                # send the rejected draft back to the model and never relax
+                # membership validation.
+                composition_attempts = 2
+                raw_answer = _compose_with_model(
+                    model_prompt
+                    + "\n\n검증 재시도: 각 section body와 key_point text를 비우지 말고, "
+                    "각 citations에는 입력에 제공된 H/G source_id를 최소 1개 넣어라. "
+                    "새 사실이나 새 출처를 추가하지 마라.",
+                    context,
+                )
+                answer = _validated_answer(
+                    raw_answer,
+                    allowed_sources,
+                    source_aliases,
+                    answer_template=context["answer_template"],
+                )
             if answer and answer.get("direct_answer_supported") is False:
                 answer_status = "answer_withheld_direct_support_missing"
                 message = "질문의 핵심 결론을 직접 뒷받침하는 승인 근거가 없어 주변 지식으로 대체하지 않았습니다."
@@ -2878,6 +2901,8 @@ def build_medical_copilot_response(
         "provider": {**provider, "error_type": model_error},
         "quality_validation": {
             "citation_membership": "passed" if answer else "not_applicable",
+            "composition_attempts": composition_attempts,
+            "citation_repair_retry": composition_attempts > 1,
             "entailment_shadow": entailment_shadow,
         },
         "privacy_status": privacy,

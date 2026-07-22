@@ -338,6 +338,64 @@ def test_learning_question_not_withheld_for_guideline_mention(copilot_root: Path
     assert response["blocked"] is False
 
 
+def test_real_composer_retries_once_after_citation_validation_failure(
+    copilot_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_compose(prompt: str, _context: dict) -> dict:
+        calls.append(prompt)
+        if len(calls) == 1:
+            return {
+                "answer_summary": "첫 출력",
+                "direct_answer_supported": True,
+                "key_points": [],
+                "sections": [],
+                "tables": [],
+                "uncertainties": [],
+                "suggested_followups": [],
+            }
+        return {
+            "answer_summary": "천식의 진단 원리를 설명합니다.",
+            "direct_answer_supported": True,
+            "key_points": [
+                {"text": "객관적 검사를 확인합니다.", "citations": ["H1"]}
+            ],
+            "sections": [
+                {
+                    "id": "diagnosis",
+                    "title": "진단 원리",
+                    "body": "가변적 기류 제한을 객관적으로 확인합니다. [H1]",
+                    "citations": ["H1"],
+                }
+            ],
+            "tables": [],
+            "uncertainties": [],
+            "suggested_followups": [],
+        }
+
+    monkeypatch.setattr(
+        medical_copilot,
+        "_provider_status",
+        lambda: {"provider": "anthropic", "model": "test", "available": True},
+    )
+    monkeypatch.setattr(medical_copilot, "_compose_with_model", fake_compose)
+
+    response = build_medical_copilot_response(
+        "천식 진단 원리를 설명해줘",
+        root=copilot_root,
+    )
+
+    assert response["answer_status"] == "grounded_learning_draft"
+    assert response["blocked"] is False
+    assert response["quality_validation"]["composition_attempts"] == 2
+    assert response["quality_validation"]["citation_repair_retry"] is True
+    assert len(calls) == 2
+    assert "검증 재시도" in calls[1]
+    assert "첫 출력" not in calls[1]
+
+
 def test_direct_answer_gap_is_concise_and_blocks_tangential_fill(copilot_root: Path) -> None:
     def composer(_prompt: str, _context: dict) -> dict:
         return {
