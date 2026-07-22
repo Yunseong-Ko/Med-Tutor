@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 import requests
 
@@ -34,10 +34,10 @@ COPILOT_VERIFIED_EXAMPLES = (
         "example_id": "cml_mechanism_v1",
         "prompt": "만성골수성백혈병의 핵심 병태생리와 기전은?",
         "verification_status": "passed",
-        "verified_at": "2026-07-22T00:00:00+09:00",
+        "verified_at": "2026-07-22T22:33:53+09:00",
         "expires_at": "2026-08-05T23:59:59+09:00",
-        "provider": "claude-cli",
-        "model": "sonnet",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
         "expected_answer_status": "grounded_learning_draft",
         "evidence_chapters": [110],
     },
@@ -45,10 +45,10 @@ COPILOT_VERIFIED_EXAMPLES = (
         "example_id": "hemolytic_anemia_learning_v1",
         "prompt": "용혈성빈혈의 핵심 병태생리와 검사 소견을 설명해줘",
         "verification_status": "passed",
-        "verified_at": "2026-07-22T00:00:00+09:00",
+        "verified_at": "2026-07-22T22:33:53+09:00",
         "expires_at": "2026-08-05T23:59:59+09:00",
-        "provider": "claude-cli",
-        "model": "sonnet",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
         "expected_answer_status": "grounded_learning_draft",
         "evidence_chapters": [105],
     },
@@ -56,10 +56,10 @@ COPILOT_VERIFIED_EXAMPLES = (
         "example_id": "aplastic_anemia_learning_v1",
         "prompt": "재생불량성빈혈의 핵심 병태생리와 진단 원리를 설명해줘",
         "verification_status": "passed",
-        "verified_at": "2026-07-22T00:00:00+09:00",
+        "verified_at": "2026-07-22T22:33:53+09:00",
         "expires_at": "2026-08-05T23:59:59+09:00",
-        "provider": "claude-cli",
-        "model": "sonnet",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
         "expected_answer_status": "grounded_learning_draft",
         "evidence_chapters": [107],
     },
@@ -1748,7 +1748,18 @@ def _provider_status() -> dict[str, Any]:
     return {"provider": provider, "model": model, "available": available}
 
 
-def _answer_schema() -> dict[str, Any]:
+def _answer_schema(allowed_source_ids: Iterable[str] = ()) -> dict[str, Any]:
+    allowed = sorted({_clean_text(item) for item in allowed_source_ids if _clean_text(item)})
+
+    def citation_schema() -> dict[str, Any]:
+        item_schema: dict[str, Any] = {"type": "string"}
+        if allowed:
+            # Constrained output can guarantee that the model emits only IDs
+            # the retriever actually supplied. The normal validator remains
+            # authoritative and rechecks membership before anything is shown.
+            item_schema["enum"] = allowed
+        return {"type": "array", "minItems": 1, "items": item_schema}
+
     return {
         "type": "object",
         "properties": {
@@ -1762,7 +1773,7 @@ def _answer_schema() -> dict[str, Any]:
                     "type": "object",
                     "properties": {
                         "text": {"type": "string"},
-                        "citations": {"type": "array", "items": {"type": "string"}},
+                        "citations": citation_schema(),
                     },
                     "required": ["text", "citations"],
                     "additionalProperties": False,
@@ -1778,7 +1789,7 @@ def _answer_schema() -> dict[str, Any]:
                         "id": {"type": "string"},
                         "title": {"type": "string"},
                         "body": {"type": "string"},
-                        "citations": {"type": "array", "items": {"type": "string"}},
+                        "citations": citation_schema(),
                     },
                     "required": ["id", "title", "body", "citations"],
                     "additionalProperties": False,
@@ -1808,7 +1819,7 @@ def _answer_schema() -> dict[str, Any]:
                                 "items": {"type": "string"},
                             },
                         },
-                        "citations": {"type": "array", "items": {"type": "string"}},
+                        "citations": citation_schema(),
                     },
                     "required": ["title", "columns", "rows", "citations"],
                     "additionalProperties": False,
@@ -1820,6 +1831,33 @@ def _answer_schema() -> dict[str, Any]:
         "required": ["answer_summary", "direct_answer_supported", "key_points", "sections", "tables", "uncertainties", "suggested_followups"],
         "additionalProperties": False,
     }
+
+
+def _anthropic_answer_schema(schema: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Adapt local validation constraints to Anthropic's JSON grammar subset."""
+
+    schema = json.loads(json.dumps(schema or _answer_schema()))
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "array" and int(node.get("minItems") or 0) > 1:
+                # Anthropic structured outputs currently accepts array
+                # minItems only as 0 or 1. The stricter count remains in the
+                # prompt and our normalizer still caps all public arrays.
+                node["minItems"] = 1
+            if node.get("type") == "array":
+                # Anthropic's constrained-decoding schema subset rejects
+                # maxItems. Output size is still bounded by the prompt, token
+                # limit, and the normalizer/validator after generation.
+                node.pop("maxItems", None)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(schema)
+    return schema
 
 
 def _parse_model_json(text: str) -> dict[str, Any]:
@@ -2110,7 +2148,19 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
     provider = context["provider"]["provider"]
     model = context["provider"]["model"]
-    schema = _answer_schema()
+    allowed_source_ids = [
+        _clean_text(item.get("source_id"))
+        for item in context.get("harrison_internal") or []
+        if _clean_text(item.get("source_id"))
+    ]
+    allowed_source_ids.extend(
+        f"G{index}"
+        for index, _claim in enumerate(
+            context.get("approved_guideline_claims") or [],
+            start=1,
+        )
+    )
+    schema = _answer_schema(allowed_source_ids)
     if provider == "claude-cli":
         binary = _claude_binary()
         if not binary:
@@ -2162,6 +2212,12 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
                 "temperature": 0,
                 "system": "Return only valid JSON matching the requested schema.",
                 "messages": [{"role": "user", "content": prompt}],
+                "output_config": {
+                    "format": {
+                        "type": "json_schema",
+                        "schema": _anthropic_answer_schema(schema),
+                    }
+                },
             },
             timeout=150,
         )

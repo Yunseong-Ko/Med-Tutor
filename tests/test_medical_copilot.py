@@ -153,6 +153,78 @@ def test_model_json_parser_accepts_safe_wrappers(wrapped: str) -> None:
     assert payload["answer_summary"] == "ok"
 
 
+def test_anthropic_provider_uses_schema_constrained_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, dict] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            {
+                                "answer_summary": "요약",
+                                "direct_answer_supported": True,
+                                "key_points": [],
+                                "sections": [],
+                                "tables": [],
+                                "uncertainties": [],
+                                "suggested_followups": [],
+                            },
+                            ensure_ascii=False,
+                        ),
+                    }
+                ]
+            }
+
+    def fake_post(_url: str, **kwargs) -> FakeResponse:
+        captured["json"] = kwargs["json"]
+        return FakeResponse()
+
+    monkeypatch.setenv("PACCINE_COPILOT_PROVIDER", "anthropic")
+    monkeypatch.setenv("PACCINE_COPILOT_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(medical_copilot.requests, "post", fake_post)
+
+    raw = medical_copilot._compose_with_model(
+        "prompt",
+        {"provider": {"provider": "anthropic", "model": "claude-sonnet-4-6"}},
+    )
+
+    output_format = captured["json"]["output_config"]["format"]
+    assert output_format["type"] == "json_schema"
+    assert output_format["schema"]["required"] == [
+        "answer_summary",
+        "direct_answer_supported",
+        "key_points",
+        "sections",
+        "tables",
+        "uncertainties",
+        "suggested_followups",
+    ]
+    assert raw["direct_answer_supported"] is True
+    assert output_format["schema"]["properties"]["key_points"]["minItems"] == 1
+    assert "maxItems" not in output_format["schema"]["properties"]["key_points"]
+    assert "maxItems" not in output_format["schema"]["properties"]["tables"]
+    citations_schema = output_format["schema"]["properties"]["sections"]["items"]["properties"]["citations"]
+    assert citations_schema["minItems"] == 1
+
+
+def test_answer_schema_constrains_citations_to_retrieved_sources() -> None:
+    schema = medical_copilot._answer_schema(["H2", "H1", "H1", "G1"])
+
+    for collection in ("key_points", "sections", "tables"):
+        citations = schema["properties"][collection]["items"]["properties"]["citations"]
+        assert citations["minItems"] == 1
+        assert citations["items"]["enum"] == ["G1", "H1", "H2"]
+
+
 def test_grounded_answer_requires_harrison_citations_and_redacts_dose(
     copilot_root: Path,
 ) -> None:
