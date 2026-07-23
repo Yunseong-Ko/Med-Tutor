@@ -104,6 +104,19 @@ DATA_GLOBS = (
     "course_exams/extracted/*.json",
 )
 
+# Small, persistent-volume update used after the full demo has already been
+# seeded once.  The start script still verifies the complete mounted volume;
+# this profile only avoids re-uploading unchanged Harrison/RAG/registry/media
+# assets when shipping a bounded content/UI update.
+INCREMENTAL_DATA_PATHS = (
+    "concept_registry.json",
+    "student/qbank.json",
+    "student/qbank_enrichment.draft.json",
+    "student/qbank_enrichment.releases.json",
+    "course_exams/extracted/PMA_202511_G3_B군_1교시.json",
+    "course_exams/media/PMA_202511_G3_B군_1교시",
+)
+
 
 def _copy(source: Path, destination: Path) -> tuple[int, int]:
     if not source.exists():
@@ -117,7 +130,12 @@ def _copy(source: Path, destination: Path) -> tuple[int, int]:
     return 1, destination.stat().st_size
 
 
-def build_bundle(project_root: Path, destination: Path) -> dict[str, object]:
+def build_bundle(
+    project_root: Path,
+    destination: Path,
+    *,
+    incremental: bool = False,
+) -> dict[str, object]:
     project_root = project_root.resolve()
     destination = destination.resolve()
     if destination == project_root or project_root in destination.parents:
@@ -138,13 +156,14 @@ def build_bundle(project_root: Path, destination: Path) -> dict[str, object]:
         copied_files += files
         copied_bytes += size
 
-    for relative in DATA_PATHS:
+    data_paths = INCREMENTAL_DATA_PATHS if incremental else DATA_PATHS
+    for relative in data_paths:
         source = project_root / "data_private" / relative
         files, size = _copy(source, destination / "data_private" / relative)
         copied_files += files
         copied_bytes += size
 
-    for pattern in DATA_GLOBS:
+    for pattern in (() if incremental else DATA_GLOBS):
         for source in sorted((project_root / "data_private").glob(pattern)):
             relative = source.relative_to(project_root / "data_private")
             files, size = _copy(source, destination / "data_private" / relative)
@@ -153,6 +172,7 @@ def build_bundle(project_root: Path, destination: Path) -> dict[str, object]:
 
     manifest = {
         "schema": "paccine.railway_bundle.v1",
+        "profile": "persistent_volume_incremental" if incremental else "full_seed",
         "built_at": datetime.now(timezone.utc).isoformat(),
         "source": str(project_root),
         "destination": str(destination),
@@ -170,12 +190,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--destination", type=Path, default=Path("/tmp/paccine-railway-bundle"))
+    parser.add_argument("--incremental", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    print(json.dumps(build_bundle(args.project_root, args.destination), ensure_ascii=False))
+    print(json.dumps(build_bundle(args.project_root, args.destination, incremental=args.incremental), ensure_ascii=False))
     return 0
 
 
