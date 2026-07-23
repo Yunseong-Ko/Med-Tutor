@@ -1616,11 +1616,62 @@ def test_cml_mechanism_query_prioritizes_pathogenesis_pages(
 
     assert response["answer_status"] == "grounded_learning_draft"
     assert response["blocked"] is False
+    assert response["answer_contract"]["archetype"] == "mechanism_chain"
+    assert response["answer_contract"]["entity_ids"] == ["chronic_myeloid_leukemia"]
     assert {row["printed_page"] for row in response["harrison_sources"][:2]} == {834, 835}
     # This fixture contains mechanism passages only. Do not advertise a
     # diagnosis/treatment/follow-up question that the next retrieval cannot
     # directly ground.
     assert response["answer"]["suggested_followups"] == []
+
+
+def _seed_cml_parent_concepts(copilot_root: Path) -> None:
+    concept_path = copilot_root / medical_copilot.CONCEPT_REGISTRY_RELATIVE_PATH
+    payload = json.loads(concept_path.read_text(encoding="utf-8"))
+    payload["concepts"]["chronic_myeloid_leukemia"] = {
+        "disease_concept_id": "chronic_myeloid_leukemia",
+        "node_type": "disease",
+        "aliases": ["만성골수성백혈병", "CML", "chronic myeloid leukemia"],
+        "edges": {},
+        "evidence": {},
+    }
+    payload["concepts"]["leukemia"] = {
+        "disease_concept_id": "leukemia",
+        "node_type": "disease",
+        "aliases": ["백혈병", "leukemia"],
+        "edges": {},
+        "evidence": {},
+    }
+    concept_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def test_specific_cml_name_does_not_create_a_second_generic_leukemia_entity(
+    copilot_root: Path,
+) -> None:
+    _seed_cml_parent_concepts(copilot_root)
+    matches = medical_copilot.match_ontology_concepts(
+        "만성골수성백혈병의 핵심 병태생리와 기전은?",
+        limit=8,
+        root=copilot_root,
+    )
+
+    assert [item["concept_id"] for item in matches] == ["chronic_myeloid_leukemia"]
+
+
+def test_generic_parent_survives_when_named_separately_from_specific_disease(
+    copilot_root: Path,
+) -> None:
+    _seed_cml_parent_concepts(copilot_root)
+    matches = medical_copilot.match_ontology_concepts(
+        "만성골수성백혈병과 백혈병 일반 개념의 차이를 비교해줘",
+        limit=8,
+        root=copilot_root,
+    )
+
+    assert "chronic_myeloid_leukemia" in {
+        item["concept_id"] for item in matches
+    }
+    assert "leukemia" in {item["concept_id"] for item in matches}
 
 
 def test_harrison_fulltext_fallback_is_not_blocked_by_missing_ontology(

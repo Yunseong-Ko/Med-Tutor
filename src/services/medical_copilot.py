@@ -1825,6 +1825,39 @@ def _concept_payload(root: Path) -> dict[str, dict[str, Any]]:
     return concepts if isinstance(concepts, dict) else {}
 
 
+def _alias_has_independent_mention(
+    normalized_query: str,
+    normalized_alias: str,
+    covering_aliases: Iterable[str],
+) -> bool:
+    """Return true when an alias is named outside a longer disease alias.
+
+    A generic parent term can be a literal suffix of a specific disease name
+    (for example ``백혈병`` inside ``만성골수성백혈병``).  Treating both as
+    separately requested entities turns a single-topic question into a false
+    comparison contract.  A parent concept survives only when the learner
+    actually names it again outside every longer matched alias.
+    """
+
+    if not normalized_alias:
+        return False
+    covering_spans: list[tuple[int, int]] = []
+    for covering_alias in covering_aliases:
+        if len(covering_alias) <= len(normalized_alias):
+            continue
+        start = normalized_query.find(covering_alias)
+        while start >= 0:
+            covering_spans.append((start, start + len(covering_alias)))
+            start = normalized_query.find(covering_alias, start + 1)
+    start = normalized_query.find(normalized_alias)
+    while start >= 0:
+        end = start + len(normalized_alias)
+        if not any(parent_start <= start and end <= parent_end for parent_start, parent_end in covering_spans):
+            return True
+        start = normalized_query.find(normalized_alias, start + 1)
+    return False
+
+
 def _guideline_overlay(root: Path) -> dict[str, Any]:
     path = root / GUIDELINE_OVERLAY_RELATIVE_PATH
     if not path.is_file():
@@ -1992,6 +2025,37 @@ def match_ontology_concepts(
                 ranked.append((score, item_id, raw_concept, matched_aliases))
 
     ranked.sort(key=lambda row: (-row[0], row[1]))
+    # Remove generic concepts whose only literal mention is embedded inside a
+    # more specific matched disease name. This is a routing correction, not a
+    # medical inference: it only prevents one phrase from being counted twice.
+    literal_aliases_by_concept = {
+        item_id: {
+            _normalized(alias)
+            for alias in matched_aliases
+            if _normalized(alias) and not _clean_text(alias).startswith("symptom:")
+        }
+        for _score, item_id, _concept, matched_aliases in ranked
+    }
+    filtered_ranked: list[tuple[float, str, dict[str, Any], list[str]]] = []
+    for score, item_id, raw_concept, matched_aliases in ranked:
+        aliases = literal_aliases_by_concept.get(item_id) or set()
+        stronger_covering_aliases = {
+            other_alias
+            for other_score, other_id, _other_concept, _other_matches in ranked
+            if other_id != item_id and other_score > score
+            for other_alias in literal_aliases_by_concept.get(other_id) or set()
+        }
+        if aliases and all(
+            not _alias_has_independent_mention(
+                query_normalized,
+                alias,
+                stronger_covering_aliases,
+            )
+            for alias in aliases
+        ):
+            continue
+        filtered_ranked.append((score, item_id, raw_concept, matched_aliases))
+    ranked = filtered_ranked
     results: list[dict[str, Any]] = []
     if ranked and ranked[0][0] >= 50:
         # Once a strong disease alias is present, do not keep weak concepts
