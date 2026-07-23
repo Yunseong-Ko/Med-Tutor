@@ -6,19 +6,24 @@
   <meta name="theme-color" content="#0f2a29">
   <title>P:accine · 문제 풀이</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-  <link rel="stylesheet" href="/student-v3/app.css">
-  <link rel="stylesheet" href="/student-v3/reader.css">
+  <link rel="stylesheet" href="/student-v3/app.css?v=20260723-practice-flow-v2">
+  <link rel="stylesheet" href="/student-v3/reader.css?v=20260723-practice-flow-v2">
 </head>
 <body class="reader-body">
   <header class="reader-topbar">
     <a class="reader-close" href="/student/#library">문항 닫기</a>
     <div class="session-title"><strong id="session-title">문항 불러오는 중</strong><span id="session-progress">0/0</span></div>
-    <div class="reader-tools"><span id="timer">0:00</span><button id="bookmark-top" type="button" aria-label="문항 북마크">☆</button></div>
+    <div class="reader-tools"><button id="navigator-mobile" class="navigator-mobile" type="button" aria-label="문항 목록 열기">목록</button><span id="timer">0:00</span><button id="bookmark-top" type="button" aria-label="문항 북마크">☆</button></div>
   </header>
-  <main id="reader" class="reader-shell">
-    <section class="loading-state"><span class="spinner"></span><p>실제 문항을 불러오는 중입니다.</p></section>
-  </main>
+  <div id="reader-layout" class="reader-layout">
+    <aside id="question-navigator" class="question-navigator" aria-label="문항 탐색"></aside>
+    <main id="reader" class="reader-shell">
+      <section class="loading-state"><span class="spinner"></span><p>실제 문항을 불러오는 중입니다.</p></section>
+    </main>
+  </div>
+  <button id="navigator-backdrop" class="navigator-backdrop" type="button" aria-label="문항 목록 닫기"></button>
+  <div id="reader-modal" class="reader-modal-root"></div>
   <div id="toast" class="toast" role="status"></div>
-  <script src="/student-v3/reader.js?v=20260723-pma70-rich-explanation-v2" defer></script>
+  <script src="/student-v3/reader.js?v=20260723-practice-flow-v2" defer></script>
 </body>
 </html>

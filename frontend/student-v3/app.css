@@ -845,3 +845,78 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .guideline-v1-detail-actions { padding: 16px 18px 24px; flex-direction: column-reverse; }
   .guideline-v1-detail-actions .button { width: 100%; }
 }
+
+/* Practice flow — library → builder → reader */
+.builder-empty { padding: 42px; display: grid; justify-items: center; gap: 10px; text-align: center; }
+.builder-empty p { margin: 0 0 8px; color: var(--muted); }
+.builder-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+.builder-main { display: grid; gap: 14px; min-width: 0; }
+.builder-source, .builder-section { padding: 22px; }
+.builder-source h2 { margin-bottom: 7px; font-size: 25px; }
+.builder-source p, .builder-setting-grid fieldset > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.builder-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.builder-section-head > div { display: flex; align-items: center; gap: 10px; }
+.builder-section-head > div > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--teal-soft); color: var(--teal); font-size: 12px; font-weight: 850; }
+.builder-section-head h2 { margin: 0; font-size: 18px; }
+.text-button { border: 0; background: transparent; color: var(--teal); cursor: pointer; font-size: 11px; font-weight: 800; }
+.scope-tree { display: grid; gap: 8px; }
+.scope-group { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: #fbfbf9; }
+.scope-major { width: 100%; min-height: 58px; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.scope-major span { display: grid; gap: 3px; }
+.scope-major b { font-size: 13px; }
+.scope-major small { color: var(--soft); font-size: 10px; }
+.scope-major i { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; background: #eef3f1; color: var(--teal); font-style: normal; font-weight: 850; }
+.scope-topics { display: none; padding: 4px 13px 13px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.scope-group.open .scope-topics { display: grid; }
+.scope-topic { min-height: 40px; padding: 8px 10px; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 7px; border-radius: 9px; background: white; color: #435450; cursor: pointer; font-size: 11px; }
+.scope-topic input { accent-color: var(--teal); }
+.scope-topic small { color: var(--soft); }
+.scope-topic.all-topic { grid-column: 1 / -1; background: #edf6f4; color: var(--teal-dark); font-weight: 750; }
+.builder-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.builder-options button { min-height: 68px; padding: 12px; display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 12px; background: white; cursor: pointer; text-align: left; }
+.builder-options button b { font-size: 13px; }
+.builder-options button small { color: var(--soft); font-size: 10px; }
+.builder-options button.selected { border: 2px solid var(--teal); padding: 11px; background: #eff8f6; }
+.builder-options button:disabled { background: #f5f4f0; color: #9ba4a1; cursor: not-allowed; }
+.builder-setting-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 17px; }
+.builder-setting-grid fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.builder-setting-grid fieldset:last-child { grid-column: 1 / -1; }
+.builder-setting-grid legend { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.segmented { display: flex; gap: 5px; padding: 4px; overflow-x: auto; border-radius: 11px; background: #f2f1ec; }
+.segmented button { min-height: 37px; flex: 1; padding: 7px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; font-size: 11px; font-weight: 750; }
+.segmented button.selected { background: white; color: var(--teal-dark); box-shadow: 0 6px 14px -12px rgba(15,42,41,.9); }
+.builder-setting-grid fieldset > p { margin-top: 8px; }
+.custom-count { margin-top: 9px; display: grid; grid-template-columns: auto 90px 1fr; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.custom-count input { width: 90px; min-height: 37px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; }
+.builder-summary { position: sticky; top: 94px; padding: 22px; }
+.builder-summary h2 { margin-bottom: 16px; }
+.builder-summary dl { margin: 0; display: grid; }
+.builder-summary dl > div { padding: 11px 0; display: grid; grid-template-columns: 66px 1fr; gap: 8px; border-bottom: 1px solid #eeeae1; }
+.builder-summary dt { color: var(--soft); font-size: 10px; }
+.builder-summary dd { margin: 0; text-align: right; font-size: 11px; font-weight: 750; overflow-wrap: anywhere; }
+.builder-total { margin: 18px 0 12px; padding: 15px; display: flex; align-items: center; justify-content: space-between; border-radius: 13px; background: var(--teal-dark); color: white; }
+.builder-total span { color: #b9d4d0; font-size: 11px; }
+.builder-total strong { font-size: 28px; }
+.builder-summary .button { width: 100%; }
+.builder-clamp { margin: 9px 0 0; color: #96621c; font-size: 10px; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .builder-layout { grid-template-columns: 1fr; }
+  .builder-summary { position: sticky; top: auto; bottom: 68px; z-index: 18; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; box-shadow: 0 -12px 35px -24px rgba(15,42,41,.7); }
+  .builder-summary > .eyebrow, .builder-summary > h2, .builder-summary > dl, .builder-summary > .builder-clamp { display: none; }
+  .builder-total { margin: 0; background: transparent; color: var(--ink); padding: 0 8px; display: grid; justify-content: start; }
+  .builder-total span { color: var(--muted); }
+  .builder-total strong { font-size: 24px; }
+  .builder-summary .button { width: auto; min-width: 150px; }
+}
+
+@media (max-width: 720px) {
+  .builder-source, .builder-section { padding: 17px; }
+  .scope-topics { grid-template-columns: 1fr; }
+  .builder-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .builder-setting-grid { grid-template-columns: 1fr; }
+  .builder-setting-grid fieldset:last-child { grid-column: auto; }
+  .custom-count { grid-template-columns: auto 80px 1fr; }
+  .builder-summary { bottom: 68px; }
+  .builder-summary .button { min-width: 135px; padding-inline: 12px; }
+}

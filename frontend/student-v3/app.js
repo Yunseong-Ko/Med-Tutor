@@ -2,6 +2,7 @@ const app = document.querySelector("#app");
 const toastEl = document.querySelector("#toast");
 
 const COPILOT_FOCUS_STORAGE_KEY = "paccine.medical_copilot.focus_mode.v1";
+const PRACTICE_BUILDER_STORAGE_KEY = "paccine.student.practice_builder.v1";
 function activeCopilotExamplePrompts() {
   const now = new Date();
   const registry = Array.isArray(state.copilotStatus?.verified_examples)
@@ -19,6 +20,30 @@ function activeCopilotExamplePrompts() {
 
 function initialCopilotFocusMode() {
   try { return localStorage.getItem(COPILOT_FOCUS_STORAGE_KEY) !== "off"; } catch (_) { return true; }
+}
+
+function defaultPracticeBuilder() {
+  return {
+    sourceType: "",
+    sourceId: "",
+    sourceName: "",
+    selectedScopes: [],
+    status: "all",
+    countMode: "20",
+    customCount: 20,
+    mode: "study",
+    order: "random",
+    openMajors: [],
+  };
+}
+
+function loadPracticeBuilder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PRACTICE_BUILDER_STORAGE_KEY) || "{}");
+    return {...defaultPracticeBuilder(), ...(saved && typeof saved === "object" ? saved : {})};
+  } catch (_) {
+    return defaultPracticeBuilder();
+  }
 }
 
 const state = {
@@ -59,6 +84,7 @@ const state = {
   guidelineError: "",
   reviewStatusFilter: "all",
   reviewCourseFilter: "all",
+  practiceBuilder: loadPracticeBuilder(),
 };
 
 const COPILOT_JOB_STORAGE_KEY = "paccine.medical_copilot.active_job.v1";
@@ -349,7 +375,7 @@ function reasonLabel(reason) {
 }
 
 function syncNav() {
-  const current = route();
+  const current = route() === "builder" ? "library" : route();
   document.querySelectorAll("[data-route]").forEach((node) => node.classList.toggle("active", node.dataset.route === current));
 }
 
@@ -359,6 +385,82 @@ function startUrl({courseId = "", exam = "", mode = "study", count = 20, ids = "
   if (exam) params.set("exam", exam);
   if (ids) params.set("ids", ids);
   return `/student/reader.html?${params}`;
+}
+
+function savePracticeBuilder() {
+  try { localStorage.setItem(PRACTICE_BUILDER_STORAGE_KEY, JSON.stringify(state.practiceBuilder)); } catch (_) {}
+}
+
+function openPracticeBuilder({sourceType, sourceId = "", sourceName = ""}) {
+  const isExam = sourceType === "exam";
+  state.practiceBuilder = {
+    ...defaultPracticeBuilder(),
+    sourceType,
+    sourceId,
+    sourceName,
+    mode: isExam ? "exam" : "study",
+    order: isExam ? "original" : "random",
+  };
+  savePracticeBuilder();
+  location.hash = "#builder";
+}
+
+function builderSourceQuestions() {
+  const builder = state.practiceBuilder;
+  return (state.qbank?.questions || [])
+    .filter((question) => question.practice_ready !== false)
+    .filter((question) => builder.sourceType === "exam"
+      ? question.exam === builder.sourceName
+      : question.course_id === builder.sourceId);
+}
+
+function scopeKey(major, topic) {
+  return `${major}\u241f${topic}`;
+}
+
+function builderHierarchy(items) {
+  const hierarchy = new Map();
+  items.forEach((question) => {
+    const major = String(question.major || question.subject || "기타");
+    const topic = String(question.topic || question.subtopic || "기타");
+    if (!hierarchy.has(major)) hierarchy.set(major, new Map());
+    if (!hierarchy.get(major).has(topic)) hierarchy.get(major).set(topic, []);
+    hierarchy.get(major).get(topic).push(question);
+  });
+  return [...hierarchy.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "ko"))
+    .map(([major, topics]) => ({
+      major,
+      topics: [...topics.entries()]
+        .sort(([a], [b]) => a.localeCompare(b, "ko"))
+        .map(([topic, questions]) => ({topic, questions, key: scopeKey(major, topic)})),
+    }));
+}
+
+function selectedBuilderQuestions() {
+  const builder = state.practiceBuilder;
+  const selectedScopes = new Set(builder.selectedScopes || []);
+  let items = builderSourceQuestions().filter((question) => {
+    if (!selectedScopes.size) return true;
+    return selectedScopes.has(scopeKey(
+      String(question.major || question.subject || "기타"),
+      String(question.topic || question.subtopic || "기타"),
+    ));
+  });
+  if (builder.status === "bookmarked") {
+    const bookmarked = new Set(state.bookmarks || []);
+    items = items.filter((question) => bookmarked.has(question.id));
+  }
+  return items;
+}
+
+function shuffledOnce(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const random = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[random]] = [copy[random], copy[index]];
+  }
+  return copy;
 }
 
 function courseCard(course) {
@@ -376,7 +478,7 @@ function courseCard(course) {
       <p>${esc(topicText)}${mediaReviewCount ? `<br><small>제시자료 연결 검토 ${mediaReviewCount}문항</small>` : ""}</p>
       <footer>
         <span class="status-chip ${esc(course.status)}">${esc(statusLabel[course.status])}${readyCount ? ` · ${readyCount}문항` : ""}</span>
-        ${course.status === "released" && readyCount ? `<a class="button primary small" href="${startUrl({courseId: course.id, count: Math.min(20, readyCount)})}">풀기 →</a>` : `<button class="button secondary small" disabled>준비 중</button>`}
+        ${course.status === "released" && readyCount ? `<button class="button primary small" type="button" data-builder-course="${esc(course.id)}">범위 구성 →</button>` : `<button class="button secondary small" disabled>준비 중</button>`}
       </footer>
     </article>`;
 }
@@ -393,7 +495,7 @@ function renderHome() {
   const todayTarget = Math.min(18, counts.overdue + counts.due + Math.min(12, counts.new));
   const completed = Math.min(todayTarget, 0);
   const hasDueReview = Number(counts.overdue || 0) + Number(counts.due || 0) > 0;
-  const primaryHref = hasDueReview ? "#review" : startUrl({courseId: favoriteCourses[0]?.id || "neuro", count: 12});
+  const primaryHref = hasDueReview ? "#review" : "#library";
   const primaryLabel = hasDueReview ? `오늘 복습 ${counts.overdue + counts.due}개 시작 →` : "새 학습 시작 →";
   app.innerHTML = `
     ${pageHead("Student Learning OS", "오늘의 학습", "실제 문항·복습 일정·개념 연결을 한 흐름에서 이어갑니다.", `<a class="button primary" href="${primaryHref}">${primaryLabel}</a>`)}
@@ -442,10 +544,17 @@ function renderLibrary() {
 
 function renderAssessments() {
   return `<div class="notice"><b>i</b><span>시험지 세트는 원본 평가 단위를 유지합니다. 같은 문항이 과목별 학습에 연결돼도 풀이·북마크·FSRS 기록은 문항 ID 기준으로 한 번만 저장됩니다.</span></div><section class="section assessment-list">${state.catalog.assessments.map((item) => `
-    <article class="assessment-row"><span class="row-icon">시</span><div class="row-main"><h3>${esc(item.name)}</h3><p>${item.practice_ready_count ?? item.question_count}문항 학습 가능 · 전체 ${item.question_count}문항${item.media_review_count ? ` · 자료 검토 ${item.media_review_count}` : ""}</p></div><a class="button primary small" href="${startUrl({exam: item.name, count: item.practice_ready_count ?? item.question_count})}">세트 풀기 →</a></article>`).join("")}</section>`;
+    <article class="assessment-row"><span class="row-icon">시</span><div class="row-main"><h3>${esc(item.name)}</h3><p>${item.practice_ready_count ?? item.question_count}문항 학습 가능 · 전체 ${item.question_count}문항${item.media_review_count ? ` · 자료 검토 ${item.media_review_count}` : ""}</p></div><button class="button primary small" type="button" data-builder-exam="${esc(item.name)}">세트 설정 →</button></article>`).join("")}</section>`;
 }
 
 function bindCourseActions() {
+  document.querySelectorAll("[data-builder-course]").forEach((button) => button.addEventListener("click", () => {
+    const course = state.catalog.courses.find((item) => item.id === button.dataset.builderCourse);
+    if (course) openPracticeBuilder({sourceType: "course", sourceId: course.id, sourceName: course.name});
+  }));
+  document.querySelectorAll("[data-builder-exam]").forEach((button) => button.addEventListener("click", () => {
+    openPracticeBuilder({sourceType: "exam", sourceName: button.dataset.builderExam});
+  }));
   document.querySelectorAll("[data-favorite]").forEach((button) => button.addEventListener("click", async () => {
     const course = state.catalog.courses.find((item) => item.id === button.dataset.favorite);
     if (!course) return;
@@ -458,6 +567,149 @@ function bindCourseActions() {
       render();
     } catch (error) { toast(error.message); button.disabled = false; }
   }));
+}
+
+function renderBuilder() {
+  const builder = state.practiceBuilder;
+  const sourceItems = builderSourceQuestions();
+  if (!builder.sourceType || !sourceItems.length) {
+    app.innerHTML = `${pageHead("Practice Builder", "학습 범위 구성", "과목 또는 시험지 세트를 먼저 선택해 주세요.")}
+      <section class="card builder-empty"><strong>구성할 학습 자료가 선택되지 않았습니다.</strong><p>나의 서재에서 과목의 ‘범위 구성’ 또는 시험지의 ‘세트 설정’을 눌러 시작하세요.</p><a class="button primary" href="#library">나의 서재로 이동</a></section>`;
+    return;
+  }
+  const hierarchy = builderHierarchy(sourceItems);
+  const selectedScopes = new Set(builder.selectedScopes || []);
+  const selectedItems = selectedBuilderQuestions();
+  const bookmarkedCount = sourceItems.filter((question) => state.bookmarks.includes(question.id)).length;
+  const requestedCount = builder.countMode === "all"
+    ? selectedItems.length
+    : builder.countMode === "custom"
+      ? Number(builder.customCount || 1)
+      : Number(builder.countMode || 20);
+  const finalCount = Math.max(0, Math.min(selectedItems.length, requestedCount));
+  const allSelected = selectedScopes.size === 0;
+  const isExam = builder.sourceType === "exam";
+  app.innerHTML = `
+    ${pageHead("Practice Builder", "학습 범위 구성", "실제 문항 범위와 학습 방식을 정한 뒤 Reader를 시작합니다.", `<a class="button secondary" href="#library">서재로 돌아가기</a>`)}
+    <section class="builder-layout">
+      <div class="builder-main">
+        <article class="card builder-source">
+          <span class="eyebrow">${isExam ? "Assessment Set" : "Course"}</span>
+          <h2>${esc(builder.sourceName)}</h2>
+          <p>${sourceItems.length}개 학습 가능 문항 · ${isExam ? "원본 시험지 순서를 기본값으로 사용합니다." : "과목·주제별로 필요한 범위만 고를 수 있습니다."}</p>
+        </article>
+        <article class="card builder-section">
+          <div class="builder-section-head"><div><span>1</span><h2>범위 선택</h2></div><button type="button" class="text-button" data-select-all-scopes>${allSelected ? "전체 선택됨" : "전체 선택"}</button></div>
+          <div class="scope-tree">
+            ${hierarchy.map((group) => {
+              const groupOpen = (builder.openMajors || []).includes(group.major) || hierarchy.length <= 4;
+              const groupSelected = allSelected || group.topics.every((topic) => selectedScopes.has(topic.key));
+              return `<section class="scope-group ${groupOpen ? "open" : ""}">
+                <button type="button" class="scope-major" data-toggle-major="${esc(group.major)}" aria-expanded="${groupOpen}">
+                  <span><b>${esc(group.major)}</b><small>${group.topics.reduce((sum, topic) => sum + topic.questions.length, 0)}문항 · ${group.topics.length}개 주제</small></span><i>${groupOpen ? "−" : "+"}</i>
+                </button>
+                <div class="scope-topics">
+                  <label class="scope-topic all-topic"><input type="checkbox" data-major-scope="${esc(group.major)}" ${groupSelected ? "checked" : ""}><span>이 영역 전체</span></label>
+                  ${group.topics.map((topic) => `<label class="scope-topic"><input type="checkbox" data-scope-key="${esc(topic.key)}" ${allSelected || selectedScopes.has(topic.key) ? "checked" : ""}><span>${esc(topic.topic)}</span><small>${topic.questions.length}</small></label>`).join("")}
+                </div>
+              </section>`;
+            }).join("")}
+          </div>
+        </article>
+        <article class="card builder-section">
+          <div class="builder-section-head"><div><span>2</span><h2>문항 상태</h2></div></div>
+          <div class="builder-options status-options">
+            <button type="button" data-builder-status="all" class="${builder.status === "all" ? "selected" : ""}"><b>전체</b><small>${sourceItems.length}문항</small></button>
+            <button type="button" data-builder-status="bookmarked" class="${builder.status === "bookmarked" ? "selected" : ""}"><b>북마크</b><small>${bookmarkedCount}문항</small></button>
+            <button type="button" disabled><b>미응답</b><small>기록 연결 예정</small></button>
+            <button type="button" disabled><b>오답</b><small>기록 연결 예정</small></button>
+          </div>
+        </article>
+        <article class="card builder-section">
+          <div class="builder-section-head"><div><span>3</span><h2>세션 설정</h2></div></div>
+          <div class="builder-setting-grid">
+            <fieldset><legend>문항 수</legend><div class="segmented">${["10","20","30","all","custom"].map((value) => `<button type="button" data-builder-count="${value}" class="${builder.countMode === value ? "selected" : ""}">${value === "all" ? "전체" : value === "custom" ? "직접" : value}</button>`).join("")}</div>${builder.countMode === "custom" ? `<label class="custom-count"><span>직접 입력</span><input id="builder-custom-count" type="number" min="1" max="${selectedItems.length || 1}" value="${esc(builder.customCount)}"><small>최대 ${selectedItems.length}문항</small></label>` : ""}</fieldset>
+            <fieldset><legend>풀이 모드</legend><div class="segmented"><button type="button" data-builder-mode="study" class="${builder.mode === "study" ? "selected" : ""}">학습 모드</button><button type="button" data-builder-mode="exam" class="${builder.mode === "exam" ? "selected" : ""}">시험 모드</button></div><p>${builder.mode === "study" ? "문항마다 정답과 해설을 바로 확인합니다." : "세션 제출 전에는 정답·해설을 공개하지 않습니다."}</p></fieldset>
+            <fieldset><legend>문항 순서</legend><div class="segmented"><button type="button" data-builder-order="original" class="${builder.order === "original" ? "selected" : ""}">원본 순서</button><button type="button" data-builder-order="random" class="${builder.order === "random" ? "selected" : ""}">무작위</button></div></fieldset>
+          </div>
+        </article>
+      </div>
+      <aside class="card builder-summary">
+        <span class="eyebrow">Session Summary</span><h2>설계 요약</h2>
+        <dl><div><dt>자료</dt><dd>${esc(builder.sourceName)}</dd></div><div><dt>범위</dt><dd>${allSelected ? "전체 범위" : `${selectedScopes.size}개 주제`}</dd></div><div><dt>상태</dt><dd>${builder.status === "bookmarked" ? "북마크" : "전체"}</dd></div><div><dt>모드</dt><dd>${builder.mode === "study" ? "학습" : "시험"}</dd></div><div><dt>순서</dt><dd>${builder.order === "random" ? "무작위" : "원본"}</dd></div></dl>
+        <div class="builder-total"><span>시작할 문항</span><strong>${finalCount}</strong></div>
+        <button type="button" class="button primary" data-start-practice ${finalCount ? "" : "disabled"}>${builder.mode === "study" ? "학습 시작" : "시험 시작"} →</button>
+        ${selectedItems.length && requestedCount > selectedItems.length ? `<p class="builder-clamp">선택한 범위에 맞춰 ${selectedItems.length}문항으로 조정됩니다.</p>` : ""}
+      </aside>
+    </section>`;
+
+  document.querySelector("[data-select-all-scopes]")?.addEventListener("click", () => {
+    state.practiceBuilder.selectedScopes = [];
+    savePracticeBuilder();
+    renderBuilder();
+  });
+  document.querySelectorAll("[data-toggle-major]").forEach((button) => button.addEventListener("click", () => {
+    const open = new Set(state.practiceBuilder.openMajors || []);
+    open.has(button.dataset.toggleMajor) ? open.delete(button.dataset.toggleMajor) : open.add(button.dataset.toggleMajor);
+    state.practiceBuilder.openMajors = [...open];
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-scope-key]").forEach((input) => input.addEventListener("change", () => {
+    const allKeys = hierarchy.flatMap((group) => group.topics.map((topic) => topic.key));
+    const selected = selectedScopes.size ? new Set(selectedScopes) : new Set(allKeys);
+    input.checked ? selected.add(input.dataset.scopeKey) : selected.delete(input.dataset.scopeKey);
+    state.practiceBuilder.selectedScopes = selected.size === allKeys.length ? [] : [...selected];
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-major-scope]").forEach((input) => input.addEventListener("change", () => {
+    const allKeys = hierarchy.flatMap((group) => group.topics.map((topic) => topic.key));
+    const groupKeys = hierarchy.find((group) => group.major === input.dataset.majorScope)?.topics.map((topic) => topic.key) || [];
+    const selected = selectedScopes.size ? new Set(selectedScopes) : new Set(allKeys);
+    groupKeys.forEach((key) => input.checked ? selected.add(key) : selected.delete(key));
+    state.practiceBuilder.selectedScopes = selected.size === allKeys.length ? [] : [...selected];
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-builder-status]").forEach((button) => button.addEventListener("click", () => {
+    state.practiceBuilder.status = button.dataset.builderStatus;
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-builder-count]").forEach((button) => button.addEventListener("click", () => {
+    state.practiceBuilder.countMode = button.dataset.builderCount;
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelector("#builder-custom-count")?.addEventListener("change", (event) => {
+    state.practiceBuilder.customCount = Math.max(1, Math.min(selectedItems.length || 1, Number(event.target.value) || 1));
+    savePracticeBuilder();
+    renderBuilder();
+  });
+  document.querySelectorAll("[data-builder-mode]").forEach((button) => button.addEventListener("click", () => {
+    state.practiceBuilder.mode = button.dataset.builderMode;
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-builder-order]").forEach((button) => button.addEventListener("click", () => {
+    state.practiceBuilder.order = button.dataset.builderOrder;
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelector("[data-start-practice]")?.addEventListener("click", () => {
+    const items = state.practiceBuilder.order === "random" ? shuffledOnce(selectedItems) : [...selectedItems];
+    const chosen = items.slice(0, finalCount);
+    if (!chosen.length) return toast("선택한 범위에 시작할 문항이 없습니다.");
+    savePracticeBuilder();
+    location.href = startUrl({
+      courseId: builder.sourceType === "course" ? builder.sourceId : "",
+      exam: builder.sourceType === "exam" ? builder.sourceName : "",
+      mode: builder.mode,
+      count: chosen.length,
+      ids: chosen.map((question) => question.id).join(","),
+    });
+  });
 }
 
 function renderConcepts() {
@@ -1285,6 +1537,7 @@ function render() {
   if (!state.catalog) return;
   const current = route();
   if (current === "library") renderLibrary();
+  else if (current === "builder") renderBuilder();
   else if (current === "concepts") renderConcepts();
   else if (current === "review") renderReview();
   else if (current === "clinical") renderClinical();
