@@ -6,6 +6,8 @@ from src.services.medical_copilot import COPILOT_VERIFIED_EXAMPLES
 
 APP_PATH = Path("/Users/goyunseong/Documents/AI Projects/Med-Tutor/frontend/student-v3/app.js")
 INDEX_PATH = Path("/Users/goyunseong/Documents/AI Projects/Med-Tutor/frontend/student-v3/index.html")
+READER_CSS_PATH = Path("/Users/goyunseong/Documents/AI Projects/Med-Tutor/frontend/student-v3/reader.css")
+READER_HTML_PATH = Path("/Users/goyunseong/Documents/AI Projects/Med-Tutor/frontend/student-v3/reader.html")
 
 VERIFIED_EXAMPLES = (
     "만성골수성백혈병의 핵심 병태생리와 기전은?",
@@ -96,6 +98,16 @@ class StudentCopilotExampleTests(unittest.TestCase):
 
         for phrase in ("교수 검수", "교수 승인", "실제 교수", "검수 대기"):
             self.assertNotIn(phrase, text)
+
+    def test_reader_keeps_compact_centered_question_layout(self):
+        css = READER_CSS_PATH.read_text(encoding="utf-8")
+        html = READER_HTML_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("reader.css?v=20260723-compact-reader-v1", html)
+        self.assertIn("font-size: clamp(15px, 1.35vw, 18px)", css)
+        self.assertIn("justify-content: center", css)
+        self.assertIn("max-height: clamp(200px, 30vh, 300px)", css)
+        self.assertIn("min-height: 50px", css)
 
 
 if __name__ == "__main__":
