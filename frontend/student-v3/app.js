@@ -1315,7 +1315,15 @@ async function pollCopilotJob({jobId, question, mode, runToken}) {
         return;
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const elapsedMs = Math.max(0, Date.now() - Number(state.copilotStartedAt || Date.now()));
+    const pollDelayMs = document.hidden
+      ? 5000
+      : elapsedMs < 15000
+        ? 1000
+        : elapsedMs < 45000
+          ? 1800
+          : 3000;
+    await new Promise((resolve) => setTimeout(resolve, pollDelayMs));
   }
 }
 
@@ -1568,11 +1576,12 @@ async function boot() {
       api("/api/student/medical-copilot/review?limit=30"),
       api("/api/student/concepts"),
       api("/api/practice/analytics/student"),
-      loadGuidelineCatalog(),
-      loadCopilotStatus(),
     ]);
     Object.assign(state, {qbank, catalog, bookmarks: bookmarks.question_ids || [], review, claimReview, concepts, analytics});
     if (!restoreActiveCopilotJob()) render();
+    void Promise.allSettled([loadGuidelineCatalog(), loadCopilotStatus()]).then(() => {
+      if (route() === "clinical" && !state.assistantBusy) renderClinical();
+    });
   } catch (error) {
     app.innerHTML = `<section class="card empty-card" style="margin-top:50px"><strong>학습 데이터를 불러오지 못했습니다</strong><p>${esc(error.message)}</p><button class="button primary" onclick="location.reload()">다시 시도</button></section>`;
   }

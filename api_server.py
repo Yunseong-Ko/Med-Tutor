@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from src.services.anki_export import build_anki_export, build_practice_anki_export
@@ -214,7 +214,13 @@ _SESSION_COOKIE = "paccine_session"
 _ROLE_COOKIE = "paccine_role"
 _SESSION_TTL_SECONDS = 30 * 24 * 60 * 60  # 30일
 _COOKIE_SECURE = os.getenv("APP_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes", "on"}
-_AUTH_PUBLIC_PATHS = {"/login", "/api/auth/login", "/api/health"}
+_AUTH_PUBLIC_PATHS = {
+    "/login",
+    "/api/auth/login",
+    "/api/health",
+    "/sw.js",
+    "/manifest.webmanifest",
+}
 
 
 def _sign_session_token(email: str, expires_at: int) -> str:
@@ -438,6 +444,23 @@ async def _email_login_gate(request: Request, call_next):
             next_path = f"{next_path}?{request.url.query}"
         return RedirectResponse(url=f"/login?next={quote(next_path, safe='')}", status_code=307)
     return JSONResponse({"detail": "로그인이 필요합니다."}, status_code=401)
+
+
+@app.middleware("http")
+async def _static_asset_cache_policy(request: Request, call_next):
+    """Cache versioned UI assets while keeping HTML and API payloads fresh."""
+
+    response = await call_next(request)
+    if request.method != "GET" or response.status_code not in {200, 304}:
+        return response
+    path = request.url.path.lower()
+    if path == "/sw.js":
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+    static_suffixes = (".css", ".js", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".woff", ".woff2")
+    if path.endswith(static_suffixes) and "v" in request.query_params:
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 async def save_upload_file(upload: UploadFile, *, kind: str):
@@ -2784,19 +2807,13 @@ def _latest_qbank_bookmarks(user_id: str) -> dict[str, bool]:
 
 
 def _load_student_question_links() -> dict[str, dict]:
-    try:
-        payload = json.loads(STUDENT_QUESTION_LINKS_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return {}
+    payload = load_json_snapshot(STUDENT_QUESTION_LINKS_PATH)
     questions = payload.get("questions") if isinstance(payload, dict) else {}
     return questions if isinstance(questions, dict) else {}
 
 
 def _load_student_concept_notes() -> list[dict]:
-    try:
-        payload = json.loads(STUDENT_CONCEPT_NOTES_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return []
+    payload = load_json_snapshot(STUDENT_CONCEPT_NOTES_PATH)
     notes = payload.get("notes") if isinstance(payload, dict) else []
     return [note for note in notes if isinstance(note, dict)] if isinstance(notes, list) else []
 
@@ -3075,14 +3092,37 @@ def faculty_qbank_enrichment_review(
     }
 
 
-@app.get("/api/student/qbank")
-def student_qbank_catalog() -> dict:
-    """Serve canonical qbank metadata and questions without truth fields."""
+def _cache_file_signature(path: Path) -> tuple[str, int, int]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return str(path.resolve()), 0, 0
+    return str(path.resolve()), stat.st_mtime_ns, stat.st_size
 
+
+def _student_qbank_cache_key() -> tuple[object, ...]:
+    from src.services import qbank_enrichment
+
+    media_signatures = tuple(
+        _cache_file_signature(COURSE_EXAM_MEDIA_DIR / source_exam)
+        for source_exam in sorted(set(STUDENT_QBANK_MEDIA_ALIASES.values()))
+    )
+    return (
+        _cache_file_signature(STUDENT_QBANK_PATH),
+        _cache_file_signature(qbank_enrichment.RELEASES_PATH),
+        media_signatures,
+    )
+
+
+@lru_cache(maxsize=8)
+def _student_qbank_catalog_snapshot(cache_key: tuple[object, ...]) -> dict:
+    """Build the immutable pre-answer catalog once per data snapshot."""
+
+    del cache_key
     try:
         questions = load_student_qbank()["questions"]
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=503, detail="학생 문항 데이터를 불러올 수 없습니다.") from exc
+        raise ValueError("학생 문항 데이터를 불러올 수 없습니다.") from exc
     enrichment_releases = _visible_qbank_enrichment_releases()
     course_names = ("신경 및 특수감각기학", "혈액종양내과", "임상종합평가")
     courses = []
@@ -3127,6 +3167,26 @@ def student_qbank_catalog() -> dict:
         "practice_ready_count": ready_count,
         "media_review_count": len(questions) - ready_count,
     }
+
+
+@app.get("/api/student/qbank")
+def student_qbank_catalog(request: Request) -> Response:
+    """Serve a revalidatable, pre-answer-safe qbank snapshot."""
+
+    cache_key = _student_qbank_cache_key()
+    etag = f'"{hashlib.sha256(repr(cache_key).encode("utf-8")).hexdigest()}"'
+    headers = {
+        "Cache-Control": "private, max-age=0, must-revalidate",
+        "ETag": etag,
+        "Vary": "Cookie",
+    }
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    try:
+        payload = _student_qbank_catalog_snapshot(cache_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return JSONResponse(payload, headers=headers)
 
 
 @app.get("/api/student/catalog")

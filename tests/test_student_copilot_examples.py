@@ -49,7 +49,7 @@ class StudentCopilotExampleTests(unittest.TestCase):
     def test_student_bundle_cache_key_changes_with_example_release(self):
         html = INDEX_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("/student-v3/app.js?v=20260723-practice-flow-v2", html)
+        self.assertIn("/student-v3/app.js?v=20260724-railway-perf-v1", html)
 
     def test_citation_click_is_scoped_to_its_own_answer_card(self):
         text = APP_PATH.read_text(encoding="utf-8")

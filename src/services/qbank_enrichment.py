@@ -13,9 +13,11 @@
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -44,8 +46,19 @@ RELEASE_OVERLAY_FIELDS = (
 )
 
 
-def _sha256(path: Path) -> str:
-    if not path.exists():
+def _file_signature(path: Path) -> tuple[str, int, int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return str(path.resolve()), stat.st_mtime_ns, stat.st_size
+
+
+@lru_cache(maxsize=16)
+def _sha256_snapshot(path_value: str, mtime_ns: int, size_bytes: int) -> str:
+    del mtime_ns, size_bytes
+    path = Path(path_value)
+    if not path.is_file():
         return ""
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -54,14 +67,25 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _load(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
+def _sha256(path: Path) -> str:
+    signature = _file_signature(path)
+    return _sha256_snapshot(*signature) if signature else ""
+
+
+@lru_cache(maxsize=16)
+def _load_snapshot(path_value: str, mtime_ns: int, size_bytes: int) -> dict[str, Any]:
+    del mtime_ns, size_bytes
+    path = Path(path_value)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _load(path: Path) -> dict[str, Any]:
+    signature = _file_signature(path)
+    return _load_snapshot(*signature) if signature else {}
 
 
 def is_student_release_approved(entry: object) -> bool:
@@ -303,7 +327,7 @@ def record_faculty_review(
     if decision == "approve" and (medical_approval is not True or draft.get("release_eligible") is not True):
         raise ValueError("교수 medical_approval과 release_eligible=true가 모두 필요합니다.")
 
-    payload = _load(RELEASES_PATH)
+    payload = copy.deepcopy(_load(RELEASES_PATH))
     payload["schema_version"] = "paccine.qbank_enrichment.releases.v1"
     payload["built_against_sha256"] = current_sha
     payload["notice"] = "실제 교수 medical approval을 통과한 release만 학생에게 노출합니다."
