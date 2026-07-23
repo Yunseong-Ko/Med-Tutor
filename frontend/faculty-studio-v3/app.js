@@ -6,6 +6,9 @@
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
   const generationJobStorageKey = "paccine.faculty_generation_job.v1";
   const intentGenerationJobStorageKey = "paccine.faculty_intent_generation_job.v1";
+  const workflowDraftStorageKey = "paccine.faculty_item_workflow_draft.v1";
+  let pendingLeaveAction = null;
+  let bypassLeaveGuard = false;
   const steps = ["출제 범위", "대상 개념", "평가 의도", "근거 준비", "문항 설계도", "생성·자동 점검", "검토로 보내기"];
   const tasks = [
     { group: "A · 왜 생겼나요?", items: [
@@ -73,6 +76,9 @@
     intentGenerationJob: null,
     intentGenerating: false,
     intentGenerationPollTimer: null,
+    workflowComplete: false,
+    restoredDraft: false,
+    savedLectureFileName: "",
   };
 
   async function api(url, options = {}) {
@@ -88,6 +94,204 @@
     node.classList.add("show");
     window.clearTimeout(toast.timer);
     toast.timer = window.setTimeout(() => node.classList.remove("show"), 2200);
+  }
+
+  function hasUnfinishedWorkflow() {
+    if (state.workflowComplete) return false;
+    const recommendedStarted = Boolean(
+      state.selectedDepartment
+      || state.selectedIntentIds.size
+      || state.intentTaskOverrides.size
+      || state.intentPreflight.checked
+      || state.intentGeneration
+      || state.intentGenerationJob
+      || state.intentGenerating
+    );
+    const manualStarted = Boolean(
+      state.intentMode === "manual"
+      && (
+        state.facultyRequest.trim()
+        || state.conceptQuery.trim()
+        || state.concept
+        || state.selectedTasks.length
+        || state.teachingPoints.trim()
+        || state.textbookReference.trim()
+        || state.lectureFile
+        || state.selectedMediaIds.size
+        || state.preflight.checked
+        || state.generation
+        || state.generationJob
+        || state.generating
+      )
+    );
+    return state.step > 1 || recommendedStarted || manualStarted || Boolean(currentGeneration()) || Boolean(currentGenerationJob()) || currentGenerating();
+  }
+
+  function workflowDraftSnapshot() {
+    return {
+      schema_version: "paccine.faculty_item_workflow_draft.v1",
+      saved_at: new Date().toISOString(),
+      step: state.step,
+      intentMode: state.intentMode,
+      selectedDepartmentId: state.selectedDepartment?.id || "",
+      intentSetName: state.intentSetName,
+      intentCount: state.intentCount,
+      recommendationState: state.recommendationState,
+      intentCandidates: state.intentCandidates,
+      selectedIntentIds: [...state.selectedIntentIds],
+      intentTaskOverrides: [...state.intentTaskOverrides.entries()],
+      intentPreflight: state.intentPreflight,
+      intentGeneration: state.intentGeneration,
+      intentGenerationJob: state.intentGenerationJob,
+      courseId: state.courseId,
+      courseName: state.courseName,
+      setName: state.setName,
+      count: state.count,
+      difficulty: state.difficulty,
+      facultyRequest: state.facultyRequest,
+      targetType: state.targetType,
+      conceptQuery: state.conceptQuery,
+      searchResults: state.searchResults,
+      concept: state.concept,
+      context: state.context,
+      selectedAxisIds: state.selectedAxisIds,
+      selectedTasks: state.selectedTasks,
+      questionType: state.questionType,
+      reasoningHops: state.reasoningHops,
+      carePhase: state.carePhase,
+      optionDomain: state.optionDomain,
+      teachingPoints: state.teachingPoints,
+      textbookReference: state.textbookReference,
+      selectedMediaIds: [...state.selectedMediaIds],
+      preflight: state.preflight,
+      generation: state.generation,
+      generationJob: state.generationJob,
+      lectureFileName: state.lectureFile?.name || state.savedLectureFileName || "",
+    };
+  }
+
+  function saveWorkflowDraft() {
+    try {
+      window.localStorage.setItem(workflowDraftStorageKey, JSON.stringify(workflowDraftSnapshot()));
+      const saveState = $("#save-state");
+      if (saveState) saveState.textContent = "임시저장 완료";
+      return true;
+    } catch {
+      toast("브라우저 임시저장 공간이 부족합니다. 작성 화면을 유지해 주세요.");
+      return false;
+    }
+  }
+
+  function clearWorkflowDraft() {
+    window.localStorage.removeItem(workflowDraftStorageKey);
+  }
+
+  function restoreWorkflowDraft() {
+    const raw = window.localStorage.getItem(workflowDraftStorageKey);
+    if (!raw) return false;
+    try {
+      const saved = JSON.parse(raw);
+      if (saved?.schema_version !== "paccine.faculty_item_workflow_draft.v1") return false;
+      state.step = Math.max(1, Math.min(7, Number(saved.step || 1)));
+      state.intentMode = saved.intentMode === "manual" ? "manual" : "recommended";
+      state.selectedDepartment = state.departments.find((item) => item.id === saved.selectedDepartmentId) || null;
+      state.intentSetName = String(saved.intentSetName || state.intentSetName);
+      state.intentCount = [2, 3].includes(Number(saved.intentCount)) ? Number(saved.intentCount) : state.intentCount;
+      state.intentCandidates = Array.isArray(saved.intentCandidates) ? saved.intentCandidates : [];
+      state.recommendationState = state.intentCandidates.length ? "success" : state.selectedDepartment ? "idle" : "idle";
+      const candidateIds = new Set(state.intentCandidates.map((item) => item?.intent_id).filter(Boolean));
+      state.selectedIntentIds = new Set((saved.selectedIntentIds || []).filter((id) => candidateIds.has(id)));
+      state.intentTaskOverrides = new Map(Array.isArray(saved.intentTaskOverrides) ? saved.intentTaskOverrides : []);
+      state.intentPreflight = saved.intentPreflight || state.intentPreflight;
+      state.intentGeneration = saved.intentGeneration || null;
+      state.intentGenerationJob = saved.intentGenerationJob || null;
+      state.courseId = String(saved.courseId || state.courseId);
+      state.courseName = String(saved.courseName || state.courseName);
+      state.setName = String(saved.setName || state.setName);
+      state.count = Math.max(1, Math.min(30, Number(saved.count || state.count)));
+      state.difficulty = String(saved.difficulty || state.difficulty);
+      state.facultyRequest = String(saved.facultyRequest || "");
+      state.targetType = String(saved.targetType || state.targetType);
+      state.conceptQuery = String(saved.conceptQuery || "");
+      state.searchResults = Array.isArray(saved.searchResults) ? saved.searchResults : [];
+      state.concept = saved.concept || null;
+      state.context = saved.context || null;
+      state.selectedAxisIds = Array.isArray(saved.selectedAxisIds) ? saved.selectedAxisIds : [];
+      state.selectedTasks = Array.isArray(saved.selectedTasks) ? saved.selectedTasks : [];
+      state.questionType = String(saved.questionType || state.questionType);
+      state.reasoningHops = Math.max(1, Math.min(3, Number(saved.reasoningHops || state.reasoningHops)));
+      state.carePhase = String(saved.carePhase || state.carePhase);
+      state.optionDomain = String(saved.optionDomain || "");
+      state.teachingPoints = String(saved.teachingPoints || "");
+      state.textbookReference = String(saved.textbookReference || "");
+      state.selectedMediaIds = new Set(saved.selectedMediaIds || []);
+      state.drawerMediaIds = new Set(state.selectedMediaIds);
+      state.preflight = saved.preflight || state.preflight;
+      state.generation = saved.generation || null;
+      state.generationJob = saved.generationJob || null;
+      state.savedLectureFileName = String(saved.lectureFileName || "");
+      state.restoredDraft = true;
+      return true;
+    } catch {
+      clearWorkflowDraft();
+      return false;
+    }
+  }
+
+  function syncRestoredDraftControls() {
+    $("#intent-set-name").value = state.intentSetName;
+    $("#set-name").value = state.setName;
+    $("#faculty-request").value = state.facultyRequest;
+    $("#concept-query").value = state.conceptQuery;
+    $("#question-count").textContent = String(state.count);
+    $("#course-select").value = state.courseId;
+    $("#reasoning-hops").value = String(state.reasoningHops);
+    $("#care-phase").value = state.carePhase;
+    $("#option-domain").value = state.optionDomain;
+    $("#teaching-points").value = state.teachingPoints;
+    $("#textbook-reference").value = state.textbookReference;
+    $("#media-count").textContent = String(state.selectedMediaIds.size);
+    $$("[data-intent-count]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.intentCount) === state.intentCount));
+    $$("#difficulty-options button").forEach((button) => button.classList.toggle("selected", button.dataset.value === state.difficulty));
+    $$("#target-types button").forEach((button) => button.classList.toggle("selected", button.dataset.value === state.targetType));
+    $$("#format-options button").forEach((button) => button.classList.toggle("selected", button.dataset.value === state.questionType));
+    renderTaskGroups();
+    if (state.concept) {
+      const selected = $("#selected-concept");
+      selected.hidden = false;
+      selected.innerHTML = `<span><b>${escapeHtml(state.concept.label)}</b><span>${escapeHtml(state.concept.disease_concept_id)} · 임시저장에서 복구됨</span></span>`;
+    }
+  }
+
+  function closeLeaveGuard() {
+    pendingLeaveAction = null;
+    $("#leave-guard").hidden = true;
+  }
+
+  function requestLeave(action) {
+    if (!hasUnfinishedWorkflow() || bypassLeaveGuard) {
+      action();
+      return;
+    }
+    pendingLeaveAction = action;
+    $("#leave-guard").hidden = false;
+    $("#leave-guard-stay").focus();
+  }
+
+  async function resolveLeave({ save }) {
+    const action = pendingLeaveAction;
+    if (!action) return;
+    if (save && !saveWorkflowDraft()) return;
+    if (!save) clearWorkflowDraft();
+    pendingLeaveAction = null;
+    $("#leave-guard").hidden = true;
+    bypassLeaveGuard = true;
+    try {
+      await action();
+    } catch (error) {
+      bypassLeaveGuard = false;
+      toast(error.message || "화면을 이동하지 못했습니다.");
+    }
   }
 
   function isIntentMode() {
@@ -1056,7 +1260,7 @@
     const box = $("#review-handoff");
     const generation = currentGeneration();
     if (!generation || generation.error) { box.innerHTML = "<div><b>아직 보낼 초안이 없습니다.</b><p>6단계에서 초안을 생성한 뒤 검토·승인 큐로 이동할 수 있습니다.</p></div>"; return; }
-    box.innerHTML = `<div><b>${escapeHtml(generation.question_count ?? generation.num_questions ?? (isIntentMode() ? state.intentCount : state.count))}문항을 한 세트로 검토할 준비가 됐습니다.</b><p>검토·승인 큐에서 원래 선택한 출제 의도, 본문, 선지, 정답, 해설과 연결 자료를 확인하세요. 교수 승인은 검수 완료 상태이며 학생 공개·배포는 별도 기능입니다.</p><a href="/faculty-studio-v2/review.html${generation.set_id ? `?set=${encodeURIComponent(generation.set_id)}` : ""}">검토·승인으로 이동 →</a></div>`;
+    box.innerHTML = `<div><b>${escapeHtml(generation.question_count ?? generation.num_questions ?? (isIntentMode() ? state.intentCount : state.count))}문항을 한 세트로 검토할 준비가 됐습니다.</b><p>검토·승인 큐에서 원래 선택한 출제 의도, 본문, 선지, 정답, 해설과 연결 자료를 확인하세요. 교수 승인은 검수 완료 상태이며 학생 공개·배포는 별도 기능입니다.</p><a data-workflow-complete href="/faculty-studio-v2/review.html${generation.set_id ? `?set=${encodeURIComponent(generation.set_id)}` : ""}">검토·승인으로 이동 →</a></div>`;
   }
 
   function renderSummary() {
@@ -1200,18 +1404,50 @@
     toast("Copilot 제안을 적용했습니다. Ontology 후보를 확인하세요.");
   }
 
+  async function performLogout(button) {
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/auth/logout", {method: "POST"});
+      if (!response.ok) throw new Error(`로그아웃 실패 (${response.status})`);
+      window.location.replace("/login");
+    } catch (error) {
+      button.disabled = false;
+      bypassLeaveGuard = false;
+      throw error;
+    }
+  }
+
   function bindStaticEvents() {
+    document.addEventListener("click", (event) => {
+      const anchor = event.target.closest("a[href]");
+      if (!anchor || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      if (anchor.hasAttribute("data-workflow-complete")) {
+        state.workflowComplete = true;
+        clearWorkflowDraft();
+        bypassLeaveGuard = true;
+        return;
+      }
+      if (!hasUnfinishedWorkflow()) return;
+      event.preventDefault();
+      requestLeave(() => window.location.assign(anchor.href));
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (!bypassLeaveGuard && hasUnfinishedWorkflow()) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    });
+    $("#leave-guard-stay").addEventListener("click", closeLeaveGuard);
+    $("#leave-guard-save").addEventListener("click", () => resolveLeave({ save: true }));
+    $("#leave-guard-discard").addEventListener("click", () => resolveLeave({ save: false }));
     $("#logout-button")?.addEventListener("click", async (event) => {
       const button = event.currentTarget;
-      button.disabled = true;
-      try {
-        const response = await fetch("/api/auth/logout", {method: "POST"});
-        if (!response.ok) throw new Error(`로그아웃 실패 (${response.status})`);
-        window.location.replace("/login");
-      } catch (error) {
-        button.disabled = false;
-        toast(error.message || "로그아웃하지 못했습니다. 다시 시도해 주세요.");
+      if (hasUnfinishedWorkflow()) {
+        requestLeave(() => performLogout(button));
+        return;
       }
+      try { await performLogout(button); }
+      catch (error) { toast(error.message || "로그아웃하지 못했습니다. 다시 시도해 주세요."); }
     });
     $$('[data-intent-mode]').forEach((button) => button.addEventListener("click", () => setIntentMode(button.dataset.intentMode)));
     $("#intent-set-name").addEventListener("input", (event) => { state.intentSetName = event.target.value; renderSummary(); });
@@ -1279,10 +1515,14 @@
     bindStaticEvents();
     renderIntentMode();
     await Promise.all([loadCourses(), loadMedia(), loadDepartments()]);
+    const restoredDraft = restoreWorkflowDraft();
+    const restoredStep = state.step;
+    if (restoredDraft) syncRestoredDraftControls();
     renderCoverage();
     renderSummary();
-    const restored = await restoreGenerationJob();
-    goStep(restored ? 6 : 1);
+    const restoredJob = await restoreGenerationJob();
+    goStep(restoredJob ? 6 : restoredDraft ? restoredStep : 1);
+    if (restoredDraft) toast(state.savedLectureFileName ? `임시저장 작업을 복구했습니다. ${state.savedLectureFileName} 파일은 다시 선택해 주세요.` : "임시저장한 문항 세트를 복구했습니다.");
   }
 
   init();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ontology 문항 생성 작업실 · P:accine Faculty</title>
   <link rel="stylesheet" href="/tokens.css" />
-  <link rel="stylesheet" href="/faculty-studio-v3/app.css?v=20260723-auth-controls-v1" />
+  <link rel="stylesheet" href="/faculty-studio-v3/app.css?v=20260723-leave-guard-v1" />
   <link rel="stylesheet" href="/faculty-studio-v3/generation-job.css?v=20260718-1" />
 </head>
 <body>
@@ -184,8 +184,20 @@
     <div id="concept-detail" class="concept-detail"></div>
   </div>
   <div id="drawer-backdrop" class="backdrop" hidden></div>
+  <div id="leave-guard" class="leave-guard" role="dialog" aria-modal="true" aria-labelledby="leave-guard-title" hidden>
+    <div class="leave-guard-card">
+      <span class="leave-guard-kicker">작성 중인 문항 세트</span>
+      <h2 id="leave-guard-title">아직 작업을 마치지 않았습니다</h2>
+      <p>지금 이동하면 현재 선택과 작성 내용이 화면에서 사라질 수 있습니다. 생성 중인 서버 작업은 이동해도 계속됩니다.</p>
+      <div class="leave-guard-actions">
+        <button id="leave-guard-stay" class="secondary-action" type="button">계속 작성</button>
+        <button id="leave-guard-save" class="primary-action" type="button">임시저장 후 이동</button>
+        <button id="leave-guard-discard" class="danger-action" type="button">저장하지 않고 이동</button>
+      </div>
+    </div>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="/faculty-studio-v3/app.js?v=20260723-auth-controls-v1"></script>
+  <script src="/faculty-studio-v3/app.js?v=20260723-leave-guard-v1"></script>
 </body>
 </html>
