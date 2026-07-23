@@ -395,6 +395,113 @@ h3 { margin-bottom: 4px; font-size: 17px; }
   .toast { bottom: 82px; max-width: calc(100% - 30px); text-align: center; }
 }
 
+/* Student demo refinement — mapped from the supplied desktop/mobile design */
+.button.secondary.home-secondary-action { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: white; }
+.button.secondary.home-secondary-action:hover { background: rgba(255,255,255,.14); }
+
+.concept-tools { min-height: 58px; padding: 10px 13px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.75); color: var(--muted); font-size: 11px; }
+.concept-tools label { flex: 1; display: flex; align-items: center; gap: 10px; }
+.concept-tools input { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: white; outline: 0; }
+.concept-tools input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14,124,123,.09); }
+.concept-preparing { padding: 20px 22px; display: grid; gap: 6px; border: 1px solid #e4d5b8; border-radius: 16px; background: #fff8e9; color: #765422; }
+.concept-preparing strong { font-size: 16px; }
+.concept-preparing p { margin: 0; font-size: 12px; line-height: 1.65; }
+.concept-availability { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.concept-availability article { padding: 20px; }
+.concept-availability article.muted { background: rgba(255,255,255,.55); box-shadow: none; }
+.concept-availability span { color: var(--teal); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.concept-availability strong { display: block; margin: 9px 0 6px; font-size: 16px; }
+.concept-availability p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+.review-controls { margin-bottom: 10px; padding: 12px; display: grid; grid-template-columns: minmax(0,1fr) 190px 140px; gap: 9px; align-items: center; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.72); }
+.review-status-filters { display: flex; gap: 5px; flex-wrap: wrap; }
+.review-status-filters button, .axis-filter-waiting { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: white; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 750; }
+.review-status-filters button.active { border-color: var(--teal-dark); background: var(--teal-dark); color: white; }
+.review-controls label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 7px; color: var(--soft); font-size: 10px; font-weight: 750; }
+.review-controls select { min-width: 0; min-height: 40px; padding: 0 9px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.axis-filter-waiting { border-style: dashed; cursor: not-allowed; opacity: .7; }
+.review-priority-note { margin: 0 2px 13px; color: var(--soft); font-size: 10.5px; }
+.queue-row .row-main small { display: block; margin-top: 5px; color: var(--soft); font-size: 10px; }
+.claim-review-list .empty-card .button { width: fit-content; margin: 16px auto 0; }
+
+.axis-report, .topic-priority { margin-top: 20px; padding: 22px; }
+.axis-count { flex: none; padding: 7px 10px; border-radius: 999px; background: #e6f3f0; color: var(--teal); font-size: 10px; font-weight: 800; }
+.axis-empty-notice { margin-bottom: 14px; padding: 14px 16px; display: grid; gap: 4px; border-left: 3px solid var(--teal); border-radius: 0 11px 11px 0; background: #edf6f4; }
+.axis-empty-notice strong { font-size: 12px; }
+.axis-empty-notice span { color: var(--muted); font-size: 10.5px; }
+.axis-list { display: grid; }
+.axis-row { min-height: 58px; display: grid; grid-template-columns: 170px minmax(140px,1fr) 54px 72px; align-items: center; gap: 13px; border-top: 1px solid #ebe7de; }
+.axis-row:first-child { border-top: 0; }
+.axis-name { display: grid; gap: 3px; }
+.axis-name strong { font-size: 13px; }
+.axis-name small { color: var(--soft); font-size: 9px; }
+.axis-track { height: 9px; overflow: hidden; border-radius: 999px; background: #e9ece9; }
+.axis-track i { width: var(--axis-progress); height: 100%; display: block; border-radius: inherit; background: var(--green); }
+.axis-rate { font-size: 12px; text-align: right; }
+.axis-state { justify-self: end; padding: 5px 8px; border-radius: 999px; background: #e8f3ef; color: var(--green); font-size: 9px; font-weight: 800; }
+.axis-row.weak .axis-track i { background: var(--coral); }
+.axis-row.weak .axis-state { background: #fae9e3; color: #ae472c; }
+.axis-row.warning .axis-track i, .axis-row.provisional .axis-track i { background: var(--amber); }
+.axis-row.warning .axis-state, .axis-row.provisional .axis-state { background: #fff2d8; color: #94611b; }
+.axis-row.insufficient .axis-track { background: repeating-linear-gradient(135deg,#e3e5e2 0 5px,#f4f4f1 5px 10px); }
+.axis-row.insufficient .axis-track i { background: #aeb7b4; }
+.axis-row.insufficient .axis-state { background: #efefed; color: #707b78; }
+.axis-row.waiting .axis-track { overflow: visible; border: 1px dashed #bfc6c3; background: transparent; }
+.axis-row.waiting .axis-track i { display: none; }
+.axis-row.waiting .axis-rate { color: var(--soft); }
+.axis-row.waiting .axis-state { border: 1px dashed #c9cecc; background: transparent; color: var(--soft); }
+.topic-priority .weakness-list { margin-top: 4px; }
+.topic-priority .weakness-row small { display: block; margin-top: 4px; color: var(--muted); }
+
+.clinical-workspace { width: 100%; }
+.clinical-workspace > .clinical-subnav { position: sticky; top: 84px; z-index: 30; width: min(820px,100%); margin: -10px auto 18px; background: rgba(255,255,255,.94); box-shadow: 0 14px 30px -28px rgba(18,33,31,.65); backdrop-filter: blur(12px); }
+.clinical-workspace > .clinical-subnav a { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+.focus-primary-detail { margin: 0 26px; padding: 18px 0 7px; border-top: 1px solid #e6e2da; }
+.focus-primary-detail > span { display: block; margin-bottom: 10px; color: var(--teal); font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.focus-primary-detail .focus-section-row { padding-top: 0; }
+.insufficient-state { border-left: 4px solid var(--amber) !important; }
+.insufficient-copy { margin: 20px 26px 4px; }
+.insufficient-copy h3 { font-size: 19px; line-height: 1.55; }
+.insufficient-copy > p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.insufficient-copy ol { margin: 18px 0 0; padding: 0; display: grid; gap: 8px; list-style: none; counter-reset: action; }
+.insufficient-copy li { counter-increment: action; padding: 12px 14px 12px 46px; position: relative; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 11px; background: #faf9f6; }
+.insufficient-copy li::before { content: counter(action); width: 24px; height: 24px; position: absolute; left: 13px; top: 50%; display: grid; place-items: center; border-radius: 50%; background: #e5f5f2; color: var(--teal); font-size: 10px; font-weight: 850; transform: translateY(-50%); }
+.insufficient-copy li strong { font-size: 12px; }
+.insufficient-copy li span { color: var(--muted); font-size: 10.5px; }
+.insufficient-actions { padding: 18px 26px 24px; display: flex; gap: 7px; flex-wrap: wrap; }
+.insufficient-actions a, .insufficient-actions button { min-height: 42px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--teal-dark); cursor: pointer; font-size: 10.5px; font-weight: 800; }
+.insufficient-actions .primary { border-color: var(--teal); background: var(--teal); color: white; }
+.copilot-progress ol { padding: 4px 0; background: transparent; list-style: none; }
+.copilot-progress ol li { min-height: 36px; display: flex; align-items: center; gap: 10px; color: #9aa4a1; }
+.copilot-progress ol li i { width: 22px; height: 22px; display: grid; place-items: center; border: 2px solid #d6ddda; border-radius: 50%; color: white; font-size: 10px; font-style: normal; font-weight: 850; }
+.copilot-progress ol li.active { color: var(--ink); font-weight: 750; }
+.copilot-progress ol li.active i { border-color: var(--teal); border-top-color: transparent; animation: spin .8s linear infinite; }
+.copilot-progress ol li.done { color: #47716b; }
+.copilot-progress ol li.done i { border-color: var(--teal); background: var(--teal); }
+.composer-send.stop { background: var(--teal-dark); font-size: 13px; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid rgba(14,124,123,.25); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  .concept-availability { grid-template-columns: 1fr; }
+  .review-controls { grid-template-columns: 1fr; }
+  .review-status-filters { display: grid; grid-template-columns: 1fr 1fr; }
+  .review-status-filters button, .axis-filter-waiting { min-height: 44px; }
+  .review-controls label { grid-template-columns: 48px 1fr; }
+  .axis-report, .topic-priority { padding: 16px; }
+  .axis-row { min-height: 76px; grid-template-columns: minmax(95px,.8fr) minmax(90px,1.2fr) 42px; gap: 8px; }
+  .axis-state { grid-column: 1; grid-row: 2; justify-self: start; }
+  .axis-track { grid-column: 2; grid-row: 1 / 3; }
+  .axis-rate { grid-column: 3; grid-row: 1 / 3; }
+  .clinical-workspace > .clinical-subnav { top: 8px; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; }
+  .clinical-workspace > .clinical-subnav a { min-height: 44px; width: 100%; }
+  .focus-primary-detail { margin-inline: 16px; }
+  .insufficient-copy { margin-inline: 16px; }
+  .insufficient-copy h3 { font-size: 17.5px; }
+  .insufficient-actions { padding-inline: 16px; display: grid; grid-template-columns: 1fr 1fr; }
+  .insufficient-actions a, .insufficient-actions button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; text-align: center; }
+}
+
 /* Student Medical Copilot V4 — Claude design translated onto real routes and APIs */
 .clinical-subnav { display: flex; align-items: center; gap: 6px; width: fit-content; margin: -10px 0 18px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.72); }
 .clinical-subnav a { padding: 8px 11px; border-radius: 9px; color: var(--muted); font-size: 11px; font-weight: 750; }

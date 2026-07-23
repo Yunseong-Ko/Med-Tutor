@@ -57,6 +57,8 @@ const state = {
   copilotTimer: null,
   copilotRevealTimer: null,
   guidelineError: "",
+  reviewStatusFilter: "all",
+  reviewCourseFilter: "all",
 };
 
 const COPILOT_JOB_STORAGE_KEY = "paccine.medical_copilot.active_job.v1";
@@ -134,6 +136,19 @@ const clinicalAxisLabel = {
   screening: "선별검사",
   treatment: "치료",
 };
+
+const canonicalStudentAxes = [
+  {type: "epidemiology", label: "역학"},
+  {type: "etiology", label: "원인"},
+  {type: "risk_factor", label: "위험인자"},
+  {type: "pathophysiology", label: "병태생리"},
+  {type: "symptom", label: "증상"},
+  {type: "diagnosis", label: "진단"},
+  {type: "indication", label: "적응증"},
+  {type: "contraindication", label: "금기"},
+  {type: "treatment", label: "치료"},
+  {type: "prognosis", label: "예후"},
+];
 
 const statusLabel = {
   released: "학습 가능",
@@ -377,15 +392,18 @@ function renderHome() {
   const attemptCount = analyticsSummary.attempt_count || 0;
   const todayTarget = Math.min(18, counts.overdue + counts.due + Math.min(12, counts.new));
   const completed = Math.min(todayTarget, 0);
+  const hasDueReview = Number(counts.overdue || 0) + Number(counts.due || 0) > 0;
+  const primaryHref = hasDueReview ? "#review" : startUrl({courseId: favoriteCourses[0]?.id || "neuro", count: 12});
+  const primaryLabel = hasDueReview ? `오늘 복습 ${counts.overdue + counts.due}개 시작 →` : "새 학습 시작 →";
   app.innerHTML = `
-    ${pageHead("Student Learning OS", "오늘의 학습", "실제 문항·복습 일정·개념 연결을 한 흐름에서 이어갑니다.", `<a class="button primary" href="${startUrl({courseId: favoriteCourses[0]?.id || "neuro", count: 12})}">오늘 학습 시작 →</a>`)}
+    ${pageHead("Student Learning OS", "오늘의 학습", "실제 문항·복습 일정·개념 연결을 한 흐름에서 이어갑니다.", `<a class="button primary" href="${primaryHref}">${primaryLabel}</a>`)}
     <section class="hero-grid">
       <article class="card continue-card">
         <span class="eyebrow">Live Question Bank</span>
         <h2>${state.qbank.practice_ready_count ?? state.qbank.question_count}개 문항을 바로 학습할 수 있습니다</h2>
         <p>전체 ${state.qbank.question_count}개 실제 문항이 연결됐습니다. 필수 제시자료가 없는 ${state.qbank.media_review_count || 0}개 문항은 검토가 끝날 때까지 자동으로 제외됩니다.</p>
         <div class="continue-kpis"><span><b>${attemptCount}</b>누적 풀이</span><span><b>${favoriteCourses.length}</b>내 과목</span><span><b>${counts.overdue + counts.due}</b>복습 예정</span></div>
-        <a class="button primary" href="#library">나의 서재 열기 →</a>
+        <a class="button secondary home-secondary-action" href="#library">나의 서재 열기 →</a>
       </article>
       <article class="card today-card">
         <div><span class="eyebrow">FSRS-6 · 90% Retention</span><h2>오늘의 복습</h2></div>
@@ -444,27 +462,50 @@ function bindCourseActions() {
 
 function renderConcepts() {
   const approved = state.concepts.approved || [];
+  const reviewingCount = Number(state.concepts.reviewing_count || 0);
+  let content = "";
+  if (approved.length) {
+    content = `<div class="concept-tools"><label><span>검색</span><input id="concept-search" type="search" placeholder="개념 노트 검색"></label><span>${approved.length}개 노트</span></div><section class="section concept-list">${approved.map((note) => `<article class="concept-row"><span class="row-icon">개</span><div class="row-main"><h3>${esc(note.title)}</h3><p>문항 해설과 10-Axis 학습 경로에서 다시 열 수 있습니다.</p></div><button class="button secondary small" type="button">열기</button></article>`).join("")}</section>`;
+  } else if (reviewingCount > 0) {
+    content = `<div class="concept-preparing" role="status"><strong>개념 노트를 정리하고 있습니다</strong><p>${reviewingCount}개 개념이 문항·Axis 경로와 함께 준비 중입니다. 준비가 끝나기 전에는 내부 ID나 미완성 본문을 표시하지 않습니다.</p></div><section class="concept-availability"><article class="card"><span>지금 가능</span><strong>문항별 개념 경로 확인</strong><p>문제를 푼 뒤 해설의 개념 노트 탭에서 개념과 10-Axis 연결을 확인할 수 있습니다.</p></article><article class="card muted"><span>준비되는 기능</span><strong>통합 개념 노트 탐색</strong><p>완성된 노트를 이 화면에서 검색하고 관련 문항으로 이동할 수 있게 됩니다.</p></article></section>`;
+  } else {
+    content = `<section class="section concept-list"><div class="card empty-card"><strong>개념 노트를 준비하고 있습니다</strong>문항을 풀면 해설에서 연결된 개념과 Axis를 먼저 확인할 수 있습니다.</div></section>`;
+  }
   app.innerHTML = `
     ${pageHead("Concept Notes", "개념 노트", "문항 풀이에서 연결된 Ontology 개념과 10-Axis 학습 경로를 모아봅니다.")}
-    <div class="notice"><b>✓</b><span>문항을 푼 뒤 해설의 <strong>개념 노트</strong> 탭에서 연결 개념과 10-Axis 학습 경로를 확인할 수 있습니다.</span></div>
-    <section class="section concept-list">${approved.length ? approved.map((note) => `<article class="concept-row"><span class="row-icon">개</span><div class="row-main"><h3>${esc(note.title)}</h3><p>관련 문항과 10-Axis 경로에서 다시 열 수 있습니다.</p></div><button class="button secondary small">열기</button></article>`).join("") : `<div class="card empty-card"><strong>아직 저장된 개념 노트가 없습니다</strong>문항을 풀고 해설의 개념 노트 탭을 열면 연결된 개념과 Axis를 확인할 수 있습니다.</div>`}</section>`;
+    ${content}`;
+  const input = document.querySelector("#concept-search");
+  input?.addEventListener("input", () => {
+    const query = input.value.trim().toLowerCase();
+    document.querySelectorAll(".concept-row").forEach((row) => { row.hidden = Boolean(query) && !row.textContent.toLowerCase().includes(query); });
+  });
 }
 
 function renderReview() {
   const counts = state.review.counts;
-  const items = state.review.items.filter((item) => item.status !== "scheduled");
+  const queueItems = state.review.items.filter((item) => item.status !== "scheduled");
+  const courseOptions = [...new Map(queueItems.map((item) => [item.course_id || item.course || "other", item.course || "기타"]))];
+  const items = queueItems.filter((item) => {
+    if (state.reviewStatusFilter !== "all" && item.status !== state.reviewStatusFilter) return false;
+    if (state.reviewCourseFilter !== "all" && (item.course_id || item.course || "other") !== state.reviewCourseFilter) return false;
+    return true;
+  });
   const claimItems = (state.claimReview?.items || []).filter((item) => item.status !== "scheduled");
   const claimCounts = state.claimReview?.counts || {overdue: 0, due: 0, new: 0, scheduled: 0};
   const focusMedical = routeDetail() === "medical";
   const claimTitleTag = focusMedical ? "h1" : "h2";
-  const claimSection = `<section id="medical-review" class="section claim-review-section ${focusMedical ? "medical-review-focus" : ""}">${focusMedical ? `<a class="medical-review-back" href="#clinical">← 의료 챗봇으로</a>` : ""}<div class="section-head"><div><span class="eyebrow">Approved Guideline · FSRS-6 · 서버 일정</span><${claimTitleTag}>의학 지식 복습</${claimTitleTag}><p>교수 검토 후 FSRS 복습 사용이 허용된 국내 가이드라인 claim만 표시합니다.</p></div><span class="claim-review-count">기한 ${claimCounts.overdue + claimCounts.due} · 새 항목 ${claimCounts.new}</span></div>
-      <div class="claim-review-list">${claimItems.length ? claimItems.map((item) => `<article class="card claim-review-card"><div class="claim-review-top"><span class="queue-status ${esc(item.status)}">${{overdue:"기한 지남",due:"오늘",new:"새 지식"}[item.status] || "예정"}</span><small>${esc(item.source_title)}</small></div><h3>${esc(item.prompt)}</h3><p>${esc(item.population)}</p><details><summary>승인된 핵심 문장 보기</summary><div>${esc(item.answer)}</div></details><div class="claim-rating" data-claim-id="${esc(item.claim_id)}"><span>기억 상태</span><button type="button" data-rating="1">다시</button><button type="button" data-rating="2">어려움</button><button type="button" data-rating="3">보통</button><button type="button" data-rating="4">쉬움</button></div></article>`).join("") : `<div class="card empty-card"><strong>아직 승인된 복습 항목이 없어요</strong>교수 검토를 통과해 복습용으로 공개된 국내 지침 claim이 생기면 이곳에 나타납니다. 현재는 챗봇 답변의 공식 문서 링크로 원문을 확인해 주세요.</div>`}</div>
+  const claimSection = `<section id="medical-review" class="section claim-review-section ${focusMedical ? "medical-review-focus" : ""}">${focusMedical ? `<a class="medical-review-back" href="#clinical">← 의료 챗봇으로</a>` : ""}<div class="section-head"><div><span class="eyebrow">Guideline Knowledge · FSRS-6</span><${claimTitleTag}>의학 지식 복습</${claimTitleTag}><p>출처와 적용 범위가 확인된 국내 가이드라인 핵심 내용을 복습합니다.</p></div><span class="claim-review-count">기한 ${claimCounts.overdue + claimCounts.due} · 새 항목 ${claimCounts.new}</span></div>
+      <div class="claim-review-list">${claimItems.length ? claimItems.map((item) => `<article class="card claim-review-card"><div class="claim-review-top"><span class="queue-status ${esc(item.status)}">${{overdue:"기한 지남",due:"오늘",new:"새 지식"}[item.status] || "예정"}</span><small>${esc(item.source_title)}</small></div><h3>${esc(item.prompt)}</h3><p>${esc(item.population)}</p><details><summary>핵심 문장 보기</summary><div>${esc(item.answer)}</div></details><div class="claim-rating" data-claim-id="${esc(item.claim_id)}"><span>기억 상태</span><button type="button" data-rating="1">다시</button><button type="button" data-rating="2">어려움</button><button type="button" data-rating="3">보통</button><button type="button" data-rating="4">쉬움</button></div></article>`).join("") : `<div class="card empty-card"><strong>아직 복습할 가이드라인 핵심 내용이 없습니다</strong>가이드라인 라이브러리에서 공식 문서를 찾거나 의료 챗봇 답변의 출처를 확인해 보세요.<a class="button secondary" href="#clinical/library">가이드라인 라이브러리 열기</a></div>`}</div>
     </section>`;
   app.innerHTML = focusMedical ? claimSection : `
     ${pageHead("FSRS Review", "복습", "FSRS-6가 각 문항의 기억 상태와 다음 복습 시점을 계산합니다.", items.length ? `<a class="button primary" href="${startUrl({ids: items.map((item) => item.question_id).join(","), count: items.length})}">대기열 풀기 →</a>` : "")}
     <section class="queue-summary"><article class="card summary-card danger"><span>기한 지남</span><strong>${counts.overdue}</strong></article><article class="card summary-card"><span>오늘 복습</span><strong>${counts.due}</strong></article><article class="card summary-card accent"><span>새 문항</span><strong>${counts.new}</strong></article><article class="card summary-card"><span>예약됨</span><strong>${counts.scheduled}</strong></article></section>
-    <section class="queue-list">${items.length ? items.map((item) => `<article class="queue-row"><span class="queue-status ${item.status}">${{overdue:"기한 지남",due:"오늘",new:"새 문항"}[item.status] || "예정"}</span><div class="row-main"><h3>${esc(item.topic)}</h3><p>${esc(item.stem_preview)}</p></div><a class="button secondary small" href="${startUrl({ids:item.question_id,count:1})}">풀기</a></article>`).join("") : `<div class="card empty-card"><strong>지금 복습할 문항이 없습니다</strong>다음 일정이 되면 자동으로 대기열에 올라옵니다.</div>`}</section>
+    <section class="review-controls" aria-label="복습 대기열 필터"><div class="review-status-filters">${[["all","전체"],["overdue","기한 지남"],["due","오늘"],["new","새 문항"]].map(([key,label]) => `<button type="button" data-review-status="${key}" aria-pressed="${state.reviewStatusFilter === key}" class="${state.reviewStatusFilter === key ? "active" : ""}">${label}</button>`).join("")}</div><label>과목<select id="review-course-filter"><option value="all">전체 과목</option>${courseOptions.map(([id,name]) => `<option value="${esc(id)}" ${state.reviewCourseFilter === id ? "selected" : ""}>${esc(name)}</option>`).join("")}</select></label><button type="button" class="axis-filter-waiting" disabled>Axis · 연결 대기</button></section>
+    <p class="review-priority-note">기한 지남 → 오늘 → 새 문항 순서로 학습합니다. 예약된 ${counts.scheduled}개는 다음 시점에 자동으로 표시됩니다.</p>
+    <section class="queue-list">${items.length ? items.map((item) => { const title = item.topic && item.topic !== "기타" ? item.topic : item.course || "기타"; return `<article class="queue-row"><span class="queue-status ${item.status}">${{overdue:"기한 지남",due:"오늘",new:"새 문항"}[item.status] || "예정"}</span><div class="row-main"><h3>${esc(title)}</h3><p>${esc(item.stem_preview)}</p><small>${esc(item.course || "")}</small></div><a class="button secondary small" href="${startUrl({ids:item.question_id,count:1})}">풀기</a></article>`; }).join("") : `<div class="card empty-card"><strong>조건에 맞는 복습 문항이 없습니다</strong>필터를 바꾸거나 다음 복습 시점을 기다려 주세요.</div>`}</section>
     ${claimSection}`;
+  document.querySelectorAll("[data-review-status]").forEach((button) => button.addEventListener("click", () => { state.reviewStatusFilter = button.dataset.reviewStatus; renderReview(); }));
+  document.querySelector("#review-course-filter")?.addEventListener("change", (event) => { state.reviewCourseFilter = event.target.value; renderReview(); });
   document.querySelectorAll(".claim-rating button").forEach((button) => button.addEventListener("click", async () => {
     const group = button.closest(".claim-rating");
     group.querySelectorAll("button").forEach((item) => { item.disabled = true; });
@@ -480,23 +521,46 @@ function renderReview() {
   }));
 }
 
+function studentAxisRows(ontologyRows = []) {
+  return canonicalStudentAxes.map((axis) => {
+    const matches = ontologyRows.filter((row) => (row.axis_type || row.assessment_domain) === axis.type);
+    const sample = matches.reduce((sum, row) => sum + Number(row.sample_size ?? row.attempt_count ?? 0), 0);
+    const correct = matches.reduce((sum, row) => sum + Number(row.correct_count || 0), 0);
+    const rate = sample ? Math.round((correct / sample) * 100) : null;
+    const avgTime = sample ? matches.reduce((sum, row) => sum + Number(row.avg_time_sec || 0) * Number(row.sample_size ?? row.attempt_count ?? 0), 0) / sample : 0;
+    if (!sample) return {...axis, sample, rate, avgTime, status: "waiting", statusLabel: "연결 대기"};
+    if (sample < 3) return {...axis, sample, rate, avgTime, status: "insufficient", statusLabel: "자료 부족"};
+    if (sample < 5) return {...axis, sample, rate, avgTime, status: "provisional", statusLabel: "잠정"};
+    if (rate < 60) return {...axis, sample, rate, avgTime, status: "weak", statusLabel: "취약"};
+    if (rate < 75) return {...axis, sample, rate, avgTime, status: "warning", statusLabel: "주의"};
+    return {...axis, sample, rate, avgTime, status: "stable", statusLabel: "안정"};
+  });
+}
+
 function renderReport() {
   const analytics = state.analytics || {};
   const summary = analytics.summary || analytics;
   const attempts = summary.attempt_count || 0;
   const weakness = analytics.weakness || [];
+  const axes = studentAxisRows(analytics.ontology_weakness || []);
+  const analyzableAxes = axes.filter((axis) => axis.sample > 0).length;
   const rate = Math.round(Number(summary.correct_rate_pct || 0));
   const avg = Math.round(Number(summary.avg_time_sec || 0));
+  const reviewWaiting = Number(state.review?.counts?.overdue || 0) + Number(state.review?.counts?.due || 0);
   app.innerHTML = `
     ${pageHead("Learning Report", "학습 리포트", "서버에 저장된 실제 풀이 기록만 집계합니다.")}
-    <section class="report-kpis"><article class="card summary-card accent"><span>누적 풀이</span><strong>${attempts}</strong></article><article class="card summary-card"><span>평균 정답률</span><strong>${rate}%</strong></article><article class="card summary-card"><span>평균 풀이 시간</span><strong>${avg}초</strong></article><article class="card summary-card"><span>Ontology 분석 가능 축</span><strong>${(analytics.ontology_weakness || []).length}</strong></article></section>
-    <section class="card" style="padding:22px"><div class="section-head"><div><span class="eyebrow">Weakness</span><h2>취약 영역</h2><p>표본 수와 정답률을 함께 표시합니다.</p></div></div><div class="weakness-list">${weakness.length ? weakness.slice(0, 12).map((row) => `<div class="weakness-row"><div><strong>${esc(row.label_path)}</strong><small style="display:block;color:var(--muted);margin-top:4px">${row.attempt_count}회 풀이 · 평균 ${row.avg_time_sec}초</small></div><div class="progress"><i style="width:${row.correct_rate_pct}%"></i></div><strong>${row.correct_rate_pct}%</strong></div>`).join("") : `<div class="empty-card"><strong>아직 집계할 풀이 기록이 없습니다</strong>문항을 풀면 과목·주제별 분석이 시작됩니다.</div>`}</div></section>`;
+    <section class="report-kpis"><article class="card summary-card accent"><span>누적 풀이</span><strong>${attempts}</strong></article><article class="card summary-card"><span>평균 정답률</span><strong>${attempts ? `${rate}%` : "—"}</strong></article><article class="card summary-card"><span>평균 풀이 시간</span><strong>${attempts ? `${avg}초` : "—"}</strong></article><article class="card summary-card"><span>복습 대기</span><strong>${reviewWaiting}</strong></article></section>
+    <section class="card axis-report"><div class="section-head"><div><span class="eyebrow">10-Axis Learning Map</span><h2>학습 축 분석</h2><p>0%와 데이터 없음은 구분하며, 표본이 적을 때는 확정 평가하지 않습니다.</p></div><span class="axis-count">분석 가능한 Axis ${analyzableAxes}/10</span></div>
+      ${!analyzableAxes ? `<div class="axis-empty-notice"><strong>풀이 기록은 집계되고 있습니다</strong><span>Axis가 연결된 문항을 풀면 아래 10개 축의 분석이 자동으로 시작됩니다.</span></div>` : ""}
+      <div class="axis-list">${axes.map((axis) => `<article class="axis-row ${axis.status}"><div class="axis-name"><strong>${axis.label}</strong><small>${axis.sample ? `${axis.sample}회 · 평균 ${axis.avgTime.toFixed(1)}초` : "연결된 표본 없음"}</small></div><div class="axis-track" aria-label="${axis.label} ${axis.rate === null ? "데이터 없음" : `${axis.rate}%`}"><i style="--axis-progress:${axis.rate ?? 0}%"></i></div><strong class="axis-rate">${axis.rate === null ? "—" : `${axis.rate}%`}</strong><span class="axis-state">${axis.statusLabel}</span></article>`).join("")}</div>
+    </section>
+    <section class="card topic-priority"><div class="section-head"><div><span class="eyebrow">Review Priority</span><h2>주제별 복습 우선순위</h2><p>과목·주제별 표본 수와 정답률을 함께 표시합니다.</p></div></div><div class="weakness-list">${weakness.length ? weakness.slice(0, 12).map((row) => `<div class="weakness-row"><div><strong>${esc(row.label_path)}</strong><small>${row.attempt_count}회 풀이 · 평균 ${row.avg_time_sec}초</small></div><div class="progress"><i style="width:${row.correct_rate_pct}%"></i></div><strong>${row.correct_rate_pct}%</strong></div>`).join("") : `<div class="empty-card"><strong>아직 집계할 풀이 기록이 없습니다</strong>문항을 풀면 주제별 복습 우선순위가 표시됩니다.</div>`}</div></section>`;
 }
 
 function clinicalTabs(active) {
-  return `<nav class="clinical-subnav" aria-label="의료 학습 도구">
-    <a href="#clinical/chat" class="${active === "chat" ? "active" : ""}">의료 챗봇</a>
-    <a href="#clinical/library" class="${active === "library" ? "active" : ""}">가이드라인 라이브러리</a>
+  return `<nav class="clinical-subnav" aria-label="의료 학습 도구" role="tablist">
+    <a href="#clinical/chat" role="tab" aria-selected="${active === "chat"}" class="${active === "chat" ? "active" : ""}">의료 챗봇</a>
+    <a href="#clinical/library" role="tab" aria-selected="${active === "library"}" class="${active === "library" ? "active" : ""}">가이드라인 라이브러리</a>
   </nav>`;
 }
 
@@ -692,6 +756,13 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
   const followupConceptId = String(concepts[0]?.concept_id || "").trim();
   const reasons = result.reasons || result.block_reasons || [];
   const answerStatus = copilotAnswerStatus({result, answer, approvedClaims, blocked});
+  if (blocked) {
+    return `<article data-answer-instance="${esc(safeInstance)}" class="assistant-answer copilot-document insufficient-state" aria-live="polite">
+      <header class="answer-status"><span class="blocked">${esc(answerStatus.label || "근거 부족 · 보류")}</span><small>${esc(answerStatus.detail)}</small></header>
+      <section class="insufficient-copy"><h3>${esc(result.message || "현재 연결된 근거만으로는 완결된 학습 답변을 만들기 어렵습니다.")}</h3><p>미검증 내용을 추론해 채우지 않았습니다. 아래 방법으로 질문 범위를 조정하거나 공식 문서를 먼저 찾아보세요.</p><ol><li><strong>질문 구체화</strong><span>질환명·상황·궁금한 축을 한 가지씩 적어보세요.</span></li><li><strong>가이드라인 검색</strong><span>공식 문서의 분과·질환 키워드를 확인하세요.</span></li><li><strong>관련 문항 풀이</strong><span>문항 해설에서 연결 개념과 Axis를 확인하세요.</span></li></ol></section>
+      <div class="insufficient-actions"><button type="button" data-refine-question>질문 구체화</button><a href="#clinical/library">가이드라인 라이브러리</a><a href="#library">관련 문항 풀이</a><button type="button" class="primary" data-retry-copilot>다시 시도</button></div>
+    </article>`;
+  }
   const keyPoints = (answer?.key_points || []).slice(0, focusMode ? 5 : undefined);
   const sections = answer?.sections || [];
   const tables = answer?.tables || [];
@@ -704,11 +775,15 @@ function renderAssistantResult(result, instanceId = "latest", reveal = null) {
     const content = `<div class="section-copy">${sectionBody(section.body)}</div>${cites.length ? `<div class="citation-row"><span>근거</span>${citationButtons(cites)}</div>` : ""}`;
     return focusMode
       ? `<section class="focus-section-row"><h4>${esc(section.title || `항목 ${index + 1}`)}</h4>${content}</section>`
-      : `<details id="copilot-section-${safeInstance}-${index}" open><summary><span>${esc(section.title || `항목 ${index + 1}`)}</span><small>접기</small></summary>${content}</details>`;
+      : `<details id="copilot-section-${safeInstance}-${index}" ${index === 0 ? "open" : ""}><summary><span>${esc(section.title || `항목 ${index + 1}`)}</span><small>${index === 0 ? "접기" : "펼치기"}</small></summary>${content}</details>`;
   }).join("");
+  const focusSectionRows = sections.map((section, index) => {
+    const cites = citationIds(section);
+    return `<section class="focus-section-row"><h4>${esc(section.title || `항목 ${index + 1}`)}</h4><div class="section-copy">${sectionBody(section.body)}</div>${cites.length ? `<div class="citation-row"><span>근거</span>${citationButtons(cites)}</div>` : ""}</section>`;
+  });
   const sectionsMarkup = sections.length
     ? focusMode
-      ? `<details class="focus-detail-group"><summary><span>상세 설명</span><small>${sections.length}개 항목</small></summary><div class="focus-section-content">${sectionRows}</div></details>`
+      ? `<div class="focus-primary-detail"><span>첫 상세</span>${focusSectionRows[0]}</div>${focusSectionRows.length > 1 ? `<details class="focus-detail-group"><summary><span>자세히 보기</span><small>추가 ${focusSectionRows.length - 1}개 항목</small></summary><div class="focus-section-content">${focusSectionRows.slice(1).join("")}</div></details>` : ""}`
       : `<div class="copilot-sections">${sectionRows}</div>`
     : "";
   const tableRows = tables.map((table) => {
@@ -847,6 +922,17 @@ function resumeCopilotReveal() {
   }, tick);
 }
 
+function copilotProgressSteps(stage) {
+  const normalized = String(stage || "").toLowerCase();
+  const activeIndex = ["privacy_preflight", "queued", "recovering"].includes(normalized) ? 0
+    : ["grounding_and_answer", "retrieving", "grounding"].includes(normalized) ? 1
+      : 2;
+  return ["임상 질문 분석", "최신 의학 근거 정리", "전공·필요에 맞게 다듬기"].map((label, index) => ({
+    label,
+    state: index < activeIndex ? "done" : index === activeIndex ? "active" : "pending",
+  }));
+}
+
 function renderCopilotConversation() {
   if (!state.clinicalMessages.length && !state.assistantBusy) {
     const counts = state.copilotStatus?.counts || {};
@@ -867,7 +953,8 @@ function renderCopilotConversation() {
     ? `<div class="chat-turn user-turn"><div class="chat-bubble user-bubble ${message.redacted ? "redacted" : ""}"><small>${message.redacted ? "입력 내용 숨김" : "의학 질문"}</small><p>${esc(message.content)}</p></div></div>`
     : `<div class="chat-turn assistant-turn"><div class="chat-bubble assistant-bubble">${renderAssistantResult(message.result, `turn-${index}`, message.reveal)}</div></div>`).join("");
   const elapsed = state.copilotStartedAt ? Math.floor((Date.now() - state.copilotStartedAt) / 1000) : 0;
-  const pending = state.assistantBusy ? `<div class="chat-turn assistant-turn"><div class="chat-bubble thinking copilot-progress"><div class="progress-head"><span class="spinner"></span><div><strong>근거를 확인하고 있습니다</strong><small>경과 <b data-copilot-elapsed>${formatElapsed(elapsed)}</b> · 복잡한 질문은 30–60초 걸릴 수 있어요</small></div></div><ol><li>직접 식별정보 점검</li><li>Ontology 해석과 Harrison 위치 검색</li><li>허용된 근거 범위 안에서 답변 작성</li></ol><p class="copilot-recovery-note">이 작업은 같은 브라우저 탭에서 새로고침해도 이어집니다.</p><button type="button" data-cancel-copilot>답변 작업 취소</button></div></div>` : "";
+  const progressSteps = copilotProgressSteps(state.copilotJobStage);
+  const pending = state.assistantBusy ? `<div class="chat-turn assistant-turn"><div class="chat-bubble thinking copilot-progress"><div class="progress-head"><span class="spinner"></span><div><strong>AI 임상 학습 모드</strong><small>경과 <b data-copilot-elapsed>${formatElapsed(elapsed)}</b> · 근거를 단계별로 확인하고 있어요</small></div></div><ol>${progressSteps.map((step) => `<li class="${step.state}"><i>${step.state === "done" ? "✓" : ""}</i><span>${step.label}</span></li>`).join("")}</ol><p class="copilot-recovery-note">진행 중인 답변은 같은 브라우저 탭에서 새로고침해도 이어집니다.</p></div></div>` : "";
   return `${turns}${pending}`;
 }
 
@@ -877,10 +964,10 @@ function renderStudyQa() {
     ? `<span class="clear-chat-confirm">서버 사본이 없어 되돌릴 수 없어요. <button type="button" data-confirm-clear>지우기</button><button type="button" data-cancel-clear>취소</button></span>`
     : `<button type="button" data-clear-chat ${state.clinicalMessages.length && !state.assistantBusy ? "" : "disabled"}>대화 지우기</button>`;
   return `<section class="copilot-shell">
-    <div class="copilot-toolbar"><span>${state.assistantBusy && state.activeCopilotJobId ? "진행 중인 답변 작업은 같은 브라우저 탭에서 새로고침 후 복구돼요" : hasConversation ? "완료된 대화는 브라우저 메모리에만 유지돼요" : "학습·실습 준비용 · 직접 식별정보 입력 금지"}</span><nav><button type="button" class="focus-toggle ${state.copilotFocusMode ? "active" : ""}" data-focus-mode aria-pressed="${state.copilotFocusMode}"><i></i>집중 보기</button><a href="#review/medical">의학 지식 복습</a><a href="#clinical/library">가이드라인 라이브러리</a>${clearControl}</nav></div>
+    <div class="copilot-toolbar"><span>${state.assistantBusy && state.activeCopilotJobId ? "진행 중인 답변 작업은 같은 브라우저 탭에서 새로고침 후 복구돼요" : hasConversation ? "완료된 대화는 브라우저 메모리에만 유지돼요" : "학습·실습 준비용 · 직접 식별정보 입력 금지"}</span><nav><button type="button" class="focus-toggle ${state.copilotFocusMode ? "active" : ""}" data-focus-mode aria-pressed="${state.copilotFocusMode}"><i></i>집중 보기</button><a href="#review/medical">의학 지식 복습</a>${clearControl}</nav></div>
     <div class="chat-feed" aria-live="polite">${renderCopilotConversation()}</div>
     <form id="study-qa-form" class="copilot-composer">
-      <div class="composer-box"><textarea id="study-question" rows="2" placeholder="${state.assistantBusy ? "현재 답변이 끝나면 새 질문을 보낼 수 있어요" : "의학 질문을 입력하세요"}" ${state.assistantBusy ? "disabled" : ""}>${esc(state.assistantQuery)}</textarea><button class="composer-send" data-send-question type="submit" aria-label="질문 보내기" ${state.assistantBusy || !state.assistantQuery.trim() ? "disabled" : ""}>↑</button></div>
+      <div class="composer-box"><textarea id="study-question" rows="2" placeholder="${state.assistantBusy ? "현재 답변을 만들고 있습니다" : "의학 질문을 입력하세요"}" ${state.assistantBusy ? "disabled" : ""}>${esc(state.assistantQuery)}</textarea>${state.assistantBusy ? `<button class="composer-send stop" data-cancel-copilot type="button" aria-label="답변 생성 중단">■</button>` : `<button class="composer-send" data-send-question type="submit" aria-label="질문 보내기" ${!state.assistantQuery.trim() ? "disabled" : ""}>↑</button>`}</div>
       <div class="composer-meta"><span>${state.assistantBusy ? "답변 생성 중에는 중복 전송이 잠겨요" : "Enter 전송 · Shift+Enter 줄바꿈"}</span><span>이름·환자번호·연락처는 검색 전에 차단돼요</span></div>
     </form>
   </section>`;
@@ -1119,6 +1206,16 @@ function bindClinicalActions(active) {
     document.querySelector("[data-cancel-clear]")?.addEventListener("click", () => { state.clearChatConfirm = false; renderClinical(); });
     document.querySelector("[data-confirm-clear]")?.addEventListener("click", () => { stopCopilotReveal(); state.clinicalMessages = []; state.assistantResult = null; state.assistantQuery = ""; state.clearChatConfirm = false; renderClinical(); });
     document.querySelector("[data-cancel-copilot]")?.addEventListener("click", () => cancelActiveCopilotJob());
+    document.querySelector("[data-refine-question]")?.addEventListener("click", () => {
+      const lastQuestion = [...state.clinicalMessages].reverse().find((message) => message.role === "user" && !message.redacted)?.content || "";
+      state.assistantQuery = lastQuestion;
+      renderClinical();
+      requestAnimationFrame(() => { const input = document.querySelector("#study-question"); input?.focus(); input?.setSelectionRange(input.value.length, input.value.length); });
+    });
+    document.querySelector("[data-retry-copilot]")?.addEventListener("click", () => {
+      const lastQuestion = [...state.clinicalMessages].reverse().find((message) => message.role === "user" && !message.redacted)?.content || "";
+      if (lastQuestion && !state.assistantBusy) submitStudyQa(lastQuestion);
+    });
     document.querySelectorAll("[data-citation-source]").forEach((button) => button.addEventListener("click", () => {
       const answerCard = button.closest("[data-answer-instance]");
       const sourceId = button.dataset.citationSource;
@@ -1160,9 +1257,9 @@ function renderClinical() {
   if (detail === "case") history.replaceState(null, "", `${location.pathname}${location.search}#clinical`);
   const active = detail === "library" ? "library" : "chat";
   state.clinicalTab = active;
-  app.innerHTML = active === "chat"
+  app.innerHTML = `<div class="clinical-workspace">${clinicalTabs(active)}${active === "chat"
     ? `<div class="medical-copilot-view">${renderStudyQa()}</div>`
-    : `<div class="guideline-v1-shell">${clinicalTabs(active)}${renderGuidelineLibrary()}</div>`;
+    : `<div class="guideline-v1-shell">${renderGuidelineLibrary()}</div>`}</div>`;
   bindClinicalActions(active);
 }
 
