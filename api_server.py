@@ -2825,8 +2825,8 @@ def _student_learning_context(question_id: str) -> dict:
             },
         }
     return {
-        "ontology": {"status": "reviewing", "message": "Ontology 연결을 교수 검수 중입니다."},
-        "concept_note": {"status": "reviewing", "message": "개념 노트를 교수 검수 중입니다."},
+        "ontology": {"status": "reviewing", "message": "문항 풀이 후 연결된 Ontology 경로를 확인할 수 있습니다."},
+        "concept_note": {"status": "reviewing", "message": "이 문항의 개념·10-Axis 학습 경로가 연결되어 있습니다."},
     }
 
 
@@ -3455,6 +3455,7 @@ def _apply_qbank_enrichment_release(response: dict, question_id: str) -> None:
         "connected_media",
         "media_requirement_satisfied_by_text",
         "evidence",
+        "structured_explanation",
     ):
         if field in entry:
             response[field] = entry[field]

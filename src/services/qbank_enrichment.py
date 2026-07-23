@@ -27,6 +27,7 @@ RELEASES_PATH = ROOT / "data_private" / "student" / "qbank_enrichment.releases.j
 # 승인 release가 원본에 덮어쓸 수 있는(=제출 후 노출되는) 화이트리스트 필드.
 RELEASE_OVERLAY_FIELDS = (
     "explanation",
+    "structured_explanation",
     "choice_explanations",   # [{n, expl, source, needs_review}]
     "points",
     "concept_id",
@@ -236,6 +237,7 @@ def build_faculty_review_queue() -> dict[str, Any]:
             "answer_conflict": bool(draft.get("answer_conflict")),
             "answer_conflict_note": draft.get("answer_conflict_note"),
             "explanation": draft.get("explanation"),
+            "structured_explanation": draft.get("structured_explanation"),
             "choice_explanations": draft.get("choice_explanations") or [],
             "points": draft.get("points") or [],
             "concept_id": draft.get("concept_id"),

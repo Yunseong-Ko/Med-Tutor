@@ -175,6 +175,50 @@ def _choice_explanations(question: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def _structured_explanation(
+    question: dict[str, Any],
+    *,
+    concept_label: str,
+    axis_type: str,
+    axis_label: str,
+) -> dict[str, Any]:
+    """Repackage verified qbank content into a richer learning hierarchy.
+
+    This deliberately does not ask a model to invent additional medicine.  It
+    only promotes the answer-key-aligned explanation, correct-choice rationale,
+    author points, and Ontology route into stable UI sections.
+    """
+    explanation = str(question.get("explanation") or "").strip()
+    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", explanation) if part.strip()]
+    answer_keys = {
+        value.strip()
+        for value in re.split(r"[,/\s]+", str(question.get("answer") or ""))
+        if value.strip()
+    }
+    choices = [choice for choice in (question.get("choices") or []) if isinstance(choice, dict)]
+    correct = [choice for choice in choices if str(choice.get("n") or "") in answer_keys]
+    correct_labels = [f"{choice.get('n')}. {str(choice.get('text') or '').strip()}" for choice in correct]
+    correct_rationales = [str(choice.get("expl") or "").strip() for choice in correct if str(choice.get("expl") or "").strip()]
+    points = [str(point).strip() for point in (question.get("points") or []) if str(point).strip()]
+    return {
+        "schema_version": "paccine.structured_explanation.v1",
+        "summary": paragraphs[0] if paragraphs else explanation,
+        "conclusion": paragraphs[-1] if len(paragraphs) > 1 else (
+            f"정답은 {' · '.join(correct_labels)}입니다." if correct_labels else explanation
+        ),
+        "correct_answer": " · ".join(correct_labels),
+        "correct_answer_rationale": " ".join(correct_rationales),
+        "clinical_reasoning": paragraphs,
+        "key_points": points,
+        "axis_focus": {
+            "concept_label": concept_label,
+            "axis_type": axis_type,
+            "axis_label": axis_label,
+            "message": f"이 문항은 {concept_label}에서 {axis_label} 축을 평가합니다.",
+        },
+    }
+
+
 def _media_rows(extracted: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     refs = (extracted.get("media") or {}).get("media_refs") or []
@@ -232,6 +276,7 @@ def build(*, reviewed_at: str, reviewer_id: str) -> dict[str, Any]:
         if not concept_id:
             raise ValueError(f"missing concept route: {qid}")
         concept_status = "canonical_registry" if concept_id in registry else "curriculum_topic_node"
+        concept_label = _concept_label(concept_id, question, registry)
         registry_concepts += int(concept_status == "canonical_registry")
         axis_type = AXIS_TYPES[number]
         axis_label = AXIS_LABELS[axis_type]
@@ -250,10 +295,16 @@ def build(*, reviewed_at: str, reviewer_id: str) -> dict[str, Any]:
         }, *_harrison_locators(concept_id, registry)]
         overlay = {
             "explanation": str(question.get("explanation") or ""),
+            "structured_explanation": _structured_explanation(
+                question,
+                concept_label=concept_label,
+                axis_type=axis_type,
+                axis_label=axis_label,
+            ),
             "choice_explanations": _choice_explanations(question),
             "points": [str(point) for point in question.get("points") or [] if str(point).strip()],
             "concept_id": concept_id,
-            "concept_label": _concept_label(concept_id, question, registry),
+            "concept_label": concept_label,
             "concept_registry_status": concept_status,
             "target_axis_type": axis_type,
             "target_axis_label": axis_label,

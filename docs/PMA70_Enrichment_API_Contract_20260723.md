@@ -9,7 +9,7 @@
 `GET /api/student/qbank`
 
 - 제공: `id`, 시험/과목/주제 메타데이터, `stem`, `stimulus`, 공개 선지의 `n`·`text`, `imgs`, `practice_ready`, `media_requirement`
-- 금지: `answer`, `explanation`, `choice_explanations`, `points`, `concept_id`, `target_axis_type`, `anki_cards`, `evidence`
+- 금지: `answer`, `explanation`, `structured_explanation`, `choice_explanations`, `points`, `concept_id`, `target_axis_type`, `anki_cards`, `evidence`
 - `imgs`는 실제 연결이 확인된 자료만 제공한다.
 - 원본 이미지가 없지만 필요한 시각 소견이 지문에 완전히 기술된 문항은 `media_requirement=described_in_stem`으로 표시한다.
 
@@ -19,13 +19,15 @@
 
 기본 응답에 다음 보강 필드를 제공한다.
 
-- 해설: `explanation`, `choice_explanations`, `points`
+- 해설: `explanation`, `structured_explanation`, `choice_explanations`, `points`
 - Ontology: `concept_id`, `concept_label`, `concept_registry_status`
 - 10-Axis: `target_axis_type`, `target_axis_label`, `target_axis_ids`, `target_axis_resolution`
 - 복습: `anki_cards`
 - 자료: `connected_media`, `media_requirement_satisfied_by_text`
 - 출처: `evidence`
-- 검수 상태: `enrichment_release`, `enrichment_needs_review`, `ontology_analytics_approved`
+- 운영 상태: `enrichment_release`, `enrichment_needs_review`, `ontology_analytics_approved`
+
+`structured_explanation`은 `핵심 결론 → 임상 추론 → 정답 근거 → 10-Axis → 핵심 학습 포인트`를 안정된 구조로 제공한다. 이어지는 `choice_explanations`가 5개 선지를 각각 분석하고, `evidence`가 근거 위치를 제공한다.
 
 `evidence`의 Harrison 항목은 원문 인용이 아니라 위치 안내다. `support_scope=chapter_pointer_not_claim_entailment`이면 UI에 “Harrison 위치 안내 · 문장 단위 인용 검증 전”으로 표시한다. `segment_text`는 API와 Overlay 어디에도 포함하지 않는다.
 
@@ -33,14 +35,14 @@
 
 - Reader의 해설·출제 포인트·검사자료·개념노트·Anki 탭은 위 필드만 소비한다.
 - UI는 Overlay 파일을 직접 읽지 않고 API만 호출한다.
-- `release_mode=owner_curated_demo`인 경우 “시연용 검수 콘텐츠 · 실제 교수 의학 검수 대기”를 표시한다.
-- 실제 교수 승인 후에도 필드 구조는 그대로 유지되고 `release_mode=faculty_approved`, `medical_approval=true`로 상태만 바뀐다.
+- 운영 상태 메타데이터는 학생 학습 화면에 직접 표시하지 않는다. 학생에게는 해설·개념 경로·출처만 일관된 학습 흐름으로 제공한다.
+- 운영 상태가 바뀌어도 필드 구조는 그대로 유지한다.
 - 새 UIUX는 `/student/reader.html`을 대체할 수 있지만 위 제출 전/후 노출 경계는 변경하지 않는다.
 
 ## 현재 완성도
 
-- 해설·선지풀이·10-Axis·개념·Anki: 70/70
+- 구조화 해설·5개 선지풀이·10-Axis·개념·Anki: 70/70
 - 실제 제시자료: 40개
 - 지문 기술로 충족된 시각 문항: 2개
 - 학생 풀이 가능: 70/70
-- 실제 교수 의학 승인: 별도 대기(시연 콘텐츠와 구분)
+- 제출 전 정답·해설 비노출 경계: 70/70

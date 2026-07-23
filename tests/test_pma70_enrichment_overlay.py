@@ -52,6 +52,14 @@ def test_builder_produces_complete_bounded_overlay(tmp_path, monkeypatch):
     target = {qid: row for qid, row in rows.items() if row.get("source", {}).get("exam") == TARGET_EXAM}
     assert len(target) == 70
     assert all(row.get("explanation") for row in target.values())
+    assert all(row.get("structured_explanation") for row in target.values())
+    assert all(row["structured_explanation"].get("schema_version") == "paccine.structured_explanation.v1" for row in target.values())
+    assert all(row["structured_explanation"].get("conclusion") for row in target.values())
+    assert all(row["structured_explanation"].get("correct_answer") for row in target.values())
+    assert all(row["structured_explanation"].get("correct_answer_rationale") for row in target.values())
+    assert all(row["structured_explanation"].get("clinical_reasoning") for row in target.values())
+    assert all(row["structured_explanation"].get("key_points") for row in target.values())
+    assert all(row["structured_explanation"].get("axis_focus", {}).get("message") for row in target.values())
     assert all(len(row.get("choice_explanations") or []) == 5 for row in target.values())
     assert all(row.get("concept_id") and row.get("target_axis_type") in builder.AXIS_LABELS for row in target.values())
     assert all(row.get("anki_cards") for row in target.values())
@@ -95,7 +103,7 @@ def test_all_target_questions_are_ready_without_pre_answer_truth_leak(tmp_path, 
     ]
     forbidden = {
         "answer", "explanation", "choice_explanations", "points", "anki_cards",
-        "evidence", "concept_id", "target_axis_type",
+        "evidence", "concept_id", "target_axis_type", "structured_explanation",
     }
     assert all(question.get("practice_ready") is True for question in public)
     assert all(not (set(question) & forbidden) for question in public)
@@ -112,6 +120,9 @@ def test_all_target_questions_are_ready_without_pre_answer_truth_leak(tmp_path, 
     assert response.status_code == 200
     feedback = response.json()
     assert feedback["explanation"]
+    assert feedback["structured_explanation"]["conclusion"]
+    assert feedback["structured_explanation"]["correct_answer_rationale"]
+    assert feedback["structured_explanation"]["axis_focus"]["message"]
     assert len(feedback["choice_explanations"]) == 5
     assert feedback["concept_id"]
     assert feedback["target_axis_type"] in builder.AXIS_LABELS

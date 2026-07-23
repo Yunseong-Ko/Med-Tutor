@@ -49,6 +49,19 @@
 .choice-explanations { display: grid; gap: 9px; margin-top: 19px; }
 .choice-expl { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: 28px 1fr; gap: 8px; }
 .choice-expl b { color: var(--teal); }
+.explanation-hero { display: grid; gap: 9px; padding: 22px 24px; border: 1px solid #bfe2dd; border-radius: 16px; background: linear-gradient(145deg,#edf9f7,#f8fbfa); }
+.explanation-hero > span, .answer-rationale > span, .axis-focus > span { color: var(--teal); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.explanation-hero > strong { color: var(--teal-dark); font-size: 19px; line-height: 1.65; }
+.explanation-hero > small { color: #42615c; font-weight: 750; }
+.feedback-subtitle.first { margin-top: 20px !important; }
+.answer-rationale, .axis-focus { margin-top: 14px; padding: 15px 17px; border-radius: 13px; background: #f7f6f2; border-left: 4px solid var(--teal); }
+.answer-rationale p { margin: 5px 0 0; }
+.clinical-reasoning { display: grid; gap: 10px; }
+.clinical-reasoning p { margin: 0; line-height: 1.8; }
+.axis-focus { display: grid; gap: 5px; border-left-color: #d99a2b; background: #fff8e9; }
+.key-point-list { display: grid; gap: 9px; padding-left: 0 !important; list-style: none; }
+.key-point-list li { position: relative; padding: 12px 14px 12px 37px; border: 1px solid var(--line); border-radius: 12px; background: #fbfbf9; }
+.key-point-list li::before { content: "✓"; position: absolute; left: 14px; color: var(--teal); font-weight: 900; }
 .feedback-subtitle { margin-top: 24px !important; padding-top: 20px; border-top: 1px solid var(--line); }
 .evidence-list, .anki-list { display: grid; gap: 10px; margin-top: 12px; }
 .evidence-item, .anki-item { border: 1px solid var(--line); border-radius: 13px; background: #fbfbf9; padding: 14px 16px; display: grid; gap: 4px; }
