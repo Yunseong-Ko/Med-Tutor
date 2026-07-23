@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ontology 문항 생성 작업실 · P:accine Faculty</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="/faculty-studio-v3/app.css?v=20260723-auth-controls-v1" />
+  <link rel="stylesheet" href="/faculty-studio-v3/generation-job.css?v=20260718-1" />
+</head>
+<body>
+  <div class="faculty-shell">
+    <header class="topbar">
+      <a class="brand" href="/faculty-studio-v2/" aria-label="P:accine 교수용 홈">
+        <span class="brand-mark">P</span>
+        <span><b>P:accine</b><small>FACULTY STUDIO · ONTOLOGY</small></span>
+      </a>
+      <nav aria-label="교수 메뉴">
+        <a class="active" href="/faculty-studio-v2/">새 문항 만들기</a>
+        <a href="/faculty-studio-v2/import.html">문항 가져오기</a>
+        <a href="/faculty-studio-v2/review.html">검토·승인</a>
+        <a href="/faculty-studio-v2/guideline-claims.html">가이드라인 검토</a>
+        <a href="/faculty-studio-v2/evidence-media.html">근거·미디어</a>
+        <a href="/faculty-studio-v2/archive.html">내보내기</a>
+      </nav>
+      <div class="top-actions">
+        <span id="save-state" class="save-state">현재 작업</span>
+        <button id="copilot-toggle" class="copilot-button" type="button" aria-expanded="false">✳ Copilot</button>
+        <button id="logout-button" class="logout-button" type="button">로그아웃</button>
+        <span class="avatar" aria-label="로컬 교수 사용자">교</span>
+      </div>
+    </header>
+
+    <div class="studio-grid">
+      <aside class="step-rail" aria-label="문항 제작 단계">
+        <div class="rail-kicker">새 문항 세트</div>
+        <div id="step-list" class="step-list"></div>
+        <p>모든 초안은 <b>needs_review</b>로 시작하며 학생에게 자동 공개되지 않습니다.</p>
+      </aside>
+
+      <main class="workspace">
+        <section class="panel" data-panel="1">
+          <div id="intent-step-1">
+            <div class="panel-head"><div><span class="step-number">1</span><h1>어느 과 문항을 출제하시나요?</h1></div><span class="endpoint">GET /api/faculty/item-intents/departments</span></div>
+            <p class="field-help">임상의학종합평가 문항은 과 선택에서 시작합니다. 강의록 없이 현재 Ontology 구조를 바탕으로 교수 검토용 후보를 확인할 수 있습니다.</p>
+            <div id="intent-department-state" class="fs3-intent-state" aria-live="polite"></div>
+            <div id="intent-department-list" class="fs3-intent-department-grid" aria-label="출제 과 선택"></div>
+            <div class="fs3-intent-scope-grid">
+              <label class="full-field"><span>세트명</span><input id="intent-set-name" value="임상의학종합평가 문항 세트" /></label>
+              <div class="field-group"><span>배정 문항 수</span><div id="intent-count-options" class="choice-row" aria-label="배정 문항 수"><button type="button" data-intent-count="2">2문항</button><button type="button" data-intent-count="3" class="selected">3문항</button></div></div>
+              <div class="field-group"><span>난이도</span><div class="fs3-intent-fixed-pill">임종평·국시형 <small>clinical_comprehensive</small></div></div>
+            </div>
+          </div>
+          <div id="manual-step-1" hidden>
+            <div class="panel-head"><div><span class="step-number">1</span><h1>직접 설정할 출제 범위를 정합니다</h1></div><span class="endpoint">LOCAL DRAFT</span></div>
+            <div class="form-grid two">
+              <label><span>과목</span><select id="course-select"><option>불러오는 중…</option></select></label>
+              <label><span>세트명</span><input id="set-name" value="새 Ontology 문항 세트" /></label>
+            </div>
+            <div class="form-grid two compact-top">
+              <div class="field-group"><span>문항 수</span><div class="stepper"><button type="button" data-count="-1">−</button><output id="question-count">2</output><button type="button" data-count="1">+</button></div></div>
+              <div class="field-group"><span>난이도</span><div class="choice-row" id="difficulty-options"><button type="button" data-value="보통">보통</button><button type="button" data-value="어려움">어려움</button><button type="button" class="selected" data-value="국가고시형">임종평·국시형</button></div></div>
+            </div>
+            <label class="full-field compact-top"><span>교수 출제 요청</span><textarea id="faculty-request" rows="4" placeholder="예: 다발골수종에서 진단 후 초기 치료를 묻는 임종평형 문항 2개"></textarea></label>
+            <div class="info-strip"><b>Copilot 사용 방법</b><span>자연어 요청을 대상·평가 과업·형식 후보로만 정리합니다. 교수 적용 전에는 설계가 바뀌지 않습니다.</span></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="2" hidden>
+          <div class="fs3-intent-mode-head">
+            <div class="choice-row" id="intent-mode-options" role="group" aria-label="출제 대상 선택 방식"><button type="button" class="selected" data-intent-mode="recommended">AI 추천</button><button type="button" data-intent-mode="manual">직접 설정</button></div>
+            <span>추천은 교수 검토용이며 임상 중요도 순위나 의학 승인을 뜻하지 않습니다.</span>
+          </div>
+          <div id="intent-step-2">
+            <div class="panel-head"><div><span class="step-number">2</span><h1>출제할 2~3개 주제를 선택하세요</h1></div><span class="endpoint">POST /api/faculty/item-intents/recommendations</span></div>
+            <div class="fs3-intent-selection-head"><span id="intent-selection-count" class="fs3-intent-counter">0 / 3 선택</span><span>현재 Ontology 구조를 바탕으로 추천한 질환 × 평가 과업 후보입니다.</span></div>
+            <div id="intent-recommendation-state" class="fs3-intent-state" aria-live="polite"></div>
+            <div id="intent-candidate-list" class="fs3-intent-candidate-grid"></div>
+            <div class="fs3-intent-inline-actions"><button id="intent-refresh" class="secondary-action" type="button">다른 후보 보기</button><button id="intent-manual-entry" class="text-action" type="button">직접 주제 입력</button></div>
+          </div>
+          <div id="manual-step-2" hidden>
+            <div class="panel-head"><div><span class="step-number">2</span><h1>무엇을 다룰까요?</h1></div><span class="endpoint">GET /api/ontology/search</span></div>
+            <div class="choice-row target-types" id="target-types">
+              <button type="button" class="selected" data-value="condition">질환</button><button type="button" data-value="presentation">환자표현</button><button type="button" data-value="drug">약물</button><button type="button" data-value="procedure">시술</button>
+            </div>
+            <div class="search-row"><input id="concept-query" type="search" placeholder="한국어·영문·Ontology ID 검색" /><button id="concept-search" class="secondary-action" type="button">Ontology 검색</button></div>
+            <p class="field-help">검색 결과는 모두 검토용이며 의학 승인 상태가 아닙니다. 연결이 없으면 입력 문장을 주제로 사용할 수 있습니다.</p>
+            <div id="concept-results" class="result-list"><div class="empty-state"><b>대상 개념을 검색하세요</b><span>예: 다발골수종 · multiple_myeloma · acute_pancreatitis</span></div></div>
+            <div id="selected-concept" class="selected-concept" hidden></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="3" hidden>
+          <div id="intent-step-3">
+            <div class="panel-head"><div><span class="step-number">3</span><h1>후보별 평가 과업을 확인합니다</h1></div><span class="endpoint">SELECTION CONTRACT</span></div>
+            <p class="field-help">각 후보의 과업을 따로 바꿀 수 있습니다. 변경 시 출제 의도·Ontology 축·생성 계약이 함께 갱신됩니다.</p>
+            <div id="intent-task-list" class="fs3-intent-task-list"></div>
+          </div>
+          <div id="manual-step-3" hidden>
+            <div class="panel-head"><div><span class="step-number">3</span><h1>학생에게 무엇을 판단하게 할까요?</h1></div><span class="endpoint">FACULTY INTENT</span></div>
+            <p class="field-help">대상, 평가 과업, 문항 형식을 분리합니다. 최대 2개 과업을 선택하며 첫 번째 과업이 주 평가 축입니다.</p>
+            <div id="task-groups" class="task-groups"></div>
+            <div class="format-block"><span>문항 형식</span><div class="choice-row" id="format-options"><button type="button" class="selected" data-value="clinical_case">증례형</button><button type="button" data-value="image_based">검사표·영상 해석형</button><button type="button" data-value="basic_concept">개념 적용형</button></div></div>
+            <details><summary>고급 설정</summary><div class="form-grid three"><label><span>추론 단계</span><select id="reasoning-hops"><option value="2">2단계</option><option value="1">1단계</option><option value="3">3단계</option></select></label><label><span>진료 시점</span><select id="care-phase"><option value="initial">초기 평가·처치</option><option value="diagnostic">진단 단계</option><option value="definitive">확정 치료</option><option value="follow_up">추적 관리</option></select></label><label><span>선지 범주</span><input id="option-domain" placeholder="자동" /></label></div></details>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="4" hidden>
+          <div id="intent-step-4">
+            <div class="panel-head"><div><span class="step-number">4</span><h1>후보별 근거 가용성을 확인합니다</h1></div><span class="endpoint">EVIDENCE CONTRACT</span></div>
+            <div class="warning-strip"><b>Ontology 연결과 장 포인터는 정답 직접 근거가 아닙니다.</b><span>unsupported 후보는 보류하고, 나머지 후보 상태는 그대로 보존합니다.</span></div>
+            <div id="intent-evidence-list" class="fs3-intent-evidence-list"></div>
+            <details class="fs3-intent-reference-details"><summary>참고자료 추가 (선택)</summary><div class="source-cards"><article><div><span class="source-icon">강</span><div><b>새 강의자료</b><small>파일 첨부 생성은 기존 직접 설정에서 지원</small></div></div><button id="intent-lecture-manual" type="button">직접 설정에서 첨부</button></article><article><div><span class="source-icon">근</span><div><b>저장된 근거·미디어</b><small>승인·비식별 자료만 선택 가능</small></div></div><button id="media-open" type="button">자료 선택 <span id="media-count">0</span></button></article></div></details>
+          </div>
+          <div id="manual-step-4" hidden>
+            <div class="panel-head"><div><span class="step-number">4</span><h1>근거와 제시자료를 준비합니다</h1></div><span class="endpoint">GET /api/media</span></div>
+            <div class="warning-strip"><b>Ontology 연결은 근거가 아닙니다.</b><span>정답 주장과 핵심 오답 배제 논리는 원문 자료가 직접 지지해야 합니다.</span></div>
+            <div class="source-cards"><article><div><span class="source-icon">강</span><div><b>강의자료</b><small>PDF·PPTX·DOCX·HWP·TXT</small></div></div><input id="manual-lecture-file" type="file" accept=".pdf,.pptx,.docx,.hwp,.txt,.md" /></article><article><div><span class="source-icon">근</span><div><b>저장된 근거·미디어</b><small>승인·비식별 자료만 선택 가능</small></div></div><button id="manual-media-open" type="button">자료 선택</button></article></div>
+            <label class="full-field"><span>교수 강조점·직접 근거 메모</span><textarea id="teaching-points" rows="4" placeholder="문항이 평가할 핵심 주장, 강의 범위, 오답 배제 근거를 적어 주세요."></textarea></label>
+            <label class="full-field"><span>참고 교재·가이드라인 위치</span><input id="textbook-reference" placeholder="예: Harrison's 22e Ch.354 p.2700 · 원문은 문항에 복사하지 않음" /></label>
+            <div id="coverage-card" class="coverage-card"></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="5" hidden>
+          <div id="intent-step-5">
+            <div class="panel-head"><div><span class="step-number">5</span><h1>선택한 문항 설계도를 확인합니다</h1></div><span class="endpoint">INTENT PREFLIGHT</span></div>
+            <div id="intent-blueprint-list" class="fs3-intent-blueprint-list"></div>
+            <div id="intent-preflight-state" class="preflight-state"><b>아직 후보 사전 점검을 실행하지 않았습니다.</b><span>생성 가능한 후보와 보류 사유를 구분합니다.</span></div>
+            <button id="intent-preflight-run" class="secondary-action standalone" type="button">후보 사전 점검</button>
+          </div>
+          <div id="manual-step-5" hidden>
+            <div class="panel-head"><div><span class="step-number">5</span><h1>문항 설계도를 확인합니다</h1></div><span class="endpoint">POST /api/ontology/question-blueprint</span></div>
+            <div id="blueprint-preview" class="blueprint-preview"></div>
+            <div id="preflight-state" class="preflight-state"><b>아직 설계도를 점검하지 않았습니다.</b><span>현재 선택을 서버 계약과 비교합니다.</span></div>
+            <button id="preflight-run" class="secondary-action standalone" type="button">출제 설계 확인</button>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="6" hidden>
+          <div class="panel-head"><div><span class="step-number">6</span><h1>초안을 생성하고 자동 점검합니다</h1></div><span id="generation-endpoint" class="endpoint" data-manual-endpoint="POST /api/generation-jobs">POST /api/faculty/item-intents/generation-jobs</span></div>
+          <div id="generation-checklist" class="checklist"></div>
+          <div id="generation-state" class="generation-state"><b>생성 준비 전</b><span>필수 선택과 설계도 점검 상태를 확인하세요.</span></div>
+          <button id="generate-run" class="primary-action standalone" type="button" disabled>문항 초안 생성</button>
+          <div id="generation-result" class="generation-result" hidden></div>
+        </section>
+
+        <section class="panel" data-panel="7" hidden>
+          <div class="panel-head"><div><span class="step-number">7</span><h1>교수 검토로 보냅니다</h1></div><span class="endpoint">QUESTION SET REVIEW</span></div>
+          <div id="review-handoff" class="review-handoff"></div>
+        </section>
+
+        <footer class="workspace-footer"><button id="previous-step" type="button">← 이전 단계</button><span id="step-indicator">1 / 7</span><button id="next-step" type="button">다음 단계 →</button></footer>
+      </main>
+
+      <aside class="summary-rail" aria-label="설계 요약">
+        <div class="summary-head"><span>설계 요약</span><b id="coverage-badge">준비 전</b></div>
+        <dl id="summary-list"></dl>
+        <div id="summary-alert" class="summary-alert"></div>
+        <button id="summary-primary" class="primary-action" type="button" disabled>문항 초안 생성</button>
+        <button id="concept-detail-open" class="text-action" type="button" disabled>개념 연결 보기</button>
+        <small>교수 검수용 초안 · 자동으로 학생에게 공개되지 않음</small>
+      </aside>
+    </div>
+  </div>
+
+  <div id="copilot" class="drawer copilot" hidden>
+    <div class="drawer-head"><div><b>Copilot</b><small>자연어 → 구조 제안</small></div><button type="button" data-drawer-close="copilot" aria-label="Copilot 닫기">✕</button></div>
+    <div class="copilot-boundary">추천은 교수 적용 전까지 확정되지 않습니다. 근거·정답·승인·공개를 결정하지 않습니다.</div>
+    <div id="copilot-messages" class="copilot-messages"><div class="assistant-message">만들고 싶은 문항을 한 문장으로 적어 주세요. 로컬 규칙으로 개념 검색어·과업·형식 후보를 정리합니다.</div></div>
+    <div id="copilot-proposal" class="copilot-proposal" hidden></div>
+    <div class="copilot-compose"><textarea id="copilot-input" rows="3" placeholder="예: 다발골수종의 진단 후 치료를 묻는 임종평 문항 2개"></textarea><button id="copilot-send" type="button">제안 만들기</button></div>
+  </div>
+
+  <div id="media-drawer" class="drawer" hidden>
+    <div class="drawer-head"><div><b>근거·미디어 선택</b><small>승인·비식별 자료만 연결</small></div><button type="button" data-drawer-close="media" aria-label="자료 선택 닫기">✕</button></div>
+    <input id="media-search" class="drawer-search" type="search" placeholder="진단·단원·소견 검색" />
+    <div id="media-list" class="media-list"></div>
+    <div class="drawer-foot"><span id="media-selected-label">0개 선택</span><button id="media-apply" type="button">선택 적용</button></div>
+  </div>
+
+  <div id="concept-drawer" class="drawer" hidden>
+    <div class="drawer-head"><div><b>개념 연결</b><small>검토용 Ontology · 의학검토 전</small></div><button type="button" data-drawer-close="concept" aria-label="개념 연결 닫기">✕</button></div>
+    <div id="concept-detail" class="concept-detail"></div>
+  </div>
+  <div id="drawer-backdrop" class="backdrop" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/faculty-studio-v3/app.js?v=20260723-auth-controls-v1"></script>
+</body>
+</html>

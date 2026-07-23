@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/studio_question_set.schema.json",
+  "title": "Axioma Studio Question Set",
+  "type": "object",
+  "required": ["set_id", "review_status", "created_at", "metadata", "questions"],
+  "additionalProperties": true,
+  "properties": {
+    "set_id": { "type": "string" },
+    "review_status": {
+      "type": "string",
+      "enum": ["draft", "faculty_review_pending", "approved", "archived"]
+    },
+    "created_at": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "source_name",
+        "provider",
+        "model",
+        "subject",
+        "unit",
+        "question_type",
+        "reference_policy",
+        "image_policy"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "source_name": { "type": "string" },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "subject": { "type": "string" },
+        "unit": { "type": "string" },
+        "question_type": { "type": "string" },
+        "reference_policy": { "type": "string" },
+        "image_policy": { "type": "string" },
+        "selected_media_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  }
+}

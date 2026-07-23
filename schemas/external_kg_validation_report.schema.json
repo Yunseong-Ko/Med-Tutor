@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/external_kg_validation_report.schema.json",
+  "title": "P:accine external KG second-pass validation report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "candidate_graph_refs",
+    "local_ontology_snapshot_sha256",
+    "interpretation_policy",
+    "stats",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {"const": "external_kg_validation_report.v1"},
+    "report_id": {
+      "type": "string",
+      "pattern": "^external_kg_validation:[a-z0-9][a-z0-9._-]*:[0-9a-f]{16}$"
+    },
+    "generated_at": {"type": "string", "format": "date-time"},
+    "candidate_graph_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/graphRef"}
+    },
+    "local_ontology_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "interpretation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["absence_is_not_contradiction", "review"],
+      "properties": {
+        "absence_is_not_contradiction": {"const": true},
+        "review": {"$ref": "#/$defs/failClosedReview"}
+      }
+    },
+    "stats": {"$ref": "#/$defs/stats"},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    }
+  },
+  "$defs": {
+    "curieOrNull": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]*:[^\\s]+$"
+        },
+        {"type": "null"}
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "graphRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graph_id", "snapshot_id", "artifact_sha256"],
+      "properties": {
+        "graph_id": {"type": "string", "minLength": 1},
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "failClosedReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "analytics_eligible",
+        "promotion_status",
+        "reviewer_id",
+        "reviewed_at"
+      ],
+      "properties": {
+        "status": {"const": "external_candidate"},
+        "needs_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "analytics_eligible": {"const": false},
+        "promotion_status": {"const": "not_promoted"},
+        "reviewer_id": {"const": null},
+        "reviewed_at": {"const": null}
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_count",
+        "externally_concordant",
+        "external_conflict_candidate",
+        "local_only_not_disproven",
+        "external_new_candidate",
+        "evaluated_exact_mapping",
+        "not_evaluable_grouped_mapping",
+        "not_evaluable_missing_mapping",
+        "all_needs_review"
+      ],
+      "properties": {
+        "item_count": {"type": "integer", "minimum": 0},
+        "externally_concordant": {"type": "integer", "minimum": 0},
+        "external_conflict_candidate": {"type": "integer", "minimum": 0},
+        "local_only_not_disproven": {"type": "integer", "minimum": 0},
+        "external_new_candidate": {"type": "integer", "minimum": 0},
+        "evaluated_exact_mapping": {"type": "integer", "minimum": 0},
+        "not_evaluable_grouped_mapping": {"type": "integer", "minimum": 0},
+        "not_evaluable_missing_mapping": {"type": "integer", "minimum": 0},
+        "all_needs_review": {"const": true}
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_item_id",
+        "classification",
+        "evaluation_status",
+        "coverage_reason",
+        "local_concept_id",
+        "local_finding_id",
+        "local_finding_label",
+        "hpo_curie",
+        "local_claim_ids",
+        "candidate_edge_ids",
+        "external_polarities",
+        "external_subject_curie",
+        "external_predicate",
+        "external_object_curie",
+        "explanation",
+        "absence_is_not_contradiction",
+        "review"
+      ],
+      "properties": {
+        "validation_item_id": {
+          "type": "string",
+          "pattern": "^ekg:v:[0-9a-f]{24}$"
+        },
+        "classification": {
+          "enum": [
+            "externally_concordant",
+            "external_conflict_candidate",
+            "local_only_not_disproven",
+            "external_new_candidate"
+          ]
+        },
+        "evaluation_status": {
+          "enum": [
+            "evaluated_exact_mapping",
+            "not_evaluable_grouped_mapping",
+            "not_evaluable_missing_mapping"
+          ]
+        },
+        "coverage_reason": {
+          "enum": [
+            "external_edge_present",
+            "exact_mapping_no_external_edge",
+            "grouped_mapping_excluded",
+            "local_mapping_missing"
+          ]
+        },
+        "local_concept_id": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "local_finding_id": {"type": ["string", "null"]},
+        "local_finding_label": {"type": ["string", "null"]},
+        "hpo_curie": {"$ref": "#/$defs/curieOrNull"},
+        "local_claim_ids": {"$ref": "#/$defs/stringArray"},
+        "candidate_edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^ekg:e:[0-9a-f]{24}$"
+          }
+        },
+        "external_polarities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["affirmed", "negated", "unknown"]}
+        },
+        "external_subject_curie": {"$ref": "#/$defs/curieOrNull"},
+        "external_predicate": {"type": ["string", "null"]},
+        "external_object_curie": {"$ref": "#/$defs/curieOrNull"},
+        "explanation": {"type": "string", "minLength": 1},
+        "absence_is_not_contradiction": {"const": true},
+        "review": {"$ref": "#/$defs/failClosedReview"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"classification": {"const": "local_only_not_disproven"}}
+          },
+          "then": {
+            "properties": {
+              "candidate_edge_ids": {"maxItems": 0},
+              "external_polarities": {"maxItems": 0}
+            }
+          },
+          "else": {
+            "properties": {
+              "candidate_edge_ids": {"minItems": 1},
+              "external_polarities": {"minItems": 1},
+              "evaluation_status": {"const": "evaluated_exact_mapping"},
+              "coverage_reason": {"const": "external_edge_present"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluation_status": {"const": "not_evaluable_grouped_mapping"}
+            }
+          },
+          "then": {
+            "properties": {
+              "classification": {"const": "local_only_not_disproven"},
+              "coverage_reason": {"const": "grouped_mapping_excluded"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluation_status": {"const": "not_evaluable_missing_mapping"}
+            }
+          },
+          "then": {
+            "properties": {
+              "classification": {"const": "local_only_not_disproven"},
+              "coverage_reason": {"const": "local_mapping_missing"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluation_status": {"const": "evaluated_exact_mapping"},
+              "classification": {"const": "local_only_not_disproven"}
+            },
+            "required": ["evaluation_status", "classification"]
+          },
+          "then": {
+            "properties": {
+              "coverage_reason": {"const": "exact_mapping_no_external_edge"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "externally_concordant"}
+            },
+            "required": ["classification"]
+          },
+          "then": {
+            "properties": {
+              "external_polarities": {
+                "contains": {"const": "affirmed"},
+                "not": {"contains": {"const": "negated"}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "external_conflict_candidate"}
+            },
+            "required": ["classification"]
+          },
+          "then": {
+            "properties": {
+              "external_polarities": {
+                "contains": {"const": "negated"}
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

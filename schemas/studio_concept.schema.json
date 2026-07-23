@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/studio_concept.schema.json",
+  "title": "Axioma Studio Concept Card",
+  "type": "object",
+  "required": [
+    "concept_id",
+    "title",
+    "summary",
+    "faculty_approved",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "concept_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "Ontology v1 canonical ID: bare lowercase snake_case. Legacy concept_ prefixes are not canonical."
+    },
+    "course_id": { "type": ["string", "null"] },
+    "lecture_id": { "type": ["string", "null"] },
+    "source_document_id": { "type": ["string", "null"] },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "source_anchor": { "type": "string" },
+    "faculty_approved": { "type": "boolean" },
+    "reference_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref_no", "source", "basis", "verification_status"],
+        "additionalProperties": true,
+        "properties": {
+          "ref_no": { "type": "integer" },
+          "source": { "type": "string" },
+          "basis": { "type": "string" },
+          "source_type": { "type": "string" },
+          "verification_status": {
+            "type": "string",
+            "enum": ["uploaded_or_lecture", "model_knowledge_unverified", "verified_by_faculty"]
+          },
+          "external_url": { "type": ["string", "null"] },
+          "url_verified_at": { "type": ["string", "null"] },
+          "source_document_id": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "related_question_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

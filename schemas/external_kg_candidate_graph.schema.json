@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/external_kg_candidate_graph.schema.json",
+  "title": "P:accine source-neutral external KG candidate graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graph_id",
+    "generated_at",
+    "snapshot",
+    "scope",
+    "review_policy",
+    "stats",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "schema_version": {"const": "external_kg_candidate_graph.v1"},
+    "graph_id": {
+      "type": "string",
+      "pattern": "^external_kg_graph:[a-z0-9][a-z0-9._-]*:[0-9a-f]{16}$"
+    },
+    "generated_at": {"type": "string", "format": "date-time"},
+    "snapshot": {"$ref": "#/$defs/snapshot"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "review_policy": {"$ref": "#/$defs/failClosedReview"},
+    "stats": {"$ref": "#/$defs/stats"},
+    "nodes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "edges": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/edge"}
+    }
+  },
+  "$defs": {
+    "curie": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*:[^\\s]+$"
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "failClosedReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "analytics_eligible",
+        "promotion_status",
+        "reviewer_id",
+        "reviewed_at"
+      ],
+      "properties": {
+        "status": {"const": "external_candidate"},
+        "needs_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "analytics_eligible": {"const": false},
+        "promotion_status": {"const": "not_promoted"},
+        "reviewer_id": {"const": null},
+        "reviewed_at": {"const": null}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "provider",
+        "dataset_name",
+        "dataset_version",
+        "artifact_sha256",
+        "license",
+        "license_url",
+        "redistribution_status",
+        "source_url"
+      ],
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "dataset_name": {"type": "string", "minLength": 1},
+        "dataset_version": {"type": "string", "minLength": 1},
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "license": {"type": "string", "minLength": 1},
+        "license_url": {"type": ["string", "null"], "format": "uri"},
+        "redistribution_status": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "source_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_concept_ids",
+        "external_curie_seeds",
+        "max_hops",
+        "relation_allowlist",
+        "notes"
+      ],
+      "properties": {
+        "local_concept_ids": {"$ref": "#/$defs/stringArray"},
+        "external_curie_seeds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/curie"}
+        },
+        "max_hops": {"type": "integer", "minimum": 0, "maximum": 2},
+        "relation_allowlist": {"$ref": "#/$defs/stringArray"},
+        "notes": {"type": "string"}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "curie",
+        "label",
+        "categories",
+        "source_namespace",
+        "source_local_id"
+      ],
+      "properties": {
+        "curie": {"$ref": "#/$defs/curie"},
+        "label": {"type": "string", "minLength": 1},
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "source_namespace": {"type": ["string", "null"]},
+        "source_local_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical", "curie", "source_label", "source_code"],
+      "properties": {
+        "canonical": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "curie": {
+          "oneOf": [
+            {"$ref": "#/$defs/curie"},
+            {"type": "null"}
+          ]
+        },
+        "source_label": {"type": "string", "minLength": 1},
+        "source_code": {"type": ["string", "null"]}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "provider",
+        "dataset_name",
+        "dataset_version",
+        "artifact_sha256",
+        "license",
+        "license_url",
+        "redistribution_status",
+        "source_url",
+        "source_record_id",
+        "source_record_sha256",
+        "source_refs",
+        "publications"
+      ],
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "provider": {"type": "string", "minLength": 1},
+        "dataset_name": {"type": "string", "minLength": 1},
+        "dataset_version": {"type": "string", "minLength": 1},
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "license": {"type": "string", "minLength": 1},
+        "license_url": {"type": ["string", "null"], "format": "uri"},
+        "redistribution_status": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "source_url": {"type": "string", "format": "uri"},
+        "source_record_id": {"type": "string", "minLength": 1},
+        "source_record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_refs": {"$ref": "#/$defs/stringArray"},
+        "publications": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_edge_id",
+        "subject",
+        "predicate",
+        "object",
+        "polarity",
+        "direction",
+        "undirected",
+        "qualifiers",
+        "provenance",
+        "review"
+      ],
+      "properties": {
+        "candidate_edge_id": {
+          "type": "string",
+          "pattern": "^ekg:e:[0-9a-f]{24}$"
+        },
+        "subject": {"$ref": "#/$defs/node"},
+        "predicate": {"$ref": "#/$defs/predicate"},
+        "object": {"$ref": "#/$defs/node"},
+        "polarity": {"enum": ["affirmed", "negated", "unknown"]},
+        "direction": {
+          "enum": [
+            "subject_to_object",
+            "object_to_subject",
+            "undirected",
+            "unknown"
+          ]
+        },
+        "undirected": {"type": "boolean"},
+        "qualifiers": {"type": "object", "additionalProperties": true},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "review": {"$ref": "#/$defs/failClosedReview"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"undirected": {"const": true}}},
+          "then": {"properties": {"direction": {"const": "undirected"}}}
+        },
+        {
+          "if": {"properties": {"direction": {"const": "undirected"}}},
+          "then": {"properties": {"undirected": {"const": true}}}
+        }
+      ]
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_count",
+        "edge_count",
+        "counts_by_predicate",
+        "counts_by_category",
+        "all_external_candidates"
+      ],
+      "properties": {
+        "node_count": {"type": "integer", "minimum": 0},
+        "edge_count": {"type": "integer", "minimum": 0},
+        "counts_by_predicate": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "counts_by_category": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "all_external_candidates": {"const": true}
+      }
+    }
+  }
+}

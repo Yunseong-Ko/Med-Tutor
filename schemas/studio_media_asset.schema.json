@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/studio_media_asset.schema.json",
+  "title": "Axioma Studio Media Asset",
+  "type": "object",
+  "required": [
+    "asset_id",
+    "asset_type",
+    "modality",
+    "caption",
+    "key_findings",
+    "deidentified",
+    "approved_for_question_use",
+    "original_name",
+    "stored_name",
+    "file_path",
+    "url",
+    "review_status",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "asset_id": { "type": "string", "pattern": "^media_" },
+    "asset_type": {
+      "type": "string",
+      "enum": ["clinical_photo", "radiology", "pathology", "ecg_eeg", "ultrasound", "other"]
+    },
+    "modality": { "type": "string" },
+    "subject": { "type": "string" },
+    "unit": { "type": "string" },
+    "diagnosis": { "type": "string" },
+    "caption": { "type": "string" },
+    "key_findings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "deidentified": { "type": "boolean" },
+    "approved_for_question_use": { "type": "boolean" },
+    "faculty_note": { "type": "string" },
+    "original_name": { "type": "string" },
+    "stored_name": { "type": "string" },
+    "file_path": { "type": "string" },
+    "url": { "type": "string" },
+    "review_status": {
+      "type": "string",
+      "enum": ["needs_review", "approved", "restricted"]
+    },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

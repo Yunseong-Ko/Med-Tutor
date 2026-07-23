@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/harrison22_claim_revalidation.schema.json",
+  "title": "Harrison 22e Claim Retrieval Candidate Overlay",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "source_manifest_sha256",
+    "baseline_axis_registry_sha256",
+    "method",
+    "summary",
+    "claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "harrison22_claim_revalidation.v1" },
+    "snapshot_id": { "type": "string", "pattern": "^harrison22e:[0-9a-f]{20}$" },
+    "source_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "baseline_axis_registry_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "method": {
+      "type": "object",
+      "required": ["retrieval", "boundary_aware", "entailment_inference_performed", "edition_delta_inference_performed", "automatic_approval_performed"],
+      "properties": {
+        "retrieval": { "type": "string", "minLength": 1 },
+        "boundary_aware": { "const": true },
+        "entailment_inference_performed": { "const": false },
+        "edition_delta_inference_performed": { "const": false },
+        "automatic_approval_performed": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["claims", "automatic_medical_approvals", "student_visible_claims", "verified_entailment_claims"],
+      "properties": {
+        "claims": { "type": "integer", "minimum": 1 },
+        "automatic_medical_approvals": { "const": 0 },
+        "student_visible_claims": { "const": 0 },
+        "verified_entailment_claims": { "const": 0 }
+      },
+      "additionalProperties": true
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "claim_id",
+          "retrieval_status",
+          "evidence_status",
+          "needs_review",
+          "medical_approval",
+          "student_visible",
+          "analytics_eligible",
+          "promotion_status",
+          "candidates"
+        ],
+        "properties": {
+          "claim_id": { "type": "string", "pattern": "^c:axis_(?:node|relation):[0-9a-f]{16}$" },
+          "retrieval_status": {
+            "enum": ["candidate_high", "candidate_medium", "candidate_low", "no_candidate", "no_chapter_mapping"]
+          },
+          "evidence_status": { "const": "needs_human_review" },
+          "needs_review": { "const": true },
+          "medical_approval": { "const": false },
+          "student_visible": { "const": false },
+          "analytics_eligible": { "const": false },
+          "promotion_status": { "const": "not_promoted" },
+          "candidates": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "required": ["ref_id", "edition", "chapter", "source_file_sha256", "pdf_page", "chunk_text_sha256", "retrieval_score", "scope", "entailment_status"],
+              "properties": {
+                "ref_id": { "type": "string", "minLength": 1 },
+                "edition": { "const": "22e" },
+                "chapter": { "type": "integer", "minimum": 1, "maximum": 505 },
+                "source_file_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "pdf_page": { "type": "integer", "minimum": 1 },
+                "chunk_text_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "retrieval_score": { "type": "number", "minimum": 0, "maximum": 1 },
+                "scope": { "const": "claim_level_candidate_not_entailment" },
+                "entailment_status": { "const": "needs_human_review" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

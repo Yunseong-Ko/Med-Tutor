@@ -1178,6 +1178,19 @@ function render() {
   else renderHome();
 }
 
+async function logout() {
+  const buttons = [...document.querySelectorAll("[data-logout]")];
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const response = await fetch("/api/auth/logout", {method: "POST"});
+    if (!response.ok) throw new Error(`로그아웃 실패 (${response.status})`);
+    window.location.replace("/login");
+  } catch (error) {
+    buttons.forEach((button) => { button.disabled = false; });
+    toast(error.message || "로그아웃하지 못했습니다. 다시 시도해 주세요.");
+  }
+}
+
 async function boot() {
   try {
     const [qbank, catalog, bookmarks, review, claimReview, concepts, analytics] = await Promise.all([
@@ -1199,4 +1212,5 @@ async function boot() {
 }
 
 window.addEventListener("hashchange", render);
+document.querySelectorAll("[data-logout]").forEach((button) => button.addEventListener("click", logout));
 boot();

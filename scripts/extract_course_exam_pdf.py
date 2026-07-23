@@ -189,15 +189,18 @@ def extract_pdf_question_blocks_by_layout(path: Path) -> list[tuple[int, str]]:
                         }
                     )
 
-    candidates.sort(key=lambda item: (item["page_number"], item["column"], item["y0"]))
+    # 페이지→위→아래(단일 컬럼 우선)로 읽은 뒤, 오름차순으로 문항을 수집한다.
+    # 엄격한 +1 연속성 대신 '오름차순이면 채택'해서, 이미지 많은 문항에서 하나가
+    # 누락돼도 이후 문항이 전부 버려지지 않게 한다(누락 번호는 후속 검토로 확인).
+    candidates.sort(key=lambda item: (item["page_number"], item["y0"], item["column"]))
     selected: list[tuple[int, str]] = []
-    expected = 1
+    last: int | None = None
     for item in candidates:
         number = item["question_number"]
-        if number != expected:
-            continue
+        if last is not None and number <= last:
+            continue  # 중복·역순 후보는 건너뛴다.
         selected.append((number, item["text"]))
-        expected += 1
+        last = number
     return selected
 
 

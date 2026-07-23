@@ -1,0 +1,34 @@
+/* Shared design tokens — imported by both the student/faculty app (frontend/styles.css)
+   and the isolated Faculty Studio V2 (frontend/faculty-studio-v2/). Single source of
+   truth for palette + type so the two entrypoints never drift. Additive: the legacy
+   styles.css keeps its own :root copy; this file is consumed only by V2 for now. */
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface-soft: #f1f5f9;
+  --surface-blue: #d9f2f1;
+  --line: #dbe3ec;
+  --line-strong: #cbd5e1;
+  --text: #0f172a;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --pnu-blue: #0f2a3a;
+  --pnu-blue-2: #0b6f73;
+  --action: #0f8f8f;
+  --action-hover: #0b6f73;
+  --medical-green: #0f8f8f;
+  --axioma-mint: #0f8f8f;
+  --student-bg: #f6f8fb;
+  --faculty-bg: #f1f5f9;
+  --warning: #b45309;
+  --danger: #b42318;
+  --cool-gray-500: #64748b;
+  --shadow: 0 6px 18px rgba(26, 22, 12, 0.05);
+  --shadow-md: 0 16px 40px rgba(26, 22, 12, 0.08);
+  --radius: 12px;
+  --font-sans: "Pretendard", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+}

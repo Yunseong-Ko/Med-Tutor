@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/question_blueprint.schema.json",
+  "title": "P:accine QuestionBlueprint Educational Ontology Overlay",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "blueprint_id",
+    "status",
+    "question_type",
+    "selection",
+    "target",
+    "supporting_axes",
+    "option_domain",
+    "distractor_source_ids",
+    "distractor_sources",
+    "misconceptions",
+    "review_status",
+    "needs_review",
+    "medical_approval",
+    "gen_ready",
+    "block_reasons",
+    "source_contract"
+  ],
+  "properties": {
+    "schema_version": { "const": "question_blueprint.v1" },
+    "blueprint_id": { "type": "string", "pattern": "^qb:[0-9a-f]{16}$" },
+    "status": { "enum": ["draft_blueprint", "blocked"] },
+    "question_type": { "type": ["string", "null"] },
+    "selection": { "$ref": "#/definitions/selection" },
+    "target": { "$ref": "#/definitions/target" },
+    "supporting_axes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/axisSelection" }
+    },
+    "option_domain": { "type": ["string", "null"] },
+    "distractor_source_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "distractor_sources": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/distractorSource" }
+    },
+    "misconceptions": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/misconception" }
+    },
+    "review_status": { "const": "draft_unreviewed" },
+    "needs_review": { "const": true },
+    "medical_approval": { "const": false },
+    "gen_ready": { "const": false },
+    "block_reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "source_contract": { "$ref": "#/definitions/sourceContract" }
+  },
+  "definitions": {
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_axis_source",
+        "target_axis_ids_source",
+        "option_domain_source"
+      ],
+      "properties": {
+        "target_axis_source": {
+          "enum": [
+            "explicit_axis_type",
+            "explicit_axis_ids",
+            "question_type_mapping",
+            "unresolved"
+          ]
+        },
+        "target_axis_ids_source": {
+          "enum": ["explicit_axis_ids", "grounding_axis_type", "unresolved"]
+        },
+        "option_domain_source": {
+          "enum": ["explicit", "axis_type_default", "unresolved"]
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disease_concept_id", "axis_type", "axis_ids"],
+      "properties": {
+        "disease_concept_id": { "type": ["string", "null"] },
+        "axis_type": { "type": ["string", "null"] },
+        "axis_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "axisSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis_type", "axis_ids"],
+      "properties": {
+        "axis_type": { "type": "string", "minLength": 1 },
+        "axis_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "distractorSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "label", "aliases", "provenance", "in_registry"],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "provenance": { "type": "string" },
+        "in_registry": { "type": "boolean" }
+      }
+    },
+    "misconception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "misconception_id",
+        "kind",
+        "target_disease_concept_id",
+        "target_axis_type",
+        "distractor_source_id",
+        "review_status",
+        "needs_review",
+        "medical_approval"
+      ],
+      "properties": {
+        "misconception_id": { "type": "string", "pattern": "^mc:[0-9a-f]{16}$" },
+        "kind": { "const": "distractor_confusion_candidate" },
+        "target_disease_concept_id": { "type": "string", "minLength": 1 },
+        "target_axis_type": { "type": "string", "minLength": 1 },
+        "distractor_source_id": { "type": "string", "minLength": 1 },
+        "review_status": { "const": "draft_unreviewed" },
+        "needs_review": { "const": true },
+        "medical_approval": { "const": false }
+      }
+    },
+    "sourceContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grounding_review_policy",
+        "grounding_blocked",
+        "grounding_pack_present"
+      ],
+      "properties": {
+        "grounding_review_policy": { "type": ["string", "null"] },
+        "grounding_blocked": { "type": "boolean" },
+        "grounding_pack_present": { "type": "boolean" }
+      }
+    }
+  }
+}

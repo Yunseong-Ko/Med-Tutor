@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/ipdisk_ingest_manifest.schema.json",
+  "title": "P:accine IPDISK Ingest Manifest",
+  "type": "object",
+  "required": ["manifest_version", "batch_slug", "source_system", "source_root_label", "default_visibility"],
+  "properties": {
+    "manifest_version": {
+      "type": "string"
+    },
+    "batch_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "source_system": {
+      "type": "string",
+      "const": "ipdisk"
+    },
+    "source_root_label": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "curriculum_context": {
+      "type": "object",
+      "properties": {
+        "institution": { "type": "string" },
+        "college": { "type": "string" },
+        "curriculum_phase": { "type": "string" },
+        "grade": { "type": "string" },
+        "semester": { "type": "string" },
+        "academic_year": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "path_include_keywords": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "path_required_keyword_groups": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "path_exclude_keywords": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "default_visibility": {
+      "type": "object",
+      "required": ["student_visible", "approved_for_ingest", "approved_for_question_use"],
+      "properties": {
+        "student_visible": {
+          "type": "boolean"
+        },
+        "approved_for_ingest": {
+          "type": "boolean"
+        },
+        "approved_for_question_use": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "classification_rules": {
+      "type": "object",
+      "properties": {
+        "lecture_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "lesson_note_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "past_exam_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "explanation_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "media_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

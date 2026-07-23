@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/item_writing_source_registry.schema.json",
+  "title": "P:accine Item-Writing Source Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "library_role", "policy", "sources"],
+  "properties": {
+    "schema_version": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "library_role": {"type": "string", "minLength": 1},
+    "policy": {"type": "object"},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/source"}
+    }
+  },
+  "definitions": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id", "title", "path", "format", "bytes", "sha256",
+        "source_family", "role", "authority_scope", "generation_visibility",
+        "allowed_uses", "prohibited_uses", "rights"
+      ],
+      "properties": {
+        "source_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "publisher": {"type": "string"},
+        "date_or_version": {"type": "string"},
+        "path": {"type": "string", "minLength": 1},
+        "format": {"type": "string", "enum": ["pdf", "docx"]},
+        "pages": {"type": "integer", "minimum": 1},
+        "bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_family": {"type": "string", "minLength": 1},
+        "role": {"type": "string", "minLength": 1},
+        "authority_scope": {"type": "string", "minLength": 1},
+        "generation_visibility": {
+          "type": "string",
+          "enum": [
+            "curated_rules_only",
+            "curated_lessons_only",
+            "curated_rules_and_post_exam_only",
+            "aggregate_structure_only",
+            "blueprint_taxonomy_and_post_exam_only",
+            "objective_metadata_and_curated_rules",
+            "post_exam_only",
+            "analytics_and_feedback_experience",
+            "integrity_only"
+          ]
+        },
+        "allowed_uses": {"type": "array", "items": {"type": "string"}},
+        "prohibited_uses": {"type": "array", "items": {"type": "string"}},
+        "rights": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

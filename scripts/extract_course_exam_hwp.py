@@ -11,6 +11,7 @@ data_private by default. Stdout never prints original question text.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -25,7 +26,8 @@ from typing import Iterable
 from xml.etree import ElementTree as ET
 
 
-PARSER_VERSION = "0.4.0"
+PARSER_VERSION = "0.5.0"
+SUB_LABELS = "가나다라마바"  # R형(조합형) 보기 라벨
 CIRCLE_CHARS = "①②③④⑤"
 CIRCLE_TO_STR = {char: str(idx + 1) for idx, char in enumerate(CIRCLE_CHARS)}
 
@@ -92,6 +94,64 @@ def extract_hwp_text(path: Path) -> str:
     if not result.stdout.strip():
         raise RuntimeError("hwp5txt returned empty text")
     return clean_text(result.stdout)
+
+
+def extract_hwp_html_text(path: Path) -> str:
+    """hwp5html 추출 후 태그 제거한 텍스트.
+
+    hwp5txt는 표/글상자를 <그림>으로 버리지만 hwp5html은 텍스트로 살린다.
+    R형(가·나·다·라 조합형) 보기 블록 복구에만 사용(본문 파싱은 여전히 hwp5txt).
+    hwp5html이 없으면 빈 문자열(보기 복구는 선택적).
+    """
+    hwp5html = shutil.which("hwp5html")
+    if not hwp5html:
+        return ""
+    with tempfile.TemporaryDirectory() as td:
+        result = subprocess.run(
+            [hwp5html, "--output", td, str(path)],
+            capture_output=True, text=True, timeout=180,
+        )
+        xhtml = Path(td) / "index.xhtml"
+        if result.returncode != 0 or not xhtml.exists():
+            return ""
+        raw = xhtml.read_text(encoding="utf-8", errors="ignore")
+    raw = raw.replace("&#13;", "\n").replace("<br/>", "\n").replace("</p>", "\n").replace("</td>", "\n")
+    txt = html.unescape(re.sub(r"<[^>]+>", " ", raw))
+    return re.sub(r"[ \t]+", " ", txt)
+
+
+def parse_substatements(html_text: str, question_number: int) -> dict | None:
+    """hwp5html 텍스트에서 특정 문항의 가·나·다·라·마 보기를 추출.
+
+    보기 라벨은 줄 시작에만 온다('가. 문장'). 문장 끝 '설명이다.'의 '다.'는 줄
+    중간이라 제외. 현재 문항 블록(다음 번호/풀이 전까지)으로 한정해 이웃 보기를
+    훔치지 않는다. 선지 '① 가, 나, 다'는 콤마라서 라벨+마침표 매칭에 안 걸린다.
+    """
+    if not html_text:
+        return None
+    qn = str(question_number)
+    m = re.search(rf"(?m)^\s*{re.escape(qn)}\.\s", html_text)
+    if not m:
+        return None
+    rest = html_text[m.end():]
+    bounds = [len(rest)]
+    nxt = re.search(r"(?m)^\s*\d{1,3}\.\s", rest)
+    if nxt:
+        bounds.append(nxt.start())
+    pul = re.search(r"<?\s*풀이\s*>?|해설", rest)
+    if pul:
+        bounds.append(pul.start())
+    tail = rest[: min(bounds)]
+    subs: dict[str, str] = {}
+    for lab in SUB_LABELS:
+        mm = re.search(rf"(?m)^\s*{lab}[.．]\s*([^\n①-⑮]+)", tail)
+        if mm:
+            value = re.sub(r"\s+", " ", mm.group(1)).strip().rstrip(".． ")
+            if 1 < len(value) < 200:
+                subs[lab] = value
+    if sum(1 for k in "가나다" if k in subs) >= 2:
+        return subs
+    return None
 
 
 def run_hwp5_xml(path: Path) -> str:
@@ -340,23 +400,21 @@ def candidate_has_choices(text: str, start: int, window: int = 5000) -> bool:
 
 def select_question_starts(text: str, *, expected_count: int | None = None) -> list[re.Match[str]]:
     matches = list(QUESTION_START_RE.finditer(text))
+    # 문항 시작 후보를 오름차순으로 채택한다. 시험지가 1번이 아니라 임의 번호(예: 법규
+    # 제외로 21번)부터 시작하거나 이미지로 일부 번호가 누락돼도, 선지가 뒤따르는 후보를
+    # 오름차순이면 채택해 이후 문항이 통째로 버려지지 않게 한다(누락은 후속 검토).
     selected: list[re.Match[str]] = []
-    expected = 1
+    last: int | None = None
     for match in matches:
         number = int(match.group(1))
         if expected_count is not None and number > expected_count:
             continue
-        if number < expected:
-            continue
-        if expected_count is None and number != expected:
-            continue
-        if expected_count is not None and number > expected and not selected:
-            # Do not start mid-file if the first question was not detected.
-            continue
+        if last is not None and number <= last:
+            continue  # 중복·역순 후보는 건너뛴다.
         if not candidate_has_choices(text, match.end()):
             continue
         selected.append(match)
-        expected = number + 1
+        last = number
     return selected
 
 
@@ -706,6 +764,8 @@ def extract_file(path: Path, *, media_root: Path | None = None) -> dict:
             )
 
     media_asset_by_storage = {asset["storage_id"]: asset for asset in media_assets}
+    # hwp5html로 R형(가·나·다·라) 보기 텍스트 살리기 (hwp5txt는 <그림>으로 버림)
+    html_text = extract_hwp_html_text(path)
     questions = []
     for number, block in blocks:
         media_refs = []
@@ -720,7 +780,12 @@ def extract_file(path: Path, *, media_root: Path | None = None) -> dict:
                     "needs_review": True,
                 }
             )
-        questions.append(build_record(meta, number, block, media_refs=media_refs))
+        record = build_record(meta, number, block, media_refs=media_refs)
+        subs = parse_substatements(html_text, number)
+        if subs:
+            record["sub_statements"] = subs
+            record["sub_statements_source"] = "hwp5html_extracted"
+        questions.append(record)
 
     extracted_numbers = [question["question_number"] for question in questions]
     missing_question_numbers: list[int] = []

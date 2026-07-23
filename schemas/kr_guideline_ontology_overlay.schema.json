@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/kr_guideline_ontology_overlay.schema.json",
+  "title": "Korean guideline topic-to-ontology review overlay",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "source_registry",
+    "concept_registry",
+    "overlay_role",
+    "safety_boundary",
+    "summary",
+    "source_links",
+    "concept_index",
+    "candidate_concept_index",
+    "unresolved_concept_candidates"
+  ],
+  "properties": {
+    "schema_version": { "const": "kr_guideline_ontology_overlay.v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "source_registry": { "$ref": "#/definitions/fileRef" },
+    "concept_registry": { "$ref": "#/definitions/fileRef" },
+    "overlay_role": { "const": "topic_routing_review_overlay_not_claim_evidence" },
+    "safety_boundary": { "$ref": "#/definitions/safety" },
+    "summary": { "type": "object" },
+    "source_links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "title",
+          "latest_status",
+          "clinical_axes",
+          "explicit_topic_concept_ids",
+          "resolved_topic_concept_ids",
+          "unresolved_topic_concept_ids",
+          "title_rule_candidates",
+          "needs_review",
+          "medical_approval",
+          "canonical_registry_mutated"
+        ],
+        "properties": {
+          "source_id": { "type": "string" },
+          "title": { "type": "string" },
+          "latest_status": { "type": "string" },
+          "clinical_axes": { "type": "array", "items": { "type": "string" } },
+          "explicit_topic_concept_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "resolved_topic_concept_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "unresolved_topic_concept_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "title_rule_candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["concept_id", "matched_term", "resolved_in_registry", "mapping_status"],
+              "properties": {
+                "concept_id": { "type": "string" },
+                "matched_term": { "type": "string" },
+                "resolved_in_registry": { "type": "boolean" },
+                "mapping_status": { "const": "review_candidate_not_attached" }
+              }
+            }
+          },
+          "needs_review": { "const": true },
+          "medical_approval": { "const": false },
+          "canonical_registry_mutated": { "const": false }
+        }
+      }
+    },
+    "concept_index": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "uniqueItems": true
+      }
+    },
+    "candidate_concept_index": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "uniqueItems": true
+      }
+    },
+    "unresolved_concept_candidates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "uniqueItems": true
+      }
+    }
+  },
+  "definitions": {
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["needs_review", "medical_approval", "student_visible", "generation_eligible", "automatic_canonical_merge"],
+      "properties": {
+        "needs_review": { "const": true },
+        "medical_approval": { "const": false },
+        "student_visible": { "const": false },
+        "generation_eligible": { "const": false },
+        "automatic_canonical_merge": { "const": false }
+      }
+    }
+  }
+}

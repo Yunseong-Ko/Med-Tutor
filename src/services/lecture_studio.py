@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +17,7 @@ from urllib.parse import quote
 import requests
 
 from scripts.generate_lecture_questions import (
+    GENERATION_SYSTEM_PROMPT,
     PIPELINE_VERSION,
     build_generation_prompt,
     extract_json_payload,
@@ -24,6 +27,14 @@ from scripts.generate_lecture_questions import (
     normalize_questions,
     slugify,
 )
+from scripts.generation_grounding import (
+    append_grounding_context,
+    apply_grounding_trace,
+    build_generation_grounding,
+)
+from scripts.question_blueprint import build_question_blueprint
+from scripts.item_quality_check import SELF_CHECK_KEYS
+from src.services.item_writing_rag import append_item_writing_context
 
 
 DATA_ROOT = Path("data_private/studio")
@@ -76,6 +87,15 @@ class SavedUpload:
     path: Path
     original_name: str
     kind: str
+
+
+class MediaAssetInUseError(RuntimeError):
+    """Raised when a media asset is still referenced by a saved question set."""
+
+    def __init__(self, asset_id: str, references: list[dict[str, Any]]):
+        self.asset_id = asset_id
+        self.references = references
+        super().__init__(f"media_asset_in_use:{asset_id}:{len(references)}")
 
 
 def ensure_studio_dirs() -> None:
@@ -131,8 +151,20 @@ def split_metadata_values(value: str | None) -> list[str]:
     ]
 
 
+CLAUDE_DESKTOP_BIN = (
+    Path.home()
+    / "Library/Application Support/Claude/claude-code/2.1.205/claude.app/Contents/MacOS/claude"
+)
+
+
+def preferred_claude_binary() -> str | None:
+    if CLAUDE_DESKTOP_BIN.exists():
+        return str(CLAUDE_DESKTOP_BIN)
+    return shutil.which("claude")
+
+
 def claude_cli_available() -> bool:
-    return bool(shutil.which("claude"))
+    return bool(preferred_claude_binary())
 
 
 def get_model_catalog() -> dict[str, Any]:
@@ -209,6 +241,15 @@ def timestamp_slug() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+def source_storage_slug(original_name: str) -> str:
+    """Return a short ASCII-only ID that is safe for macOS filename limits."""
+    stem = Path(str(original_name or "source")).stem
+    ascii_stem = re.sub(r"[^0-9A-Za-z._-]+", "_", stem)
+    readable = re.sub(r"_+", "_", ascii_stem).strip("_.-")[:48] or "source"
+    digest = hashlib.sha256(stem.encode("utf-8")).hexdigest()[:12]
+    return f"{timestamp_slug()}_{readable}_{digest}"
+
+
 def save_upload_bytes(content: bytes, filename: str, *, kind: str) -> SavedUpload:
     ensure_studio_dirs()
     safe_stem = slugify(Path(filename or f"{kind}.txt").stem)
@@ -273,6 +314,71 @@ def list_media_assets() -> list[dict[str, Any]]:
     return sorted(assets, key=lambda item: str(item.get("created_at", "")), reverse=True)
 
 
+def find_media_asset_references(asset_id: str) -> list[dict[str, Any]]:
+    """Return saved question-set references without exposing local file paths."""
+
+    safe_id = str(asset_id or "").strip()
+    if not safe_id:
+        return []
+
+    references: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for path in sorted(QUESTION_BANK_DIR.glob("*.question_set.json")):
+        try:
+            packet = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(packet, dict):
+            continue
+
+        set_id = str(packet.get("set_id") or path.name.replace(".question_set.json", ""))
+        metadata = packet.get("metadata") if isinstance(packet.get("metadata"), dict) else {}
+        selected_ids = metadata.get("selected_media_ids")
+        if isinstance(selected_ids, list) and safe_id in {str(item) for item in selected_ids}:
+            key = (set_id, "", "metadata.selected_media_ids")
+            if key not in seen:
+                seen.add(key)
+                references.append(
+                    {
+                        "set_id": set_id,
+                        "set_name": metadata.get("set_name") or metadata.get("source_name") or set_id,
+                        "question_id": None,
+                        "field": "metadata.selected_media_ids",
+                    }
+                )
+
+        questions = packet.get("questions") if isinstance(packet.get("questions"), list) else []
+        for question in questions:
+            if not isinstance(question, dict):
+                continue
+            question_id = str(question.get("question_id") or question.get("id") or "")
+            for field in ("image_refs", "media_refs"):
+                refs = question.get(field)
+                if not isinstance(refs, list):
+                    continue
+                referenced_ids = {
+                    str(ref.get("id") or ref.get("asset_id") or ref.get("media_id") or "")
+                    if isinstance(ref, dict)
+                    else str(ref)
+                    for ref in refs
+                }
+                if safe_id not in referenced_ids:
+                    continue
+                key = (set_id, question_id, field)
+                if key in seen:
+                    continue
+                seen.add(key)
+                references.append(
+                    {
+                        "set_id": set_id,
+                        "set_name": metadata.get("set_name") or metadata.get("source_name") or set_id,
+                        "question_id": question_id or None,
+                        "field": field,
+                    }
+                )
+    return references
+
+
 def delete_media_asset(asset_id: str) -> dict[str, Any]:
     ensure_studio_dirs()
     safe_id = str(asset_id or "").strip()
@@ -287,6 +393,10 @@ def delete_media_asset(asset_id: str) -> dict[str, Any]:
     if deleted is None:
         raise FileNotFoundError(safe_id)
 
+    references = find_media_asset_references(safe_id)
+    if references:
+        raise MediaAssetInUseError(safe_id, references)
+
     stored_name = Path(str(deleted.get("stored_name") or "")).name
     if stored_name:
         asset_path = (MEDIA_ASSET_DIR / stored_name).resolve()
@@ -300,6 +410,32 @@ def delete_media_asset(asset_id: str) -> dict[str, Any]:
 def get_media_assets(asset_ids: list[str]) -> list[dict[str, Any]]:
     wanted = {asset_id for asset_id in asset_ids if asset_id}
     return [asset for asset in list_media_assets() if asset.get("asset_id") in wanted]
+
+
+def validate_selected_media_assets(
+    asset_ids: list[str],
+    assets: list[dict[str, Any]],
+) -> None:
+    """Fail closed when a crafted request bypasses the faculty media picker."""
+
+    requested = {str(asset_id).strip() for asset_id in asset_ids if str(asset_id).strip()}
+    if not requested:
+        return
+    found = {str(asset.get("asset_id") or "") for asset in assets}
+    missing = sorted(requested - found)
+    if missing:
+        raise ValueError(f"존재하지 않는 제시자료가 포함되어 있습니다: {', '.join(missing)}")
+
+    unsafe = sorted(
+        str(asset.get("asset_id") or "")
+        for asset in assets
+        if not asset.get("approved_for_question_use") or not asset.get("deidentified")
+    )
+    if unsafe:
+        raise ValueError(
+            "승인·비식별 확인이 완료되지 않은 제시자료는 문항 생성에 사용할 수 없습니다: "
+            + ", ".join(unsafe)
+        )
 
 
 def extract_saved_upload(upload: SavedUpload) -> str:
@@ -389,10 +525,11 @@ def append_reference_instruction(
     evidence_lines = "\n".join(f"- {name}" for name in evidence_names) or "- 없음"
     if reference_policy == "local_open":
         policy_instruction = """
-- 로컬 개인 학습/검수용 초안이므로, 업로드 자료 외에도 모델이 알고 있는 표준 의학지식, 교과서, 진료지침, 국가고시/KMLE/USMLE식 지식을 보조적으로 참고해도 됩니다.
-- Harrison, 홍창의 소아과학, Nelson Textbook of Pediatrics, UpToDate, 학회 guideline, case report 등은 실제 원문을 인용하지 말고 참고 범주/근거 요약 수준으로만 적으세요.
-- 업로드되지 않은 reference를 source에 적는 경우 basis 끝에 "(모델 일반지식 기반, 원문 검수 필요)"를 붙이세요.
-- 외부 reference는 정확한 판/쪽수/문구를 지어내지 마세요.
+- 정답·수치·특이 소견은 이번 요청에 실제로 제공된 강의자료, 승인 근거자료, concept_registry grounding 팩 안에서만 도출하세요.
+- 모델 일반지식은 용어 정리에만 사용하고 정답이나 임상 임계치의 근거로 사용하지 마세요.
+- 제공된 근거로 정답을 확정할 수 없으면 문항을 지어내지 말고 block_reason="insufficient_evidence",
+  needs_review=true, gen_ready=false로 반환하세요.
+- Harrison, Nelson, UpToDate, 학회 guideline 등 업로드되지 않은 자료의 판/쪽수/문구를 지어내거나 source에 추가하지 마세요.
 """.strip()
     else:
         policy_instruction = """
@@ -481,6 +618,220 @@ def append_table_instruction(prompt: str) -> str:
 """.strip()
 
 
+def append_question_blueprint_context(prompt: str, blueprint: dict[str, Any]) -> str:
+    """Append the review-only educational target contract to a model prompt."""
+
+    target = blueprint.get("target") if isinstance(blueprint.get("target"), dict) else {}
+    misconceptions = (
+        blueprint.get("misconceptions")
+        if isinstance(blueprint.get("misconceptions"), list)
+        else []
+    )
+    misconception_by_source = {
+        str(row.get("distractor_source_id")): str(row.get("misconception_id"))
+        for row in misconceptions
+        if isinstance(row, dict)
+        and str(row.get("distractor_source_id") or "").strip()
+        and str(row.get("misconception_id") or "").strip()
+    }
+    contract = {
+        "blueprint_id": blueprint.get("blueprint_id"),
+        "status": blueprint.get("status"),
+        "target_disease_concept_id": target.get("disease_concept_id"),
+        "target_axis_type": target.get("axis_type"),
+        "target_axis_ids": target.get("axis_ids") or [],
+        "supporting_axes": blueprint.get("supporting_axes") or [],
+        "option_domain": blueprint.get("option_domain"),
+        "allowed_distractor_source_ids": blueprint.get("distractor_source_ids") or [],
+        "allowed_distractor_sources": blueprint.get("distractor_sources") or [],
+        "candidate_misconception_id_by_source": misconception_by_source,
+        "block_reasons": blueprint.get("block_reasons") or [],
+        "needs_review": True,
+        "medical_approval": False,
+    }
+    return f"""
+{prompt}
+
+[QuestionBlueprint 교육 Ontology 계약]
+{json.dumps(contract, ensure_ascii=False, indent=2)}
+
+- target_axis_type과 target_axis_ids가 있으면 그 축만 정답 판단의 주 평가 대상으로 사용하세요.
+- 한 문항이 실제로 평가하는 target_axis_id 하나를 고를 수 있으면 pma_solution.source_anchor에 그 ID를 정확히 적으세요. 여러 후보를 한꺼번에 평가했다고 표시하지 말고, 고를 수 없으면 ID를 만들지 마세요.
+- pma_solution.source_anchor에는 supporting axis나 오답 source_id가 아니라 반드시 target_axis_ids 중 정답 판단을 직접 뒷받침하는 ID 하나를 적으세요.
+- supporting_axes는 증례 단서를 구성하는 보조 축이며 정답 축을 임의로 바꾸지 마세요.
+- 모든 선지는 option_domain과 같은 의미 범주로 작성하세요.
+- 각 오답은 allowed_distractor_sources의 서로 다른 행 하나에 대응해야 합니다. label/aliases를 보고 선지를 만들고 choice_explanations.source_id에는 그 행의 source_id를 정확히 적으세요.
+- 정답을 제외한 4개 선지 각각에 choice_explanations를 만들고 rationale과 why_attractive 또는 misconception을 빈 문자열 없이 작성하세요.
+- target_axis_type이 diagnosis이면 확진 검사, 병리, 분자·세포유전 결과처럼 정답을 단독으로 확정하는 강한 단서를 2개 이상 공개하지 마세요. 진단명이 과업이라면 확진 결과 하나만으로 정답이 드러나는 문항도 피하세요.
+- target_axis_type이 treatment/indication/contraindication이면 단일 바이오마커-약제 암기가 아니라 질환 상태, 이전 치료·반응, 환자 위험 중 최소 두 판단 단계를 거치게 하세요. 선지는 모두 약물·시술·치료전략 중 동일한 수준으로 맞추세요.
+- 치료·적응증 문항에서는 정답 치료의 contraindication 축을 먼저 대조하세요. 최근 수술·외상, 출혈, 두개내 병변처럼 위험인자와 금기가 겹칠 수 있는 단서를 단순 배경으로 넣고 그 치료를 단일 정답으로 만들지 마세요. 충돌을 해소할 근거가 없으면 block_reason=insufficient_evidence로 두세요.
+- 최종 JSON을 내기 직전에 5개 선지의 공백 제외 글자 수를 직접 비교하세요. 정답이 유일한 최장·최단이면 괄호 속 영문명이나 불필요한 수식어를 정리해 2~4위가 되도록 고치고, 모든 선지의 표기 수준(성분명/약제군/시술명)을 맞추세요.
+- candidate_misconception_id_by_source의 ID는 서버 추적용 후보 ID입니다. 새로운 의학 사실이나 승인된 오개념으로 서술하지 마세요.
+- blueprint status가 blocked인 faculty_draft 요청은 검수용 초안일 뿐이며, 부족한 축이나 오답 근거를 임의로 보충하지 마세요.
+- 이 blueprint와 오개념 후보는 needs_review=true, medical_approval=false이며 자동 승인할 수 없습니다.
+""".strip()
+
+
+def apply_question_blueprint(
+    record: dict[str, Any],
+    blueprint: dict[str, Any],
+) -> dict[str, Any]:
+    """Preserve a blueprint and deterministically attach distractor trace IDs.
+
+    A model-provided or unambiguously inferred source ID is retained only when
+    it is an allowed, unique blueprint source. Missing, out-of-scope, or
+    duplicate IDs stay unresolved; the server never fabricates a medical
+    distractor-to-concept mapping merely to complete analytics.
+    """
+
+    out = dict(record)
+    target = blueprint.get("target") if isinstance(blueprint.get("target"), dict) else {}
+    selection = (
+        blueprint.get("selection")
+        if isinstance(blueprint.get("selection"), dict)
+        else {}
+    )
+    candidate_axis_ids = [
+        str(axis_id).strip()
+        for axis_id in target.get("axis_ids") or []
+        if str(axis_id or "").strip()
+    ]
+    pma_solution = (
+        out.get("pma_solution")
+        if isinstance(out.get("pma_solution"), dict)
+        else {}
+    )
+    source_anchor = str(pma_solution.get("source_anchor") or "").strip()
+    if selection.get("target_axis_ids_source") == "explicit_axis_ids":
+        assessed_axis_ids = candidate_axis_ids
+        axis_resolution = "explicit_axis_ids"
+    elif source_anchor in set(candidate_axis_ids):
+        assessed_axis_ids = [source_anchor]
+        axis_resolution = "source_anchor"
+    elif len(candidate_axis_ids) == 1:
+        assessed_axis_ids = candidate_axis_ids
+        axis_resolution = "single_candidate"
+    else:
+        choices = out.get("options") if isinstance(out.get("options"), list) else []
+        try:
+            answer_index = int(out.get("answer") or 0) - 1
+        except (TypeError, ValueError):
+            answer_index = -1
+        answer_text = choices[answer_index] if 0 <= answer_index < len(choices) else ""
+
+        def comparable(value: Any) -> str:
+            return re.sub(r"[^0-9a-z가-힣]+", "", str(value or "").casefold())
+
+        normalized_answer = comparable(answer_text)
+        candidate_set = set(candidate_axis_ids)
+        matched_axis_ids: list[str] = []
+        for source in blueprint.get("distractor_sources") or []:
+            if not isinstance(source, dict):
+                continue
+            source_id = str(source.get("source_id") or "").strip()
+            if source_id not in candidate_set:
+                continue
+            terms = [source.get("label"), *(source.get("aliases") or [])]
+            if any(
+                len(comparable(term)) >= 4 and comparable(term) in normalized_answer
+                for term in terms
+            ):
+                matched_axis_ids.append(source_id)
+        if len(set(matched_axis_ids)) == 1:
+            assessed_axis_ids = sorted(set(matched_axis_ids))
+            axis_resolution = "answer_choice_label"
+        else:
+            assessed_axis_ids = []
+            axis_resolution = "axis_type_only"
+    out["question_blueprint"] = deepcopy(blueprint)
+    out["target_axis_type"] = target.get("axis_type")
+    out["target_axis_ids"] = assessed_axis_ids
+    out["target_axis_candidate_ids"] = candidate_axis_ids
+    out["target_axis_resolution"] = axis_resolution
+    out["option_domain"] = blueprint.get("option_domain")
+    out["needs_review"] = True
+    out["gen_ready"] = False
+
+    reasons = list(out.get("review_reasons") or [])
+    if blueprint.get("status") == "blocked":
+        reasons.append("question_blueprint_blocked")
+        reasons.extend(
+            f"question_blueprint:{reason}"
+            for reason in blueprint.get("block_reasons") or []
+            if str(reason or "").strip()
+        )
+    elif not assessed_axis_ids:
+        reasons.append("question_blueprint_target_axis_id_unresolved")
+
+    allowed_ids = [
+        str(source_id).strip()
+        for source_id in blueprint.get("distractor_source_ids") or []
+        if str(source_id or "").strip()
+    ]
+    allowed_set = set(allowed_ids)
+    provenance_by_source = {
+        str(row.get("source_id")): str(row.get("provenance") or "")
+        for row in blueprint.get("distractor_sources") or []
+        if isinstance(row, dict) and str(row.get("source_id") or "").strip()
+    }
+    misconception_by_source = {
+        str(row.get("distractor_source_id")): str(row.get("misconception_id") or "")
+        for row in blueprint.get("misconceptions") or []
+        if isinstance(row, dict) and str(row.get("distractor_source_id") or "").strip()
+    }
+
+    raw_explanations = (
+        out.get("choice_explanations")
+        if isinstance(out.get("choice_explanations"), dict)
+        else {}
+    )
+    explanations = deepcopy(raw_explanations)
+    choices = out.get("options") if isinstance(out.get("options"), list) else []
+    try:
+        answer = int(out.get("answer") or 0)
+    except (TypeError, ValueError):
+        answer = 0
+    distractor_keys = [str(index) for index in range(1, len(choices) + 1) if index != answer]
+
+    used: set[str] = set()
+    for key in distractor_keys:
+        row = explanations.get(key) if isinstance(explanations.get(key), dict) else {}
+        row = dict(row)
+        proposed = str(row.get("source_id") or "").strip()
+        if proposed in allowed_set and proposed not in used:
+            source_id = proposed
+            used.add(proposed)
+        else:
+            source_id = ""
+            if not proposed:
+                reasons.append("question_blueprint_distractor_source_missing")
+            elif proposed not in allowed_set:
+                reasons.append("question_blueprint_distractor_source_out_of_scope")
+            else:
+                reasons.append("question_blueprint_distractor_source_duplicate")
+        row["source_id"] = source_id
+        row["misconception_id"] = misconception_by_source.get(source_id, "")
+        row["provenance"] = provenance_by_source.get(source_id, "")
+        explanations[key] = row
+
+    if 1 <= answer <= len(choices):
+        answer_key = str(answer)
+        answer_row = (
+            explanations.get(answer_key)
+            if isinstance(explanations.get(answer_key), dict)
+            else {}
+        )
+        answer_row = dict(answer_row)
+        answer_row["source_id"] = ""
+        answer_row["misconception_id"] = ""
+        answer_row["provenance"] = ""
+        explanations[answer_key] = answer_row
+
+    out["choice_explanations"] = explanations
+    out["review_reasons"] = sorted(set(str(reason) for reason in reasons if str(reason).strip()))
+    return out
+
+
 def write_json(path: Path, payload: Any) -> None:
     write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2))
 
@@ -533,6 +884,7 @@ def summarize_question_set(packet: dict[str, Any], *, path: Path | None = None) 
         "review_status": packet.get("review_status", "draft"),
         "created_at": packet.get("created_at"),
         "updated_at": packet.get("updated_at"),
+        "set_name": metadata.get("set_name"),
         "source_name": metadata.get("source_name"),
         "subject": metadata.get("subject"),
         "unit": metadata.get("unit"),
@@ -1348,7 +1700,7 @@ def generate_anthropic(prompt: str, *, model: str, temperature: float) -> str:
             "model": model,
             "max_tokens": 8192,
             "temperature": temperature,
-            "system": "Return only valid JSON. Do not include markdown fences.",
+            "system": f"{GENERATION_SYSTEM_PROMPT}\n\nReturn only valid JSON. Do not include markdown fences.",
             "messages": [{"role": "user", "content": prompt}],
         },
         timeout=180,
@@ -1367,12 +1719,10 @@ def generate_claude_cli(prompt: str, *, model: str, timeout_seconds: int = 420) 
     if not claude_cli_available():
         raise RuntimeError("Claude Code CLI를 찾을 수 없습니다. `claude` 설치/로그인을 먼저 확인해주세요.")
     cmd = [
-        "claude",
+        preferred_claude_binary() or "claude",
         "-p",
         "--setting-sources",
         "project,local",
-        "--agent",
-        "general-purpose",
         "--model",
         model,
         "--output-format",
@@ -1383,7 +1733,7 @@ def generate_claude_cli(prompt: str, *, model: str, timeout_seconds: int = 420) 
         "--disallowedTools",
         "Bash,Edit,Read,Write",
         "--append-system-prompt",
-        "Return only valid JSON. Do not include markdown fences. Do not read or write files.",
+        f"{GENERATION_SYSTEM_PROMPT}\n\nReturn only valid JSON. Do not include markdown fences. Do not read or write files.",
     ]
     result = subprocess.run(
         cmd,
@@ -1397,14 +1747,241 @@ def generate_claude_cli(prompt: str, *, model: str, timeout_seconds: int = 420) 
     return result.stdout.strip()
 
 
+def generate_claude_cli_fast(prompt: str, *, model: str, timeout_seconds: int = 180) -> str:
+    """Isolated one-question path that skips project agent/settings expansion."""
+    if not claude_cli_available():
+        raise RuntimeError("Claude Code CLI를 찾을 수 없습니다. `claude` 설치/로그인을 먼저 확인해주세요.")
+    choice_explanation_schema = {
+        "type": "object",
+        "properties": {
+            "rationale": {"type": "string"},
+            "misconception": {"type": "string"},
+            "why_attractive": {"type": "string"},
+            "source_id": {"type": "string"},
+        },
+        "required": ["rationale", "misconception", "why_attractive", "source_id"],
+        "additionalProperties": True,
+    }
+    schema = {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "problem": {"type": "string"},
+                        "options": {
+                            "type": "array",
+                            "minItems": 5,
+                            "maxItems": 5,
+                            "items": {"type": "string"},
+                        },
+                        "answer": {"type": "integer", "minimum": 1, "maximum": 5},
+                        "explanation": {"type": "string"},
+                        "pma_solution": {"type": "object"},
+                        "cognitive_model": {"type": "object"},
+                        "evidence_disclosure_plan": {"type": "object"},
+                        "choice_explanations": {
+                            "type": "object",
+                            "properties": {
+                                str(index): choice_explanation_schema
+                                for index in range(1, 6)
+                            },
+                            "required": [str(index) for index in range(1, 6)],
+                            "additionalProperties": False,
+                        },
+                        "self_check": {
+                            "type": "object",
+                            "properties": {
+                                key: {"type": "boolean"} for key in SELF_CHECK_KEYS
+                            },
+                            "required": list(SELF_CHECK_KEYS),
+                            "additionalProperties": False,
+                        },
+                        "reference_notes": {"type": "array"},
+                        "needs_review": {"type": "boolean"},
+                        "gen_ready": {"type": "boolean"},
+                        "block_reason": {"type": ["string", "null"]},
+                    },
+                    "required": [
+                        "problem",
+                        "options",
+                        "answer",
+                        "explanation",
+                        "pma_solution",
+                        "cognitive_model",
+                        "evidence_disclosure_plan",
+                        "choice_explanations",
+                        "self_check",
+                        "needs_review",
+                        "gen_ready",
+                    ],
+                    "additionalProperties": True,
+                },
+            }
+        },
+        "required": ["questions"],
+        "additionalProperties": False,
+    }
+    cmd = [
+        preferred_claude_binary() or "claude",
+        "-p",
+        "--setting-sources",
+        "",
+        "--model",
+        model,
+        "--effort",
+        "low",
+        "--tools",
+        "",
+        "--disable-slash-commands",
+        "--output-format",
+        "json",
+        "--no-session-persistence",
+        "--system-prompt",
+        "Return the requested single medical question as structured JSON immediately. Do not use tools.",
+        "--json-schema",
+        json.dumps(schema, ensure_ascii=False),
+    ]
+    result = subprocess.run(
+        cmd,
+        input=prompt,
+        text=True,
+        capture_output=True,
+        timeout=timeout_seconds,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Claude Code CLI fast 호출 실패: {result.stderr[:700] or result.stdout[:700]}")
+    try:
+        wrapper = json.loads(result.stdout)
+        structured = wrapper.get("structured_output")
+    except (json.JSONDecodeError, AttributeError) as exc:
+        raise RuntimeError(f"Claude Code CLI fast JSON wrapper 파싱 실패: {result.stdout[:700]}") from exc
+    if not isinstance(structured, dict):
+        raise RuntimeError(f"Claude Code CLI fast structured_output 누락: {result.stdout[:700]}")
+    return json.dumps(structured, ensure_ascii=False)
+
+
+def build_fast_generation_prompt(
+    lecture_text: str,
+    *,
+    subject: str,
+    unit: str,
+    difficulty: str,
+    grounding: dict[str, Any],
+    evidence_context: str,
+    assessment_task: str,
+    reveal_specialty: bool,
+    reasoning_hops: int,
+) -> str:
+    pack = grounding.get("pack") if isinstance(grounding.get("pack"), dict) else {}
+    axis_types = ((pack.get("axis_context") or {}).get("types") or {}) if pack else {}
+    compact_axes = {
+        axis_type: [
+            {
+                "axis_id": item.get("axis_id"),
+                "label": item.get("label"),
+                "relation": item.get("relation"),
+                "source": item.get("source"),
+            }
+            for item in values[:4]
+        ]
+        for axis_type, values in axis_types.items()
+        if values
+    }
+    context = {
+        "disease_concept_id": pack.get("disease_concept_id"),
+        "label": pack.get("label"),
+        "evidence": pack.get("evidence") or {},
+        "inherited_edges": pack.get("inherited_edges") or {},
+        "distractor_pool": (pack.get("distractor_pool") or [])[:8],
+        "axes": compact_axes,
+        "needs_review": True,
+    }
+    return f"""한국 의대 국가고시 수준의 한국어 임상 5지선다 단일최선답 문항 1개를 작성하라.
+
+과목: {subject}
+단원: {unit}
+난이도: {difficulty}
+평가 과업: {assessment_task}
+요구 추론 단계: {reasoning_hops}
+진단명/분과 직접 공개 허용: {str(bool(reveal_specialty)).lower()}
+
+[강의/주제 요약]
+{lecture_text[:3500]}
+
+[승인 또는 로컬 RAG 근거 요약]
+{evidence_context[:5000] or '별도 근거 없음'}
+
+[Ontology 컨텍스트]
+{json.dumps(context, ensure_ascii=False, indent=2)}
+
+규칙:
+- 제공된 강의/근거/Ontology 컨텍스트만 사용하고 새 정밀 수치나 출처를 만들지 않는다.
+- 새 임상 비네트를 작성하고 기존 문항을 복제하지 않는다.
+- 모든 비네트 요소를 강제하지 말고 과업 수행에 필요한 최소 충분 단서만 포함한다.
+- 실제 감별에 필요한 경합 단서는 선택 사항이며 0~1개만 쓴다. 혼란만을 위한 red herring은 금지한다.
+- 5개 선지는 동일 범주로 만들고 정답은 하나만 둔다.
+- 내부 Ontology 근거와 학생에게 공개한 단서를 evidence_disclosure_plan으로 분리한다.
+- evidence_disclosure_plan.selected_for_stem은 최대 4개, strong/confirmatory는 합계 최대 1개로 제한한다. 규칙을 충족하면 status=pass, qc_flags=[]로 둔다.
+- evidence_disclosure_plan.assessment_task는 반드시 '{assessment_task}'로 쓴다.
+- 평가 과업이 diagnosis가 아니면 latent_diagnosis_required=false로 두고, 치료·금기·추적 과업에 필요한 확정 진단은 공개할 수 있다. 확정 진단 공개만으로 task_evidence_mismatch를 표시하지 않는다.
+- {reasoning_hops}단계 추론은 질환/상태 파악 후 금기·적응증·다음 처치 중 하나를 추가로 적용하도록 만든다. cognitive_model.decision_cues와 reasoning_summary에 두 판단을 분리해 기록한다.
+- 오답 4개에는 각각 서로 다른 허용 source_id, 구체적인 rationale, misconception, why_attractive를 반드시 채운다. 빈 문자열이나 같은 source_id 재사용은 금지한다.
+- 근거가 부족하면 block_reason을 insufficient_evidence로 설정한다.
+- needs_review=true, gen_ready=false로 둔다.
+- JSON 외 텍스트를 출력하지 않는다.
+
+출력 형식:
+{{
+  "questions": [{{
+    "problem": "문항",
+    "options": ["1", "2", "3", "4", "5"],
+    "answer": 1,
+    "explanation": "정답 근거와 감별",
+    "pma_solution": {{"correct_reason":"정답 근거", "reasoning_summary":"추론", "high_yield_point":"핵심", "source_anchor":"근거 파일 또는 Ontology axis ID"}},
+    "cognitive_model": {{"decision_cues": ["결정 단서"], "confounders": [], "answer_concept": "정답 개념"}},
+    "evidence_disclosure_plan": {{"status":"pass", "assessment_task":"{assessment_task}", "latent_diagnosis_required":{str(assessment_task == 'diagnosis').lower()}, "retrieved_axis_ids":["axis ID"], "selected_for_stem":[{{"source_id":"axis ID", "role":"prerequisite_cue", "strength":"moderate", "evidence_family":"care_context", "surface_form":"학생에게 공개한 단서"}}], "withheld":[], "informative_cue_count":1, "strong_or_confirmatory_count":0, "confirmatory_count":0, "neutral_context_count":0, "authentic_competing_cue_count":0, "target_already_resolved":false, "qc_flags":[]}},
+    "choice_explanations": {{
+      "1": {{"rationale":"정답 또는 오답 근거", "misconception":"정답이면 빈 문자열", "why_attractive":"정답이면 빈 문자열", "source_id":"정답이면 빈 문자열"}},
+      "2": {{"rationale":"오답 근거", "misconception":"혼동 지점", "why_attractive":"끌리는 이유", "source_id":"허용 source_id"}},
+      "3": {{"rationale":"오답 근거", "misconception":"혼동 지점", "why_attractive":"끌리는 이유", "source_id":"허용 source_id"}},
+      "4": {{"rationale":"오답 근거", "misconception":"혼동 지점", "why_attractive":"끌리는 이유", "source_id":"허용 source_id"}},
+      "5": {{"rationale":"오답 근거", "misconception":"혼동 지점", "why_attractive":"끌리는 이유", "source_id":"허용 source_id"}}
+    }},
+    "self_check": {json.dumps({key: True for key in SELF_CHECK_KEYS}, ensure_ascii=False)},
+    "reference_notes": [{{"source":"근거자료명", "basis":"근거 요약"}}],
+    "needs_review": true,
+    "gen_ready": false
+  }}]
+}}
+"""
+
+
 def generate_studio_questions(
     lecture: SavedUpload,
     *,
+    set_name: str = "",
     subject: str = "General",
     unit: str = "미분류",
     num_questions: int = 5,
     difficulty: str = "보통",
     question_type: str = "clinical_case",
+    item_type: str = "A",
+    reveal_specialty: bool = False,
+    reasoning_hops: int = 2,
+    grounding_topic: str = "",
+    grounding_concept_id: str = "",
+    ontology_review_policy: str = "faculty_draft",
+    target_axis_type: str | None = None,
+    target_axis_ids: list[str] | None = None,
+    supporting_axis_types: list[str] | None = None,
+    option_domain: str | None = None,
+    generation_profile: str = "standard",
+    generation_variant_instruction: str = "",
     reference_policy: str = "local_open",
     image_policy: str = "none",
     selected_media_ids: list[str] | None = None,
@@ -1414,8 +1991,10 @@ def generate_studio_questions(
     style_uploads: list[SavedUpload] | None = None,
     evidence_uploads: list[SavedUpload] | None = None,
     image_uploads: list[SavedUpload] | None = None,
-    temperature: float = 0.2,
+    temperature: float = 0.0,
     model: str | None = None,
+    archive_result: bool = True,
+    return_records: bool = False,
 ) -> dict[str, Any]:
     ensure_studio_dirs()
     style_uploads = style_uploads or []
@@ -1423,12 +2002,13 @@ def generate_studio_questions(
     image_uploads = image_uploads or []
     selected_media_ids = selected_media_ids or []
     selected_media_assets = get_media_assets(selected_media_ids)
+    validate_selected_media_assets(selected_media_ids, selected_media_assets)
 
     lecture_text = extract_saved_upload(lecture)
     if not lecture_text.strip():
         raise ValueError("강의자료에서 텍스트를 추출하지 못했습니다.")
 
-    source_slug = f"{timestamp_slug()}_{slugify(Path(lecture.original_name).stem)}"
+    source_slug = source_storage_slug(lecture.original_name)
     extracted_path = EXTRACTED_DIR / f"{source_slug}.txt"
     prompt_path = GENERATED_DIR / f"{source_slug}.prompt.txt"
     output_path = GENERATED_DIR / f"{source_slug}.questions.json"
@@ -1488,46 +2068,151 @@ def generate_studio_questions(
         max_chars_per_file=8000,
         max_total_chars=20000,
     )
+    grounding = build_generation_grounding(
+        grounding_topic or unit,
+        disease_concept_id=grounding_concept_id,
+        review_policy=ontology_review_policy,
+    )
+    if grounding.get("blocked"):
+        reasons = ", ".join(str(value) for value in grounding.get("block_reasons") or [])
+        raise ValueError(f"ontology_review_policy_blocked: {reasons or 'review policy requirements not met'}")
+    question_blueprint = build_question_blueprint(
+        grounding,
+        question_type=question_type,
+        target_axis_type=target_axis_type,
+        target_axis_ids=target_axis_ids,
+        supporting_axis_types=supporting_axis_types,
+        option_domain=option_domain,
+    )
+    blueprint_review_reasons: list[str] = []
+    if question_blueprint.get("status") == "blocked":
+        blueprint_review_reasons = [
+            "question_blueprint_blocked",
+            *[
+                f"question_blueprint:{reason}"
+                for reason in question_blueprint.get("block_reasons") or []
+                if str(reason or "").strip()
+            ],
+        ]
+        if grounding.get("review_policy") == "student_approved":
+            reasons = ", ".join(
+                str(value) for value in question_blueprint.get("block_reasons") or []
+            )
+            raise ValueError(
+                f"question_blueprint_blocked: {reasons or 'assessment target requirements not met'}"
+            )
+    grounding_pack = grounding.get("pack") if isinstance(grounding.get("pack"), dict) else {}
+    grounding_summary = {
+        "review_policy": grounding.get("review_policy"),
+        "policy_requirements": grounding.get("policy_requirements") or {},
+        "review_decisions": grounding.get("review_decisions") or {},
+        "concept_review": grounding.get("concept_review") or {},
+        "blocked": bool(grounding.get("blocked")),
+        "block_reasons": grounding.get("block_reasons") or [],
+        "excluded_counts": grounding.get("excluded_counts") or {},
+        "match": grounding.get("match"),
+        "registry": grounding.get("registry"),
+        "missing": grounding.get("missing", []),
+        "fallback_general_generation": grounding.get("fallback_general_generation", False),
+        "disease_concept_id": grounding_pack.get("disease_concept_id"),
+        "distractor_pool_count": len(grounding_pack.get("distractor_pool") or []),
+        "evidence_available": bool(grounding_pack.get("evidence_available")),
+        "ontology_used": bool(grounding_pack),
+        "axis_node_count": int((grounding_pack.get("axis_context") or {}).get("node_count") or 0),
+        "axis_type_counts": (grounding_pack.get("axis_context") or {}).get("type_counts") or {},
+        "axis_registry": (grounding_pack.get("axis_context") or {}).get("registry") or {},
+        "draft_generation_ready": bool(grounding_pack.get("draft_generation_ready")),
+    }
 
-    prompt = build_generation_prompt(
-        lecture_text,
-        source_name=lecture.original_name,
-        subject=subject,
-        unit=unit,
-        num_questions=num_questions,
-        difficulty=difficulty,
-        max_chars=30000,
-        evidence_context=evidence_context,
-    )
-    prompt = append_style_context(prompt, style_context)
-    prompt = append_question_type_instruction(prompt, question_type, visual_candidates)
-    prompt = append_media_instruction(
-        prompt,
-        visual_candidates,
-        selected_media_assets=selected_media_assets,
-        image_description=image_description,
-    )
-    if include_tables:
-        prompt = append_table_instruction(prompt)
-    prompt = append_reference_instruction(
-        prompt,
-        lecture,
-        evidence_uploads,
-        reference_policy=reference_policy,
-    )
+    effective_profile = "fast" if generation_profile == "fast" and image_policy == "none" else "standard"
+    effective_num_questions = 1 if effective_profile == "fast" else num_questions
+    resolved_assessment_task = str((question_blueprint.get("target") or {}).get("axis_type") or question_type or "diagnosis")
+    if effective_profile == "fast":
+        prompt = build_fast_generation_prompt(
+            lecture_text,
+            subject=subject,
+            unit=unit,
+            difficulty=difficulty,
+            grounding=grounding,
+            evidence_context=evidence_context,
+            assessment_task=resolved_assessment_task,
+            reveal_specialty=reveal_specialty,
+            reasoning_hops=reasoning_hops,
+        )
+        prompt = append_item_writing_context(
+            prompt,
+            exam_profile="kmle_summative",
+            assessment_task=resolved_assessment_task,
+            question_type=question_type,
+            query=f"{subject} {unit} {difficulty} {question_type}",
+        )
+    else:
+        prompt = build_generation_prompt(
+            lecture_text,
+            source_name=lecture.original_name,
+            subject=subject,
+            unit=unit,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            max_chars=30000,
+            evidence_context=evidence_context,
+            item_type=item_type,
+            reveal_specialty=reveal_specialty,
+            reasoning_hops=reasoning_hops,
+            exam_profile="kmle_summative",
+            assessment_task=resolved_assessment_task,
+            question_type=question_type,
+        )
+        prompt = append_style_context(prompt, style_context)
+        prompt = append_question_type_instruction(prompt, question_type, visual_candidates)
+        prompt = append_media_instruction(
+            prompt,
+            visual_candidates,
+            selected_media_assets=selected_media_assets,
+            image_description=image_description,
+        )
+        if include_tables:
+            prompt = append_table_instruction(prompt)
+        prompt = append_reference_instruction(
+            prompt,
+            lecture,
+            evidence_uploads,
+            reference_policy=reference_policy,
+        )
+        prompt = append_grounding_context(prompt, grounding)
+    prompt = append_question_blueprint_context(prompt, question_blueprint)
+    if generation_variant_instruction.strip():
+        prompt = (
+            f"{prompt}\n\n[다문항 세트 다양성 지침]\n"
+            f"{generation_variant_instruction.strip()[:4000]}"
+        )
     prompt_path.write_text(prompt, encoding="utf-8")
 
     resolved_provider = resolve_studio_provider(provider)
     resolved_model = default_model_for_provider(resolved_provider, model)
     base_response: dict[str, Any] = {
+        "set_name": str(set_name or "").strip(),
         "source_name": lecture.original_name,
         "provider": resolved_provider,
         "model": resolved_model,
         "subject": subject,
         "unit": unit,
-        "num_questions": num_questions,
+        "num_questions": effective_num_questions,
+        "requested_num_questions": num_questions,
         "difficulty": difficulty,
         "question_type": question_type,
+        "item_type": item_type,
+        "reveal_specialty": bool(reveal_specialty),
+        "reasoning_hops": reasoning_hops,
+        "question_blueprint": question_blueprint,
+        "target_axis_type": (question_blueprint.get("target") or {}).get("axis_type"),
+        "target_axis_ids": list((question_blueprint.get("target") or {}).get("axis_ids") or []),
+        "option_domain": question_blueprint.get("option_domain"),
+        "review_reasons": blueprint_review_reasons,
+        "grounding": grounding_summary,
+        "ontology": grounding_summary,
+        "generation_profile": effective_profile,
+        "ontology_review_policy": grounding.get("review_policy"),
         "reference_policy": reference_policy,
         "image_policy": image_policy,
         "selected_media_ids": selected_media_ids,
@@ -1587,12 +2272,15 @@ def generate_studio_questions(
             temperature=temperature,
         )
     elif resolved_provider == "claude-cli":
-        timeout_seconds = max(360, min(900, 180 + int(num_questions) * 90))
-        raw_response = generate_claude_cli(
-            prompt,
-            model=resolved_model,
-            timeout_seconds=timeout_seconds,
-        )
+        if effective_profile == "fast":
+            raw_response = generate_claude_cli_fast(prompt, model=resolved_model, timeout_seconds=180)
+        else:
+            timeout_seconds = max(360, min(900, 180 + int(num_questions) * 90))
+            raw_response = generate_claude_cli(
+                prompt,
+                model=resolved_model,
+                timeout_seconds=timeout_seconds,
+            )
     elif resolved_provider == "gemini":
         raw_response = generate_gemini(
             prompt,
@@ -1604,7 +2292,27 @@ def generate_studio_questions(
 
     raw_response_path.write_text(raw_response, encoding="utf-8")
     payload = extract_json_payload(raw_response)
-    records = normalize_questions(payload, source_name=lecture.original_name, subject=subject, unit=unit)
+    records = normalize_questions(
+        payload,
+        source_name=lecture.original_name,
+        subject=subject,
+        unit=unit,
+        item_type=item_type,
+        reveal_specialty=reveal_specialty,
+        reasoning_hops=reasoning_hops,
+    )
+    records = [apply_question_blueprint(record, question_blueprint) for record in records]
+    records = [apply_grounding_trace(record, grounding) for record in records]
+    print(
+        "[studio.grounding]",
+        {
+            "status": (grounding.get("match") or {}).get("status"),
+            "disease_concept_id": grounding_summary.get("disease_concept_id"),
+            "distractor_pool_count": grounding_summary.get("distractor_pool_count"),
+            "missing": grounding_summary.get("missing"),
+        },
+        flush=True,
+    )
     records = normalize_reference_notes(
         records,
         lecture=lecture,
@@ -1618,17 +2326,19 @@ def generate_studio_questions(
         max_refs_per_question=3 if question_type == "image_based" else 1,
     )
     write_json(output_path, records)
-    archive_path = archive_question_set(
-        source_slug,
-        {
-            **base_response,
-            "paths": {
-                **base_response["paths"],
-                "question_bank": str(QUESTION_BANK_DIR / f"{source_slug}.question_set.json"),
+    archive_path: Path | None = None
+    if archive_result:
+        archive_path = archive_question_set(
+            source_slug,
+            {
+                **base_response,
+                "paths": {
+                    **base_response["paths"],
+                    "question_bank": str(QUESTION_BANK_DIR / f"{source_slug}.question_set.json"),
+                },
             },
-        },
-        records,
-    )
+            records,
+        )
 
     sample = [
         {
@@ -1639,6 +2349,17 @@ def generate_studio_questions(
             "explanation": record.get("explanation", "")[:700],
             "needs_review": record.get("needs_review"),
             "review_reasons": record.get("review_reasons", []),
+            "item_quality": record.get("item_quality", {}),
+            "cognitive_model": record.get("cognitive_model", {}),
+            "choice_explanations": record.get("choice_explanations", {}),
+            "disease_concept_id": record.get("disease_concept_id"),
+            "question_blueprint": record.get("question_blueprint", {}),
+            "target_axis_type": record.get("target_axis_type"),
+            "target_axis_ids": record.get("target_axis_ids", []),
+            "target_axis_candidate_ids": record.get("target_axis_candidate_ids", []),
+            "target_axis_resolution": record.get("target_axis_resolution"),
+            "option_domain": record.get("option_domain"),
+            "grounding_trace": record.get("grounding_trace", {}),
             "evidence_tier": record.get("evidence_tier"),
             "reference_notes": record.get("reference_notes", []),
             "data_table": record.get("data_table"),
@@ -1647,12 +2368,16 @@ def generate_studio_questions(
         }
         for record in records[:5]
     ]
-    base_response["paths"]["question_bank"] = str(archive_path)
+    if archive_path is not None:
+        base_response["paths"]["question_bank"] = str(archive_path)
 
-    return {
+    response = {
         **base_response,
         "status": "generated",
-        "set_id": source_slug,
+        "set_id": source_slug if archive_path is not None else None,
         "question_count": len(records),
         "sample": sample,
     }
+    if return_records:
+        response["_records"] = records
+    return response

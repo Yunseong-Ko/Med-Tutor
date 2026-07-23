@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/ontology_trust_kernel_release.schema.json",
+  "title": "P:accine Ontology Trust Kernel release registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "releases"],
+  "properties": {
+    "schema_version": {"const": "ontology_trust_kernel_releases.v1"},
+    "releases": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/release"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id", "status", "scope", "surfaces", "source_snapshots",
+        "concept_ids", "questions", "release_decision"
+      ],
+      "properties": {
+        "release_id": {"type": "string", "pattern": "^tk:[a-z0-9:_-]+$"},
+        "status": {"enum": ["draft", "released", "revoked"]},
+        "scope": {"type": "string", "minLength": 1},
+        "surfaces": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["practice_pre_answer", "post_answer_feedback", "analytics"]}
+        },
+        "source_snapshots": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis_registry_sha256", "review_decisions_sha256"],
+          "properties": {
+            "axis_registry_sha256": {"$ref": "#/$defs/sha256"},
+            "review_decisions_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "concept_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"}
+        },
+        "questions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/question_release"}
+        },
+        "release_decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reviewer_id", "reviewed_at", "note"],
+          "properties": {
+            "status": {"enum": ["draft", "released", "revoked"]},
+            "reviewer_id": {"type": ["string", "null"]},
+            "reviewed_at": {"type": ["string", "null"], "format": "date-time"},
+            "note": {"type": "string"}
+          }
+        }
+      }
+    },
+    "question_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exam_id", "question_id", "question_content_sha256", "feedback_content_sha256",
+        "blueprint_id", "disease_concept_id", "target_axis_type", "target_axis_ids",
+        "target_claim_ids", "choice_bindings", "evidence", "next_action", "media_release"
+      ],
+      "properties": {
+        "exam_id": {"type": "string", "minLength": 1},
+        "question_id": {"type": "string", "minLength": 1},
+        "question_content_sha256": {"$ref": "#/$defs/sha256"},
+        "feedback_content_sha256": {"$ref": "#/$defs/sha256"},
+        "blueprint_id": {"type": "string", "minLength": 1},
+        "disease_concept_id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"},
+        "target_axis_type": {"enum": ["symptom", "diagnosis", "pathophysiology", "etiology", "risk_factor", "prognosis", "epidemiology", "treatment", "indication", "contraindication"]},
+        "target_axis_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^a:[a-z_]+:[a-f0-9]+$"}
+        },
+        "target_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^c:axis_relation:[a-f0-9]+$"}
+        },
+        "choice_bindings": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/choice_binding"}
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidence"}
+        },
+        "next_action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target_claim_ids", "due_bucket"],
+          "properties": {
+            "kind": {"enum": ["contrast_retest", "retrieval_retest", "transfer_retest"]},
+            "target_claim_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "pattern": "^c:axis_relation:[a-f0-9]+$"}
+            },
+            "due_bucket": {"enum": ["immediate", "1d", "3d", "7d", "21d"]}
+          }
+        },
+        "media_release": {"enum": ["not_applicable", "passed"]}
+      }
+    },
+    "choice_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["choice", "role", "source_concept_id", "feedback_claim_ids", "why_attractive", "discriminating_rule"],
+      "properties": {
+        "choice": {"type": "string", "minLength": 1},
+        "role": {"enum": ["answer", "distractor"]},
+        "source_concept_id": {"type": "string", "minLength": 1},
+        "feedback_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^c:axis_relation:[a-f0-9]+$"}
+        },
+        "why_attractive": {"type": "string"},
+        "discriminating_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim_id", "text"],
+          "properties": {
+            "claim_id": {"type": "string", "pattern": "^c:axis_relation:[a-f0-9]+$"},
+            "text": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "citation", "locator", "status"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "citation": {"type": "string", "minLength": 1},
+        "locator": {"type": "string", "minLength": 1},
+        "status": {"const": "verified"}
+      }
+    }
+  }
+}

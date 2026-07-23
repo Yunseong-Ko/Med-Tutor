@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/kr_guideline_claim_worklist.schema.json",
+  "title": "Korean guideline claim extraction review worklist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "source_registry",
+    "ontology_overlay",
+    "agent_registry",
+    "worklist_role",
+    "output_contract",
+    "safety_boundary",
+    "summary",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": { "const": "kr_guideline_claim_worklist.v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "source_registry": { "$ref": "#/definitions/fileRef" },
+    "ontology_overlay": { "$ref": "#/definitions/fileRef" },
+    "agent_registry": { "$ref": "#/definitions/fileRef" },
+    "worklist_role": { "const": "candidate_extraction_tasks_not_medical_claims" },
+    "output_contract": { "type": "object" },
+    "safety_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["needs_review", "medical_approval", "student_visible", "generation_eligible", "automatic_claim_promotion"],
+      "properties": {
+        "needs_review": { "const": true },
+        "medical_approval": { "const": false },
+        "student_visible": { "const": false },
+        "generation_eligible": { "const": false },
+        "automatic_claim_promotion": { "const": false }
+      }
+    },
+    "summary": { "type": "object" },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "source_id",
+          "source_title",
+          "priority",
+          "latest_status",
+          "clinical_axis",
+          "readiness",
+          "concept_candidates",
+          "specialty_agent_ids",
+          "source_files",
+          "task_status",
+          "needs_review",
+          "medical_approval",
+          "student_visible",
+          "generation_eligible"
+        ],
+        "properties": {
+          "task_id": { "type": "string", "pattern": "^kr-cpg-task:[0-9a-f]{20}$" },
+          "source_id": { "type": "string" },
+          "source_title": { "type": "string" },
+          "priority": { "enum": ["P0", "P1", "P2"] },
+          "latest_status": { "type": "string" },
+          "clinical_axis": { "type": "string" },
+          "readiness": { "enum": ["ready_for_candidate_extraction", "currentness_review_required", "source_file_unavailable"] },
+          "concept_candidates": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "specialty_agent_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "source_files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["attachment_id", "role", "relative_path", "bytes", "sha256", "pdf_pages"],
+              "properties": {
+                "attachment_id": { "type": "string" },
+                "role": { "type": "string" },
+                "relative_path": { "type": "string" },
+                "bytes": { "type": "integer", "minimum": 1 },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "pdf_pages": { "type": ["integer", "null"], "minimum": 1 }
+              }
+            }
+          },
+          "task_status": { "const": "pending_candidate_extraction" },
+          "needs_review": { "const": true },
+          "medical_approval": { "const": false },
+          "student_visible": { "const": false },
+          "generation_eligible": { "const": false }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/kr_guideline_claim_release.schema.json",
+  "title": "P:accine Korean guideline claim releases",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "policy", "releases"],
+  "properties": {
+    "schema_version": {"const": "kr_guideline_claim_releases.v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_deny",
+        "invalidate_on_claim_hash_change",
+        "invalidate_on_source_snapshot_change"
+      ],
+      "properties": {
+        "default_deny": {"const": true},
+        "invalidate_on_claim_hash_change": {"const": true},
+        "invalidate_on_source_snapshot_change": {"const": true}
+      }
+    },
+    "releases": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/release"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "released"}}},
+          "then": {
+            "properties": {
+              "surfaces": {"minItems": 1},
+              "approved_by": {"type": "string", "minLength": 1},
+              "reviewed_at": {"type": "string", "format": "date-time"},
+              "review_due_at": {"type": "string", "format": "date-time"},
+              "valid_from": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "revoked"}}},
+          "then": {
+            "properties": {
+              "revoked_at": {"type": "string", "format": "date-time"},
+              "revocation_reason": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      ],
+      "required": [
+        "release_id",
+        "claim_id",
+        "status",
+        "surfaces",
+        "claim_content_sha256",
+        "source_snapshot_sha256",
+        "concept_ids",
+        "jurisdiction",
+        "approved_by",
+        "reviewed_at",
+        "review_due_at",
+        "valid_from",
+        "revoked_at",
+        "revocation_reason"
+      ],
+      "properties": {
+        "release_id": {"type": "string", "minLength": 1},
+        "claim_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["draft", "released", "revoked"]},
+        "surfaces": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "library_summary",
+              "study_qa",
+              "case_presentation",
+              "anki",
+              "item_generation"
+            ]
+          }
+        },
+        "claim_content_sha256": {"$ref": "#/$defs/sha256"},
+        "source_snapshot_sha256": {"$ref": "#/$defs/sha256"},
+        "concept_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "jurisdiction": {"const": "KR"},
+        "approved_by": {"type": ["string", "null"]},
+        "reviewed_at": {"type": ["string", "null"], "format": "date-time"},
+        "review_due_at": {"type": ["string", "null"], "format": "date-time"},
+        "valid_from": {"type": ["string", "null"], "format": "date-time"},
+        "revoked_at": {"type": ["string", "null"], "format": "date-time"},
+        "revocation_reason": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

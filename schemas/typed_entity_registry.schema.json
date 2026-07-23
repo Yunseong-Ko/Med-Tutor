@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/typed_entity_registry.schema.json",
+  "title": "P:accine typed entity registry",
+  "type": "object",
+  "required": ["schema_version", "_meta", "entities"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "_meta": {
+      "type": "object",
+      "required": [
+        "status",
+        "entity_count",
+        "counts_by_entity_type",
+        "excluded_disease_concept_ids",
+        "candidate_relations_materialized",
+        "all_needs_review",
+        "medical_approval"
+      ],
+      "properties": {
+        "status": {"const": "active_typed_overlay"},
+        "entity_count": {"type": "integer", "minimum": 1},
+        "counts_by_entity_type": {"type": "object"},
+        "excluded_disease_concept_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "candidate_relations_materialized": {"const": 0},
+        "all_needs_review": {"const": true},
+        "medical_approval": {"const": false}
+      }
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "entity_id",
+          "concept_id",
+          "entity_type",
+          "entity_subtype",
+          "destination_layer",
+          "label",
+          "recommended_relation",
+          "migration_status",
+          "excluded_from_disease_exports",
+          "needs_review",
+          "medical_approval"
+        ],
+        "properties": {
+          "entity_id": {"type": "string", "pattern": "^x:[a-z_]+:[a-z0-9_]+$"},
+          "concept_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "entity_type": {
+            "enum": [
+              "category",
+              "clinical_context",
+              "content_format",
+              "exposure",
+              "finding",
+              "health_system",
+              "intervention",
+              "metric",
+              "symptom"
+            ]
+          },
+          "entity_subtype": {"type": "string"},
+          "destination_layer": {"type": "string"},
+          "label": {"type": "string", "minLength": 1},
+          "recommended_relation": {
+            "type": "object",
+            "required": ["materialized", "materialization_reason"],
+            "properties": {"materialized": {"const": false}}
+          },
+          "migration_status": {"const": "active_typed_overlay"},
+          "excluded_from_disease_exports": {"const": true},
+          "needs_review": {"const": true},
+          "medical_approval": {"const": false}
+        }
+      }
+    }
+  }
+}

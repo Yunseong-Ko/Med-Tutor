@@ -1,0 +1,192 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/lecture_question.schema.json",
+  "title": "Lecture-Derived PMA-Style Question Drafts",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "question_id",
+      "source_name",
+      "source_type",
+      "subject",
+      "unit",
+      "problem",
+      "options",
+      "answer",
+      "explanation",
+      "pma_solution",
+      "evidence_refs",
+      "evidence_tier",
+      "cognitive_model",
+      "evidence_disclosure_plan",
+      "choice_explanations",
+      "item_quality",
+      "self_check",
+      "review_status",
+      "needs_review",
+      "gen_ready",
+      "generation_mode",
+      "pipeline_version"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "question_id": { "type": "string" },
+      "source_name": { "type": "string" },
+      "source_type": { "const": "lecture_material" },
+      "subject": { "type": "string" },
+      "unit": { "type": "string" },
+      "problem": { "type": "string" },
+      "options": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": { "type": "string" }
+      },
+      "answer": { "type": "integer", "minimum": 1, "maximum": 5 },
+      "explanation": { "type": "string" },
+      "pma_solution": {
+        "type": "object",
+        "required": [
+          "reasoning_summary",
+          "correct_reason",
+          "choice_explanations",
+          "high_yield_point",
+          "trap",
+          "source_anchor"
+        ],
+        "properties": {
+          "reasoning_summary": { "type": "string" },
+          "correct_reason": { "type": "string" },
+          "choice_explanations": {
+            "type": "object",
+            "properties": {
+              "1": { "type": "string" },
+              "2": { "type": "string" },
+              "3": { "type": "string" },
+              "4": { "type": "string" },
+              "5": { "type": "string" }
+            },
+            "additionalProperties": { "type": "string" }
+          },
+          "high_yield_point": { "type": "string" },
+          "trap": { "type": "string" },
+          "source_anchor": { "type": "string" }
+        }
+      },
+      "evidence_refs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["source", "basis", "source_type"],
+          "properties": {
+            "source": { "type": "string" },
+            "basis": { "type": "string" },
+            "source_type": {
+              "type": "string",
+              "enum": ["lecture", "guideline", "journal", "textbook", "database", "other"]
+            }
+          }
+        }
+      },
+      "evidence_tier": {
+        "type": "string",
+        "enum": [
+          "lecture_only",
+          "lecture_plus_guideline",
+          "lecture_plus_journal",
+          "lecture_plus_textbook",
+          "lecture_plus_database",
+          "lecture_plus_mixed",
+          "needs_external_review"
+        ]
+      },
+      "difficulty": { "type": "string" },
+      "question_type": { "type": "string" },
+      "cognitive_level": { "type": "string" },
+      "cognitive_model": {
+        "type": "object",
+        "required": ["chief_complaint", "patient_context", "presented_data", "decision_cues", "confounders", "answer_concept", "differentials"],
+        "properties": {
+          "chief_complaint": { "type": "string" },
+          "patient_context": { "type": "string" },
+          "presented_data": { "type": "array", "items": { "type": "string" } },
+          "decision_cues": { "type": "array", "items": { "type": "string" } },
+          "confounders": { "type": "array", "items": { "type": "string" } },
+          "answer_concept": { "type": "string" },
+          "differentials": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "evidence_disclosure_plan": {
+        "type": "object",
+        "required": [
+          "status", "assessment_task", "latent_diagnosis_required",
+          "retrieved_axis_ids", "selected_for_stem", "withheld",
+          "informative_cue_count", "strong_or_confirmatory_count",
+          "confirmatory_count", "neutral_context_count",
+          "authentic_competing_cue_count", "target_already_resolved", "qc_flags"
+        ],
+        "properties": {
+          "status": {"type": "string", "enum": ["pass", "blocked"]},
+          "assessment_task": {"type": "string", "minLength": 1},
+          "latent_diagnosis_required": {"type": "boolean"},
+          "retrieved_axis_ids": {"type": "array", "items": {"type": "string"}},
+          "selected_for_stem": {"type": "array", "maxItems": 6},
+          "withheld": {"type": "array"},
+          "informative_cue_count": {"type": "integer", "minimum": 0, "maximum": 4},
+          "strong_or_confirmatory_count": {"type": "integer", "minimum": 0, "maximum": 1},
+          "confirmatory_count": {"type": "integer", "minimum": 0, "maximum": 1},
+          "neutral_context_count": {"type": "integer", "minimum": 0, "maximum": 1},
+          "authentic_competing_cue_count": {"type": "integer", "minimum": 0, "maximum": 1},
+          "target_already_resolved": {"type": "boolean"},
+          "qc_flags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+        }
+      },
+      "choice_explanations": {
+        "type": "object",
+        "minProperties": 5,
+        "additionalProperties": {
+          "type": "object",
+          "required": ["verdict", "rationale", "misconception", "misconception_id", "why_attractive", "source_id", "provenance"],
+          "properties": {
+            "verdict": { "type": "string" },
+            "rationale": { "type": "string" },
+            "misconception": { "type": "string" },
+            "misconception_id": { "type": "string" },
+            "why_attractive": { "type": "string" },
+            "source_id": { "type": "string" },
+            "provenance": { "type": "string" }
+          }
+        }
+      },
+      "item_quality": {
+        "type": "object",
+        "required": ["flaws", "flaw_count", "hard_rule_checklist", "hard_rule_failures"],
+        "properties": {
+          "flaws": { "type": "array", "items": { "type": "string" } },
+          "flaw_count": { "type": "integer", "minimum": 0 },
+          "hard_rule_checklist": { "type": "object", "minProperties": 20 },
+          "hard_rule_failures": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "self_check": { "type": "object", "minProperties": 22 },
+      "item_type": { "type": "string" },
+      "reveal_specialty": { "type": "boolean" },
+      "reasoning_hops": { "type": "integer", "minimum": 1, "maximum": 3 },
+      "disease_concept_id": { "type": ["string", "null"] },
+      "concept_grounding_status": { "type": "string" },
+      "grounding_evidence": { "type": "object" },
+      "grounding_trace": { "type": "object" },
+      "review_status": { "type": "string" },
+      "needs_review": { "type": "boolean" },
+      "gen_ready": { "type": "boolean", "const": false },
+      "block_reason": { "type": ["string", "null"] },
+      "review_reasons": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "generation_mode": { "type": "string" },
+      "pipeline_version": { "type": "string" }
+    }
+  }
+}

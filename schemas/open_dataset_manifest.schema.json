@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/open_dataset_manifest.schema.json",
+  "title": "P:accine Open Medical Dataset Manifest",
+  "type": "object",
+  "required": ["manifest_version", "manifest_slug", "datasets"],
+  "properties": {
+    "manifest_version": {
+      "type": "string"
+    },
+    "manifest_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "storage_policy": {
+      "type": "object",
+      "properties": {
+        "default_output_dir": {
+          "type": "string"
+        },
+        "download_by_default": {
+          "type": "boolean"
+        },
+        "max_file_mb": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dataset"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "dataset": {
+      "type": "object",
+      "required": [
+        "dataset_id",
+        "name",
+        "provider",
+        "source_url",
+        "license",
+        "requires_manual_access",
+        "download_policy",
+        "entries"
+      ],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["kvasir", "grand_challenge", "tcia", "physionet", "custom"]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "license": {
+          "type": "string"
+        },
+        "license_url": {
+          "type": "string"
+        },
+        "terms_url": {
+          "type": "string"
+        },
+        "citation": {
+          "type": "string"
+        },
+        "usage_scope": {
+          "type": "string"
+        },
+        "requires_manual_access": {
+          "type": "boolean"
+        },
+        "access_notes": {
+          "type": "string"
+        },
+        "download_policy": {
+          "type": "string",
+          "enum": ["metadata_only", "direct_urls_only", "official_api_only", "manual_review_only"]
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "entry_id",
+        "source_url",
+        "asset_type",
+        "modality",
+        "body_system",
+        "finding_labels"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string"
+        },
+        "source_url": {
+          "type": "string"
+        },
+        "direct_download_url": {
+          "type": "string"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "asset_type": {
+          "type": "string",
+          "enum": [
+            "radiology",
+            "ultrasound",
+            "pathology",
+            "endoscopy",
+            "clinical_photo",
+            "signal",
+            "audio",
+            "video",
+            "other"
+          ]
+        },
+        "modality": {
+          "type": "string"
+        },
+        "body_system": {
+          "type": "string"
+        },
+        "anatomy": {
+          "type": "string"
+        },
+        "diagnosis": {
+          "type": "string"
+        },
+        "finding_labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "caption": {
+          "type": "string"
+        },
+        "split": {
+          "type": "string"
+        },
+        "deidentified": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

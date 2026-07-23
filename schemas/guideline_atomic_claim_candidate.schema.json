@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/guideline_atomic_claim_candidate.schema.json",
+  "title": "P:accine guideline atomic-claim candidate registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "registry_role",
+    "source_map",
+    "seed",
+    "safety_boundary",
+    "summary",
+    "candidates",
+    "extraction_tasks"
+  ],
+  "properties": {
+    "schema_version": {"const": "guideline_atomic_claim_candidates.v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "registry_role": {"const": "review_candidates_not_medical_claims"},
+    "source_map": {"$ref": "#/$defs/file_ref"},
+    "seed": {"$ref": "#/$defs/file_ref"},
+    "safety_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "generation_eligible",
+        "runtime_answer_eligible",
+        "automatic_ontology_merge"
+      ],
+      "properties": {
+        "needs_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "generation_eligible": {"const": false},
+        "runtime_answer_eligible": {"const": false},
+        "automatic_ontology_merge": {"const": false}
+      }
+    },
+    "summary": {"type": "object"},
+    "candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "extraction_tasks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/task"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "file_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["official_url", "section", "page", "pointer_status"],
+      "properties": {
+        "official_url": {"type": "string", "format": "uri"},
+        "section": {"type": ["string", "null"]},
+        "page": {"type": ["integer", "null"], "minimum": 1},
+        "pointer_status": {
+          "enum": [
+            "official_web_section",
+            "official_summary_section",
+            "exact_page_pending",
+            "full_text_review_required"
+          ]
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "pilot_id",
+        "source_id",
+        "jurisdiction",
+        "source_version",
+        "source_checked_at",
+        "concept_ids",
+        "topic_tags",
+        "clinical_axis",
+        "population",
+        "care_setting",
+        "trigger",
+        "action",
+        "recommendation_direction",
+        "exceptions",
+        "recommendation_strength",
+        "evidence_certainty",
+        "locator",
+        "korean_use_role",
+        "localization_risks",
+        "provenance",
+        "review_state"
+      ],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^guideline-candidate:[a-f0-9]{24}$"},
+        "pilot_id": {"enum": ["diabetes_2026", "dyslipidemia_2026", "amr_2024"]},
+        "source_id": {"type": "string", "minLength": 1},
+        "jurisdiction": {"enum": ["KR", "US"]},
+        "source_version": {"type": "string", "minLength": 1},
+        "source_checked_at": {"type": "string", "format": "date"},
+        "concept_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "topic_tags": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "uniqueItems": true
+        },
+        "clinical_axis": {"type": "string", "minLength": 1},
+        "population": {"type": "string", "minLength": 1},
+        "care_setting": {"type": "string", "minLength": 1},
+        "trigger": {"type": "string", "minLength": 1},
+        "action": {"type": "string", "minLength": 1},
+        "recommendation_direction": {
+          "enum": ["recommend", "prefer", "consider", "avoid", "screen", "monitor"]
+        },
+        "exceptions": {"type": "array", "items": {"type": "string"}},
+        "recommendation_strength": {"type": ["string", "null"]},
+        "evidence_certainty": {"type": ["string", "null"]},
+        "locator": {"$ref": "#/$defs/locator"},
+        "korean_use_role": {
+          "enum": ["kr_us_comparison", "gap_fill", "us_exam_only", "research_review"]
+        },
+        "localization_risks": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["access_type", "paraphrase_only", "source_text_stored", "extraction_confidence"],
+          "properties": {
+            "access_type": {"enum": ["official_public_webpage", "official_public_summary"]},
+            "paraphrase_only": {"const": true},
+            "source_text_stored": {"const": false},
+            "extraction_confidence": {"enum": ["high", "medium", "low"]}
+          }
+        },
+        "review_state": {"$ref": "#/$defs/review_state"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "pilot_id",
+        "source_id",
+        "concept_ids",
+        "topic_tags",
+        "clinical_axis",
+        "reason",
+        "required_review",
+        "review_state"
+      ],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^guideline-extraction-task:[a-f0-9]{24}$"},
+        "pilot_id": {"enum": ["diabetes_2026", "dyslipidemia_2026", "amr_2024"]},
+        "source_id": {"type": "string", "minLength": 1},
+        "concept_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "topic_tags": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "uniqueItems": true
+        },
+        "clinical_axis": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "required_review": {
+          "enum": ["licensed_full_text", "exact_table_or_algorithm", "specialist_interpretation", "kr_comparator"]
+        },
+        "review_state": {"$ref": "#/$defs/review_state"}
+      }
+    },
+    "review_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "generation_eligible",
+        "runtime_answer_eligible"
+      ],
+      "properties": {
+        "status": {"const": "pending_human_review"},
+        "needs_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "generation_eligible": {"const": false},
+        "runtime_answer_eligible": {"const": false}
+      }
+    }
+  }
+}

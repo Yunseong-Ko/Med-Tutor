@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/harrison_source_snapshot.schema.json",
+  "title": "Private Harrison Source Snapshot Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "source",
+    "extractor",
+    "artifacts",
+    "summary",
+    "integrity",
+    "files"
+  ],
+  "properties": {
+    "schema_version": { "const": "harrison_source_snapshot.v1" },
+    "snapshot_id": { "type": "string", "pattern": "^harrison22e:[0-9a-f]{20}$" },
+    "source": {
+      "type": "object",
+      "required": ["work", "edition", "copyright_year", "source_directory_name", "access_scope", "redistribution_allowed"],
+      "properties": {
+        "work": { "type": "string", "minLength": 1 },
+        "edition": { "const": "22e" },
+        "copyright_year": { "type": "integer", "minimum": 2024 },
+        "source_directory_name": { "type": "string", "minLength": 1 },
+        "access_scope": { "type": "string", "minLength": 1 },
+        "redistribution_allowed": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "extractor": { "type": "object" },
+    "artifacts": {
+      "type": "object",
+      "required": ["chapter_index", "private_pages", "private_pages_sha256"],
+      "properties": {
+        "chapter_index": { "const": "chapter_index.json" },
+        "private_pages": { "const": "pages.jsonl" },
+        "private_pages_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "summary": { "type": "object" },
+    "integrity": { "type": "object" },
+    "files": {
+      "type": "array",
+      "minItems": 507,
+      "maxItems": 507,
+      "items": {
+        "type": "object",
+        "required": ["path", "bytes", "sha256", "pdf_pages", "encrypted", "text_chars", "text_extractable", "normalized_page_hashes"],
+        "properties": {
+          "path": { "type": "string", "pattern": "\\.pdf$" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "pdf_pages": { "type": "integer", "minimum": 1 },
+          "encrypted": { "const": false },
+          "text_chars": { "type": "integer", "minimum": 0 },
+          "text_extractable": { "type": "boolean" },
+          "normalized_page_hashes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Faculty Studio · 내보내기 — P:accine</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="./faculty-studio.css?v=20260716-1" />
+  <link rel="stylesheet" href="./workspace.css?v=20260716-1" />
+</head>
+<body class="faculty-latest" data-workspace="archive">
+  <div class="fs2-shell">
+    <header class="fs2-topbar">
+      <a class="fs2-brand fsw-brand-link" href="./"><span class="fs2-logo">P</span><span><strong>P:accine</strong><span class="fs2-brand-sub">FACULTY STUDIO · ONTOLOGY</span></span></a>
+      <nav class="fs2-topnav" id="fsw-topnav" aria-label="Faculty Studio 상단">
+        <a href="./">새 문항 만들기</a><a href="./import.html">문항 가져오기</a><a href="./review.html">검토·승인 <span class="fsw-nav-count" data-review-count hidden></span></a><a href="./guideline-claims.html">가이드라인 검토</a><a href="./evidence-media.html">근거·미디어</a>
+        <a class="fs2-nav-active" href="./archive.html" aria-current="page">내보내기</a>
+      </nav>
+      <div class="fsw-top-actions"><span class="fsw-policy-copy">승인 문항만 · 학생 공개 아님</span><button class="fsw-menu-button" type="button" aria-controls="fsw-topnav" aria-expanded="false">메뉴</button></div>
+    </header>
+
+    <main class="fsw-main">
+      <header class="fsw-page-head"><div><h1>내보내기</h1><p>승인된 문항만 기본 포함합니다. 파일 생성은 학생 공개나 배포를 의미하지 않습니다.</p></div></header>
+      <div class="fsw-archive-layout">
+        <section class="fsw-archive-browser">
+          <label class="fsw-search"><span class="fsw-sr-only">세트 검색</span><input id="fsw-archive-search" type="search" placeholder="세트 검색 — 과목·단원·출처" /></label>
+          <div class="fsw-status-filters" id="fsw-archive-filters"><button class="is-active" type="button" data-archive-filter="all">전체 <span data-archive-count="all">0</span></button><button type="button" data-archive-filter="approved">승인 <span data-archive-count="approved">0</span></button><button type="button" data-archive-filter="pending">검토대기 <span data-archive-count="pending">0</span></button></div>
+          <div class="fsw-archive-list" id="fsw-archive-list" aria-live="polite"><div class="fsw-loading-state"><span class="fsw-spinner"></span>문항 세트를 불러오는 중입니다.</div></div>
+        </section>
+        <aside class="fsw-export-panel">
+          <small class="fsw-mono-label">EXPORT SET</small><h2 id="fsw-export-title">세트를 선택하세요</h2><p id="fsw-export-summary">왼쪽에서 내보낼 문항 세트를 선택합니다.</p>
+          <div class="fsw-format-list" id="fsw-format-list">
+            <label><input type="radio" name="export_format" value="cbt-docx" checked /><span><strong>의학교육실 HWP 양식</strong><small>.docx · 한글에서 열어 HWP로 저장</small></span></label>
+            <label><input type="radio" name="export_format" value="cbt-hwp" /><span><strong>CBT HWP</strong><small>문항·정답·해설·근거 포함</small></span></label>
+            <label><input type="radio" name="export_format" value="anki" /><span><strong>Anki</strong><small>승인 문항 카드 덱</small></span></label>
+          </div>
+          <div class="fsw-export-policy"><strong>기본 포함 범위</strong><span>승인 문항만 포함</span><small>미승인 문항 포함 옵션은 제공하지 않습니다.</small></div>
+          <button class="fsw-primary-button is-full" id="fsw-export-submit" type="button" disabled>내보낼 세트를 선택하세요</button>
+          <div class="fsw-export-result" id="fsw-export-result" hidden aria-live="polite"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <div class="fsw-toast" id="fsw-toast" hidden role="status"></div>
+  <script src="./faculty-workspace.js?v=20260716-1" defer></script>
+</body>
+</html>

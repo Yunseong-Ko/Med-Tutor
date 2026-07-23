@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Faculty Studio · 문항 가져오기 — P:accine</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="./faculty-studio.css?v=20260716-1" />
+  <link rel="stylesheet" href="./workspace.css?v=20260716-1" />
+</head>
+<body class="faculty-latest" data-workspace="import">
+  <div class="fs2-shell">
+    <header class="fs2-topbar">
+      <a class="fs2-brand fsw-brand-link" href="./">
+        <span class="fs2-logo">P</span>
+        <span><strong>P:accine</strong><span class="fs2-brand-sub">FACULTY STUDIO · ONTOLOGY</span></span>
+      </a>
+      <nav class="fs2-topnav" id="fsw-topnav" aria-label="Faculty Studio 상단">
+        <a href="./">새 문항 만들기</a>
+        <a class="fs2-nav-active" href="./import.html" aria-current="page">문항 가져오기</a>
+        <a href="./review.html">검토·승인 <span class="fsw-nav-count" data-review-count hidden></span></a>
+        <a href="./guideline-claims.html">가이드라인 검토</a>
+        <a href="./evidence-media.html">근거·미디어</a>
+        <a href="./archive.html">내보내기</a>
+      </nav>
+      <div class="fsw-top-actions">
+        <span class="fsw-policy-copy">가져와도 학생에게 공개되지 않습니다</span>
+        <button class="fsw-menu-button" type="button" aria-controls="fsw-topnav" aria-expanded="false">메뉴</button>
+      </div>
+    </header>
+
+    <main class="fsw-main">
+      <header class="fsw-page-head">
+        <div><h1>문항 가져오기</h1><p>기존 시험지를 P:accine 안에서 직접 구조화해 검토 가능한 문항 세트로 저장합니다. 가져온 문항은 학생에게 공개되지 않습니다.</p></div>
+        <a class="fsw-secondary-button fsw-header-link" href="./sources.html">처리 이력·자료 보관함</a>
+      </header>
+
+      <section class="fsw-import-panel" data-import-panel="exam">
+        <form id="fsw-exam-form" class="fsw-form-stack">
+          <div class="fsw-file-grid">
+            <label class="fsw-dropzone">
+              <input id="fsw-exam-file" name="exam_file" type="file" accept=".hwp,.pdf" required />
+              <span class="fsw-file-icon" aria-hidden="true">↑</span>
+              <strong id="fsw-exam-file-label">시험지를 선택하거나 드래그하세요</strong>
+              <small>시험지 HWP / PDF · 필수</small>
+            </label>
+            <label class="fsw-dropzone is-secondary">
+              <input id="fsw-answer-file" name="answer_key_file" type="file" accept=".xlsx,.xlsm" />
+              <span class="fsw-file-icon" aria-hidden="true">＋</span>
+              <strong id="fsw-answer-file-label">정답지를 선택하세요</strong>
+              <small>정답지 XLSX / XLSM · 선택</small>
+            </label>
+          </div>
+          <p class="fsw-help">P:accine이 파일 안의 문항·선지·정답·제시자료를 직접 분리합니다. 과목·단원은 파일명과 원문 메타데이터에서 추출되며, 결과에서 정답·이미지 연결을 반드시 확인하세요.</p>
+          <div class="fsw-form-foot">
+            <span class="fsw-inline-state" id="fsw-exam-hint">다음: 시험지 파일 선택</span>
+            <button class="fsw-primary-button" id="fsw-exam-submit" type="submit" disabled>문항 구조화</button>
+          </div>
+        </form>
+        <div class="fsw-result" id="fsw-exam-result" hidden aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+  <div class="fsw-toast" id="fsw-toast" hidden role="status"></div>
+  <script src="./faculty-workspace.js?v=20260716-1" defer></script>
+</body>
+</html>

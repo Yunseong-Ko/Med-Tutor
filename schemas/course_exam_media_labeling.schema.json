@@ -1,0 +1,359 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/course_exam_media_labeling.schema.json",
+  "title": "P:accine Course Exam Media Labeling Records",
+  "description": "Draft-only records produced from extracted question media. Automated candidates are never medical approvals.",
+  "oneOf": [
+    { "$ref": "#/$defs/mediaObject" },
+    { "$ref": "#/$defs/mediaOccurrence" },
+    { "$ref": "#/$defs/questionMediaLink" },
+    { "$ref": "#/$defs/mediaLabelReviewTask" }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["schema_version", "record_type"],
+      "properties": {
+        "schema_version": {
+          "const": "course_exam_media_labeling.v1"
+        },
+        "record_type": {
+          "type": "string"
+        }
+      }
+    },
+    "reviewSafety": {
+      "type": "object",
+      "required": [
+        "review_status",
+        "medical_approval",
+        "approved_for_question_use",
+        "student_visible",
+        "answer_leak_risk"
+      ],
+      "properties": {
+        "review_status": { "const": "needs_review" },
+        "medical_approval": { "const": false },
+        "approved_for_question_use": { "const": false },
+        "student_visible": { "const": false },
+        "answer_leak_risk": { "const": "needs_review" }
+      },
+      "additionalProperties": true
+    },
+    "candidateLabel": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "kind",
+        "relation",
+        "label_text",
+        "ontology_resolution",
+        "status",
+        "confidence",
+        "evidence",
+        "review_status",
+        "medical_approval"
+      ],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^mlabel_[0-9a-f]{24}$"
+        },
+        "kind": {
+          "enum": ["axis", "concept", "finding", "modality"]
+        },
+        "relation": {
+          "enum": [
+            "associated_with_question_context",
+            "has_modality",
+            "may_depict",
+            "used_to_assess"
+          ]
+        },
+        "target_id": {
+          "type": ["string", "null"]
+        },
+        "label_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ontology_resolution": {
+          "enum": ["resolved", "unresolved", "conflict"]
+        },
+        "status": {
+          "const": "candidate"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "question_id",
+            "source_field",
+            "source_value",
+            "rule_version"
+          ]
+        },
+        "review_status": {
+          "const": "needs_review"
+        },
+        "medical_approval": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "mediaObject": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": [
+            "media_object_id",
+            "content_sha256",
+            "occurrence_ids",
+            "canonical_occurrence_id",
+            "duplicate_occurrence_count",
+            "review_status",
+            "approved_for_question_use",
+            "student_visible"
+          ],
+          "properties": {
+            "record_type": { "const": "media_object" },
+            "media_object_id": {
+              "type": "string",
+              "pattern": "^mediaobj_[0-9a-f]{64}$"
+            },
+            "content_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "occurrence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^mediaocc_[0-9a-f]{24}$"
+              }
+            },
+            "duplicate_occurrence_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "review_status": { "const": "needs_review" },
+            "approved_for_question_use": { "const": false },
+            "student_visible": { "const": false }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "mediaOccurrence": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": [
+            "occurrence_id",
+            "media_object_id",
+            "legacy_media_id",
+            "source",
+            "file",
+            "rights",
+            "deidentification",
+            "review",
+            "question_link_ids"
+          ],
+          "properties": {
+            "record_type": { "const": "media_occurrence" },
+            "occurrence_id": {
+              "type": "string",
+              "pattern": "^mediaocc_[0-9a-f]{24}$"
+            },
+            "media_object_id": {
+              "type": "string",
+              "pattern": "^mediaobj_[0-9a-f]{64}$"
+            },
+            "legacy_media_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "file": {
+              "type": "object",
+              "required": ["path", "exists", "suffix", "size_bytes", "web_safe_raster"]
+            },
+            "rights": {
+              "type": "object",
+              "required": ["status", "allowed_uses", "review_status"]
+            },
+            "deidentification": {
+              "type": "object",
+              "required": ["status", "review_status"]
+            },
+            "review": {
+              "$ref": "#/$defs/reviewSafety"
+            },
+            "question_link_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^qmedia_[0-9a-f]{24}$"
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "questionMediaLink": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": [
+            "link_id",
+            "question_id",
+            "exam_id",
+            "occurrence_id",
+            "media_object_id",
+            "role",
+            "match_confidence",
+            "raw_ref_count",
+            "confirmation_status",
+            "visibility",
+            "question_evidence",
+            "review_status"
+          ],
+          "properties": {
+            "record_type": { "const": "question_media_link" },
+            "link_id": {
+              "type": "string",
+              "pattern": "^qmedia_[0-9a-f]{24}$"
+            },
+            "question_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "occurrence_id": {
+              "type": "string",
+              "pattern": "^mediaocc_[0-9a-f]{24}$"
+            },
+            "media_object_id": {
+              "type": "string",
+              "pattern": "^mediaobj_[0-9a-f]{64}$"
+            },
+            "role": {
+              "enum": ["primary_stimulus", "supporting", "explanation_only"]
+            },
+            "match_confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "raw_ref_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "confirmation_status": {
+              "const": "candidate_unreviewed"
+            },
+            "review_status": {
+              "const": "needs_review"
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "mediaLabelReviewTask": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": [
+            "task_id",
+            "priority_score",
+            "pilot_group",
+            "media_occurrence",
+            "duplicate_context",
+            "question_contexts",
+            "candidate_labels",
+            "unresolved_context_tags",
+            "review_reasons",
+            "review_checklist",
+            "review"
+          ],
+          "properties": {
+            "record_type": { "const": "media_label_review_task" },
+            "task_id": {
+              "type": "string",
+              "pattern": "^mreview_[0-9a-f]{24}$"
+            },
+            "priority_score": {
+              "type": "integer"
+            },
+            "pilot_group": {
+              "enum": ["hematology_oncology_first", "general_backlog"]
+            },
+            "media_occurrence": {
+              "$ref": "#/$defs/mediaOccurrence"
+            },
+            "question_contexts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "link",
+                  "question",
+                  "candidate_labels",
+                  "unresolved_context_tags"
+                ]
+              }
+            },
+            "candidate_labels": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/candidateLabel"
+              }
+            },
+            "review_reasons": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "review_checklist": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "review": {
+              "type": "object",
+              "required": [
+                "status",
+                "approved_for_question_use",
+                "student_visible"
+              ],
+              "properties": {
+                "status": { "const": "needs_review" },
+                "approved_for_question_use": { "const": false },
+                "student_visible": { "const": false }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

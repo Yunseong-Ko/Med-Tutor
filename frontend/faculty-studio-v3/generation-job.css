@@ -1,0 +1,75 @@
+.job-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-progress-head span {
+  color: var(--teal);
+  font: 700 10px "IBM Plex Mono", monospace;
+}
+
+.job-progress-track {
+  height: 7px;
+  margin: 10px 0 12px;
+  overflow: hidden;
+  background: rgba(15, 42, 41, .1);
+  border-radius: 99px;
+}
+
+.job-progress-track i {
+  display: block;
+  height: 100%;
+  background: var(--teal);
+  border-radius: inherit;
+  transition: width .25s ease;
+}
+
+.job-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.job-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 3px 7px;
+  padding: 8px;
+  background: rgba(255, 255, 255, .64);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.job-item > span {
+  display: grid;
+  grid-row: 1 / span 2;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--surface2);
+  border-radius: 7px;
+  font: 700 9px "IBM Plex Mono", monospace;
+}
+
+.job-item > b { font-size: 10.5px; }
+.job-item > small { color: var(--muted); font-size: 8.5px; line-height: 1.4; }
+.job-item.done > span { color: var(--green); background: var(--green-bg); }
+.job-item.running > span,
+.job-item.retrying > span { color: var(--teal); background: var(--teal-bg); }
+.job-item.failed > span { color: var(--danger); background: var(--danger-bg); }
+
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.job-actions button { margin: 0; }
+
+@media (max-width: 760px) {
+  .job-items { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Faculty Studio · 자료 보관함 — P:accine</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="./faculty-studio.css?v=20260716-2" />
+  <link rel="stylesheet" href="./workspace.css?v=20260716-2" />
+</head>
+<body class="faculty-latest" data-workspace="sources">
+  <div class="fs2-shell">
+    <header class="fs2-topbar">
+      <a class="fs2-brand fsw-brand-link" href="./">
+        <span class="fs2-logo">P</span>
+        <span><strong>P:accine</strong><span class="fs2-brand-sub">FACULTY STUDIO · ONTOLOGY</span></span>
+      </a>
+      <nav class="fs2-topnav" id="fsw-topnav" aria-label="Faculty Studio 상단">
+        <a href="./">새 문항 만들기</a>
+        <a class="fs2-nav-active" href="./sources.html" aria-current="page">문항 가져오기 <span class="fsw-nav-count" data-source-count hidden></span></a>
+        <a href="./review.html">검토·승인 <span class="fsw-nav-count" data-review-count hidden></span></a>
+        <a href="./guideline-claims.html">가이드라인 검토</a>
+        <a href="./evidence-media.html">근거·미디어</a>
+        <a href="./archive.html">내보내기</a>
+      </nav>
+      <div class="fsw-top-actions">
+        <span class="fsw-policy-copy">P:accine 자체 구조화 · 학생 공개 아님</span>
+        <button class="fsw-menu-button" type="button" aria-controls="fsw-topnav" aria-expanded="false">메뉴</button>
+      </div>
+    </header>
+
+    <main class="fsw-main is-wide fsw-source-main">
+      <header class="fsw-page-head fsw-source-head">
+        <div>
+          <h1>자료 보관함 · 처리 이력</h1>
+          <p>HWP·PDF 시험지와 선택적 XLSX 정답지를 올리면 P:accine이 문항·선지·정답·제시자료를 구조화합니다. 구조화된 문항은 검토·승인 전까지 학생에게 공개되지 않습니다.</p>
+        </div>
+        <button class="fsw-primary-button fsw-source-upload-open" type="button" data-open-source-upload>＋ 새 시험지 가져오기</button>
+      </header>
+
+      <div class="fsw-source-layout">
+        <section class="fsw-source-browser" aria-label="가져온 시험지 목록">
+          <div class="fsw-source-toolbar">
+            <label class="fsw-search">
+              <span class="fsw-sr-only">자료 검색</span>
+              <input id="fsw-source-search" type="search" placeholder="파일명·과목·단원 검색" autocomplete="off" />
+            </label>
+            <label class="fsw-source-subject">
+              <span class="fsw-sr-only">과목 필터</span>
+              <select id="fsw-source-subject"><option value="all">전체 과목</option></select>
+            </label>
+          </div>
+          <div class="fsw-source-filters" id="fsw-source-filters" aria-label="처리 상태 필터">
+            <button class="is-active" type="button" data-source-filter="all">전체 <span data-source-count-key="all">0</span></button>
+            <button type="button" data-source-filter="waiting">대기 <span data-source-count-key="waiting">0</span></button>
+            <button type="button" data-source-filter="processing">분석 중 <span data-source-count-key="processing">0</span></button>
+            <button type="button" data-source-filter="partial">부분 확인 <span data-source-count-key="partial">0</span></button>
+            <button type="button" data-source-filter="done">완료 <span data-source-count-key="done">0</span></button>
+            <button type="button" data-source-filter="failed">실패 <span data-source-count-key="failed">0</span></button>
+          </div>
+          <div class="fsw-source-list" id="fsw-source-list" aria-live="polite">
+            <div class="fsw-source-skeleton" aria-label="보관함을 불러오는 중">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="fsw-source-detail" id="fsw-source-detail" aria-live="polite">
+          <div class="fsw-empty-state fsw-source-detail-empty">
+            <strong>자료를 선택하세요</strong>
+            <p>왼쪽 목록에서 시험지를 선택하면 처리 단계와 구조화 결과를 확인할 수 있습니다.</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <div class="fsw-overlay is-centered fsw-source-upload-overlay" id="fsw-source-upload-overlay" hidden>
+    <button class="fsw-overlay-dismiss" type="button" aria-label="가져오기 창 닫기" data-close-source-upload></button>
+    <section class="fsw-source-upload-modal" role="dialog" aria-modal="true" aria-labelledby="fsw-source-upload-title">
+      <header>
+        <div><h2 id="fsw-source-upload-title">새 시험지 가져오기</h2><p>HWP 또는 PDF 시험지 파일을 올리면 P:accine이 문항을 구조화합니다. XLSX 정답지는 선택 사항입니다.</p></div>
+        <button type="button" aria-label="닫기" data-close-source-upload>×</button>
+      </header>
+      <form id="fsw-source-upload-form" class="fsw-form-stack">
+        <label class="fsw-dropzone is-compact">
+          <input id="fsw-source-exam-file" name="exam_file" type="file" accept=".hwp,.pdf" required />
+          <span class="fsw-file-icon" aria-hidden="true">↑</span>
+          <strong id="fsw-source-exam-label">HWP · PDF 파일을 선택하거나 드래그</strong>
+          <small>.hwp · .pdf · 필수</small>
+        </label>
+        <label class="fsw-dropzone is-compact is-secondary">
+          <input id="fsw-source-answer-file" name="answer_key_file" type="file" accept=".xlsx,.xlsm" />
+          <span class="fsw-file-icon" aria-hidden="true">＋</span>
+          <strong id="fsw-source-answer-label">정답지 XLSX 선택</strong>
+          <small>.xlsx · .xlsm · 선택</small>
+        </label>
+        <div class="fsw-two-fields">
+          <label class="fsw-field">과목<input name="subject" type="text" placeholder="예: 혈액및종양학" /></label>
+          <label class="fsw-field">단원 (선택)<input name="unit" type="text" placeholder="예: 중간고사" /></label>
+        </div>
+        <div class="fsw-source-upload-state" id="fsw-source-upload-state" hidden aria-live="polite"></div>
+        <footer>
+          <button class="fsw-secondary-button" type="button" data-close-source-upload>취소</button>
+          <button class="fsw-primary-button" id="fsw-source-upload-submit" type="submit" disabled>가져오기 시작</button>
+        </footer>
+        <small class="fsw-source-private-note">P:accine 내부에서 구조화 · 외부 도구로 전송하지 않습니다</small>
+      </form>
+    </section>
+  </div>
+
+  <div class="fsw-overlay is-centered" id="fsw-source-duplicate-overlay" hidden>
+    <button class="fsw-overlay-dismiss" type="button" aria-label="중복 안내 닫기" data-close-source-duplicate></button>
+    <section class="fsw-confirm-modal fsw-source-duplicate-modal" role="dialog" aria-modal="true" aria-labelledby="fsw-source-duplicate-title">
+      <small>중복 파일 확인</small>
+      <h2 id="fsw-source-duplicate-title">이미 올린 파일과 같습니다</h2>
+      <p id="fsw-source-duplicate-copy"></p>
+      <div>
+        <button class="fsw-secondary-button" type="button" data-close-source-duplicate>취소</button>
+        <button class="fsw-primary-button" type="button" id="fsw-source-open-existing">기존 자료로 열기</button>
+      </div>
+      <p class="fsw-source-p1-note">새 버전 등록은 기존 검토 기록을 보호하는 서버 계약 확정 후 제공됩니다.</p>
+    </section>
+  </div>
+
+  <div class="fsw-toast" id="fsw-toast" hidden role="status"></div>
+  <script src="./faculty-workspace.js?v=20260716-2" defer></script>
+</body>
+</html>

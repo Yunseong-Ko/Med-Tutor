@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/external_kg_review_decisions.schema.json",
+  "title": "P:accine external KG human review decisions overlay",
+  "description": "Human decisions kept separate from the immutable review worklist. A decision still does not mutate, medically approve, promote, or expose a canonical ontology claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "overlay_id",
+    "created_at",
+    "worklist_ref",
+    "safety_boundary",
+    "decisions"
+  ],
+  "properties": {
+    "schema_version": {"const": "external_kg_review_decisions.v1"},
+    "overlay_id": {
+      "type": "string",
+      "pattern": "^external_kg_review_decisions:[a-z0-9][a-z0-9._-]*:[0-9a-f]{16}$"
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "worklist_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worklist_id", "artifact_sha256"],
+      "properties": {
+        "worklist_id": {"type": "string", "minLength": 1},
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "safety_boundary": {"$ref": "#/$defs/safetyBoundary"},
+    "decisions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/decision"}
+    }
+  },
+  "$defs": {
+    "safetyBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_review_only",
+        "mutates_canonical_ontology",
+        "medical_approval",
+        "student_visible",
+        "analytics_eligible",
+        "promotion_status",
+        "separate_curated_promotion_gate_required"
+      ],
+      "properties": {
+        "human_review_only": {"const": true},
+        "mutates_canonical_ontology": {"const": false},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "analytics_eligible": {"const": false},
+        "promotion_status": {"const": "not_promoted"},
+        "separate_curated_promotion_gate_required": {"const": true}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "review_task_id",
+        "validation_item_id",
+        "candidate_edge_ids",
+        "outcome",
+        "rationale",
+        "evidence_refs",
+        "reviewer",
+        "safety_boundary"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "pattern": "^ekg:d:[0-9a-f]{24}$"
+        },
+        "review_task_id": {
+          "type": "string",
+          "pattern": "^ekg:r:[0-9a-f]{24}$"
+        },
+        "validation_item_id": {
+          "type": "string",
+          "pattern": "^ekg:v:[0-9a-f]{24}$"
+        },
+        "candidate_edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^ekg:e:[0-9a-f]{24}$"
+          }
+        },
+        "outcome": {
+          "enum": [
+            "external_candidate_supported_for_further_curation",
+            "external_candidate_rejected",
+            "local_claim_supported",
+            "local_claim_requires_correction_review",
+            "insufficient_evidence",
+            "deferred"
+          ]
+        },
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "reviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "reviewer_id", "role", "reviewed_at"],
+          "properties": {
+            "type": {"const": "human_reviewer"},
+            "reviewer_id": {"type": "string", "minLength": 1},
+            "role": {"type": "string", "minLength": 1},
+            "reviewed_at": {"type": "string", "format": "date-time"}
+          }
+        },
+        "safety_boundary": {"$ref": "#/$defs/safetyBoundary"}
+      }
+    }
+  }
+}

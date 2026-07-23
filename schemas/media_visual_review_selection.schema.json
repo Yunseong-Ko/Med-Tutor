@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/media_visual_review_selection.schema.json",
+  "title": "P:accine Media Visual Review Selection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "worklist",
+    "rounds",
+    "selected_task_ids",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "media_visual_review_selection.v1"
+    },
+    "worklist": {
+      "type": "object",
+      "required": ["path", "sha256", "task_count"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "task_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "rounds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["round_id", "description", "selection_rule", "task_ids"],
+        "properties": {
+          "round_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "description": {"type": "string", "minLength": 1},
+          "selection_rule": {"type": "string", "minLength": 1},
+          "task_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^mreview_[0-9a-f]{24}$"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "selected_task_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^mreview_[0-9a-f]{24}$"}
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "selected_task_count",
+        "round_task_counts",
+        "remaining_unselected_task_count"
+      ],
+      "properties": {
+        "selected_task_count": {"type": "integer", "minimum": 1},
+        "round_task_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
+        "remaining_unselected_task_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

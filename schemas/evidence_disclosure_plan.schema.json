@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/evidence_disclosure_plan.schema.json",
+  "title": "P:accine Evidence Disclosure Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "assessment_task",
+    "latent_diagnosis_required",
+    "retrieved_axis_ids",
+    "selected_for_stem",
+    "withheld",
+    "informative_cue_count",
+    "strong_or_confirmatory_count",
+    "confirmatory_count",
+    "neutral_context_count",
+    "authentic_competing_cue_count",
+    "target_already_resolved",
+    "qc_flags"
+  ],
+  "properties": {
+    "status": {"type": "string", "enum": ["pass", "blocked"]},
+    "assessment_task": {"type": "string", "minLength": 1},
+    "latent_diagnosis_required": {"type": "boolean"},
+    "retrieved_axis_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "selected_for_stem": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {"$ref": "#/definitions/selectedCue"}
+    },
+    "withheld": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/withheldCue"}
+    },
+    "informative_cue_count": {"type": "integer", "minimum": 0, "maximum": 4},
+    "strong_or_confirmatory_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "confirmatory_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "neutral_context_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "authentic_competing_cue_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "target_already_resolved": {"type": "boolean"},
+    "qc_flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "diagnosis_leak",
+          "overdetermined_diagnosis",
+          "target_already_resolved",
+          "redundant_confirmatory_evidence",
+          "rag_to_stem_copy",
+          "unsupported_precision",
+          "task_evidence_mismatch",
+          "malicious_red_herring",
+          "missing_disclosure_plan",
+          "disclosure_budget_exceeded",
+          "patient_characteristic_bias"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "pass"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "target_already_resolved": {"const": false},
+          "qc_flags": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {"qc_flags": {"minItems": 1}}
+      }
+    }
+  ],
+  "definitions": {
+    "selectedCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "role", "strength", "evidence_family", "surface_form"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "role": {
+          "type": "string",
+          "enum": [
+            "prerequisite_cue",
+            "decision_modifier",
+            "target_data",
+            "neutral_context",
+            "authentic_competing_cue"
+          ]
+        },
+        "strength": {
+          "type": "string",
+          "enum": ["weak", "moderate", "strong", "confirmatory", "not_applicable"]
+        },
+        "evidence_family": {
+          "type": "string",
+          "enum": [
+            "demographic_risk",
+            "symptom_course",
+            "physical_exam",
+            "general_laboratory",
+            "special_laboratory",
+            "imaging",
+            "pathology_genetics",
+            "confirmatory_criterion",
+            "treatment_context",
+            "care_context"
+          ]
+        },
+        "surface_form": {"type": "string", "minLength": 1}
+      }
+    },
+    "withheldCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "reason"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "reason": {
+          "type": "string",
+          "enum": [
+            "answer_evidence",
+            "redundant_support",
+            "answer_revealing",
+            "task_irrelevant",
+            "unsupported_precision",
+            "disclosure_budget"
+          ]
+        }
+      }
+    }
+  }
+}

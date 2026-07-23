@@ -1,0 +1,226 @@
+{
+  "status": "v1_connected_draft_not_generation_ready",
+  "connectivity_ready": true,
+  "draft_generation_ready": false,
+  "technical_gates_passed": false,
+  "medical_approval": false,
+  "counts": {
+    "concepts": 616,
+    "active_disease_concepts": 571,
+    "typed_entities": 41,
+    "classification_nodes": 4,
+    "harrison_mapped": 542,
+    "findings": 204,
+    "clinical_axes": 510,
+    "clinical_axis_quality_blockers": 0,
+    "axis_nodes": 17868,
+    "axis_relationships": 19460,
+    "axis_claims_total": 37328,
+    "axis_claims_medically_approved": 0,
+    "axis_claims_not_verified": 37328,
+    "review_decisions_applied": 0,
+    "axis_diseases_covered": 535,
+    "axis_types": {
+      "contraindication": 998,
+      "diagnosis": 2385,
+      "epidemiology": 1639,
+      "etiology": 253,
+      "indication": 2421,
+      "pathophysiology": 3082,
+      "prognosis": 2989,
+      "risk_factor": 2596,
+      "symptom": 483,
+      "treatment": 1022
+    },
+    "hardening_axis_missing_groundable": 31,
+    "hardening_evidence_missing_groundable": 32,
+    "hardening_distractor_pool_lt_4": 213,
+    "review_worklist_items": 281,
+    "review_worklist_p0": 125
+  },
+  "connectivity_gates": {
+    "concept_backbone": true,
+    "harrison_backbone": true,
+    "finding_layer": true,
+    "axis_layer": true,
+    "axis_relation_layer": true,
+    "required_axis_types": true,
+    "generation_probe_match": true,
+    "generation_probe_axes": true,
+    "generation_probe_evidence": true,
+    "automatic_outputs_review_gated": true
+  },
+  "generation_gates": {
+    "generation_probe_distractors_ge_4": false,
+    "generation_probe_draft_ready": true,
+    "clinical_axis_quality_blockers_zero": true,
+    "axis_claim_provenance_complete": false,
+    "approved_claim_subset_available": false,
+    "medical_review_policy_enforced": true
+  },
+  "generation_probes": [
+    {
+      "disease_concept_id": "asthma",
+      "matched": true,
+      "evidence_available": true,
+      "distractor_pool_count": 0,
+      "axis_node_count": 34,
+      "axis_types": [
+        "contraindication",
+        "epidemiology",
+        "indication",
+        "pathophysiology",
+        "prognosis",
+        "risk_factor",
+        "treatment"
+      ],
+      "draft_generation_ready": true
+    },
+    {
+      "disease_concept_id": "acute_pancreatitis",
+      "matched": true,
+      "evidence_available": true,
+      "distractor_pool_count": 5,
+      "axis_node_count": 50,
+      "axis_types": [
+        "contraindication",
+        "diagnosis",
+        "epidemiology",
+        "etiology",
+        "indication",
+        "pathophysiology",
+        "prognosis",
+        "risk_factor",
+        "symptom",
+        "treatment"
+      ],
+      "draft_generation_ready": true
+    },
+    {
+      "disease_concept_id": "iron_deficiency_anemia",
+      "matched": true,
+      "evidence_available": true,
+      "distractor_pool_count": 12,
+      "axis_node_count": 49,
+      "axis_types": [
+        "diagnosis",
+        "epidemiology",
+        "etiology",
+        "indication",
+        "pathophysiology",
+        "prognosis",
+        "risk_factor",
+        "symptom",
+        "treatment"
+      ],
+      "draft_generation_ready": true
+    },
+    {
+      "disease_concept_id": "major_depressive_disorder",
+      "matched": true,
+      "evidence_available": true,
+      "distractor_pool_count": 7,
+      "axis_node_count": 60,
+      "axis_types": [
+        "contraindication",
+        "diagnosis",
+        "epidemiology",
+        "etiology",
+        "indication",
+        "pathophysiology",
+        "prognosis",
+        "risk_factor",
+        "symptom",
+        "treatment"
+      ],
+      "draft_generation_ready": true
+    },
+    {
+      "disease_concept_id": "multiple_myeloma",
+      "matched": true,
+      "evidence_available": true,
+      "distractor_pool_count": 12,
+      "axis_node_count": 48,
+      "axis_types": [
+        "contraindication",
+        "diagnosis",
+        "epidemiology",
+        "indication",
+        "pathophysiology",
+        "prognosis",
+        "risk_factor",
+        "symptom",
+        "treatment"
+      ],
+      "draft_generation_ready": true
+    }
+  ],
+  "student_approved_policy_probes": [
+    {
+      "disease_concept_id": "asthma",
+      "review_policy": "student_approved",
+      "blocked": true,
+      "block_reasons": [
+        "concept_not_medically_approved"
+      ],
+      "pack_exposed": false,
+      "general_fallback": false,
+      "safe_fail_closed": true
+    },
+    {
+      "disease_concept_id": "acute_pancreatitis",
+      "review_policy": "student_approved",
+      "blocked": true,
+      "block_reasons": [
+        "concept_not_medically_approved"
+      ],
+      "pack_exposed": false,
+      "general_fallback": false,
+      "safe_fail_closed": true
+    },
+    {
+      "disease_concept_id": "iron_deficiency_anemia",
+      "review_policy": "student_approved",
+      "blocked": true,
+      "block_reasons": [
+        "concept_not_medically_approved"
+      ],
+      "pack_exposed": false,
+      "general_fallback": false,
+      "safe_fail_closed": true
+    },
+    {
+      "disease_concept_id": "major_depressive_disorder",
+      "review_policy": "student_approved",
+      "blocked": true,
+      "block_reasons": [
+        "concept_not_medically_approved"
+      ],
+      "pack_exposed": false,
+      "general_fallback": false,
+      "safe_fail_closed": true
+    },
+    {
+      "disease_concept_id": "multiple_myeloma",
+      "review_policy": "student_approved",
+      "blocked": true,
+      "block_reasons": [
+        "concept_not_medically_approved"
+      ],
+      "pack_exposed": false,
+      "general_fallback": false,
+      "safe_fail_closed": true
+    }
+  ],
+  "known_incomplete": [
+    "All automatic concepts, axes, and relations remain needs_review drafts.",
+    "Axis claim registry contains 37328 claims; 0 are medically approved and 37328 remain without verified claim entailment.",
+    "Clinical-axis authoring is detailed for 510 diseases; derived axis coverage reaches 535/571 active disease-like concepts.",
+    "The full merged clinical-axis map has 0 automated blockers and 281 review warnings; zero blockers is not medical approval.",
+    "Five scope-ambiguous umbrella concepts and four classification nodes are excluded from generation; leaf concepts remain needs_review.",
+    "Pericardial mesothelioma remains low-evidence and requires specialist review before generation use.",
+    "Drug/test endpoints still need controlled vocabulary IDs and human review.",
+    "student_approved review policy is enforced fail-closed; with an empty decision file it intentionally exposes no ontology pack.",
+    "Structure retrieval remains separate from ontology grounding."
+  ]
+}

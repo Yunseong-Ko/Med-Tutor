@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Faculty Studio · 검토·승인 — P:accine</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="./faculty-studio.css?v=20260716-1" />
+  <link rel="stylesheet" href="./workspace.css?v=20260720-intent-feedback-v1" />
+</head>
+<body class="faculty-latest" data-workspace="review">
+  <div class="fs2-shell">
+    <header class="fs2-topbar">
+      <a class="fs2-brand fsw-brand-link" href="./"><span class="fs2-logo">P</span><span><strong>P:accine</strong><span class="fs2-brand-sub">FACULTY STUDIO · ONTOLOGY</span></span></a>
+      <nav class="fs2-topnav" id="fsw-topnav" aria-label="Faculty Studio 상단">
+        <a href="./">새 문항 만들기</a><a href="./import.html">문항 가져오기</a>
+        <a class="fs2-nav-active" href="./review.html" aria-current="page">검토·승인 <span class="fsw-nav-count" data-review-count hidden></span></a>
+        <a href="./guideline-claims.html">가이드라인 검토</a><a href="./evidence-media.html">근거·미디어</a><a href="./archive.html">내보내기</a>
+      </nav>
+      <div class="fsw-top-actions"><span class="fsw-policy-copy">승인 = 검수 완료 · 학생 공개 아님</span><button class="fsw-menu-button" type="button" aria-controls="fsw-topnav" aria-expanded="false">메뉴</button></div>
+    </header>
+
+    <main class="fsw-main is-wide">
+      <header class="fsw-page-head"><div><h1>검토·승인</h1><p>문항 본문·선지·정답·해설·연결 자료를 검토합니다. 승인은 학생 공개가 아닙니다.</p></div><span class="fsw-save-pill" id="fsw-save-state" aria-live="polite">변경 없음</span></header>
+      <div class="fsw-review-layout">
+        <aside class="fsw-queue-panel">
+          <label class="fsw-field"><span>문항 세트</span><select id="fsw-set-select"><option value="">불러오는 중…</option></select></label>
+          <div class="fsw-status-filters" id="fsw-review-filters" aria-label="문항 상태 필터">
+            <button type="button" class="is-active" data-review-filter="all">전체 <span data-filter-count="all">0</span></button>
+            <button type="button" data-review-filter="pending">검토대기 <span data-filter-count="pending">0</span></button>
+            <button type="button" data-review-filter="needs_revision">수정요청 <span data-filter-count="needs_revision">0</span></button>
+            <button type="button" data-review-filter="approved">승인 <span data-filter-count="approved">0</span></button>
+            <button type="button" data-review-filter="rejected">반려 <span data-filter-count="rejected">0</span></button>
+          </div>
+          <div class="fsw-question-queue" id="fsw-question-queue" aria-live="polite"><p class="fsw-empty-inline">문항을 불러오는 중입니다.</p></div>
+        </aside>
+        <section class="fsw-editor-panel" id="fsw-review-editor" aria-live="polite"><div class="fsw-empty-state"><strong>검토할 문항을 선택하세요</strong><p>왼쪽 문항 세트와 문항을 선택하면 편집 화면이 열립니다.</p></div></section>
+      </div>
+    </main>
+  </div>
+
+  <div class="fsw-overlay" id="fsw-history-overlay" hidden>
+    <button class="fsw-overlay-dismiss" type="button" data-close-history aria-label="변경 이력 닫기"></button>
+    <aside class="fsw-history-drawer" role="dialog" aria-modal="true" aria-labelledby="fsw-history-title">
+      <header><div><small>REVIEW EVENTS</small><h2 id="fsw-history-title">변경 이력</h2></div><button type="button" data-close-history aria-label="닫기">×</button></header>
+      <div id="fsw-history-list"></div>
+    </aside>
+  </div>
+  <div class="fsw-toast" id="fsw-toast" hidden role="status"></div>
+  <script src="./faculty-workspace.js?v=20260720-intent-feedback-v3" defer></script>
+</body>
+</html>

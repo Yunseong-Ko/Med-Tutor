@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 from datetime import datetime, timezone
@@ -301,3 +302,80 @@ def build_anki_export(
     }
     write_json(json_path, artifact)
     return {key: value for key, value in artifact.items() if key != "cards"}
+
+
+def build_practice_anki_export(
+    questions: list[dict[str, Any]],
+    *,
+    session_id: str,
+    export_dir: Path,
+    deck_name: str | None = None,
+) -> dict[str, Any]:
+    """Create a compact Anki deck from server-authorized practice questions."""
+
+    if not questions:
+        raise ValueError("내보낼 승인 문항이 없습니다.")
+    export_dir.mkdir(parents=True, exist_ok=True)
+    final_deck_name = deck_name or "P:accine::복습 세트"
+    deck = genanki.Deck(stable_int_id(final_deck_name, digits=8), final_deck_name)
+    basic = basic_model()
+    cloze = cloze_model()
+    card_count = 0
+
+    for question in questions:
+        qid = str(question.get("question_id") or stable_int_id(json.dumps(question, ensure_ascii=False)))
+        stem = text_only(question.get("stem"))
+        choices = question.get("choices") if isinstance(question.get("choices"), dict) else {}
+        answer_keys = [str(value) for value in question.get("answer") or []] if isinstance(question.get("answer"), list) else [str(question.get("answer") or "")]
+        answer_keys = [value for value in answer_keys if value]
+        answer_texts = [text_only(choices.get(value)) for value in answer_keys if choices.get(value)]
+        answer_text = " / ".join(answer_texts)
+        explanation = text_only(question.get("explanation"))
+        labels = question.get("labels") if isinstance(question.get("labels"), dict) else {}
+        tags = [
+            sanitize_tag("paccine"),
+            sanitize_tag(f"session::{session_id}"),
+            sanitize_tag(f"subject::{labels.get('course_name') or ''}"),
+            sanitize_tag(f"unit::{labels.get('unit') or ''}"),
+        ]
+        tags = [value for value in tags if value]
+
+        if answer_text:
+            deck.add_note(
+                genanki.Note(
+                    model=cloze,
+                    fields=[
+                        f"이 문항의 정답은 {{{{c1::{html.escape(answer_text)}}}}}이다.",
+                        html.escape(explanation),
+                    ],
+                    tags=tags + ["card::answer"],
+                    guid=f"practice:{session_id}:{qid}:answer",
+                )
+            )
+            card_count += 1
+        deck.add_note(
+            genanki.Note(
+                model=basic,
+                fields=[
+                    html.escape(stem),
+                    html.escape(answer_text or "정답 정보 없음"),
+                    html.escape(explanation),
+                ],
+                tags=tags + ["card::explanation"],
+                guid=f"practice:{session_id}:{qid}:explanation",
+            )
+        )
+        card_count += 1
+
+    safe_session = sanitize_tag(session_id) or "session"
+    filename = f"practice_{safe_session}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.apkg"
+    path = export_dir / filename
+    genanki.Package(deck).write_to_file(str(path))
+    return {
+        "export_id": path.stem,
+        "deck_name": final_deck_name,
+        "card_count": card_count,
+        "question_count": len(questions),
+        "download_url": f"/api/anki-exports/{filename}",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }

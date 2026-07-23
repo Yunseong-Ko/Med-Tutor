@@ -1,0 +1,266 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/media_visual_review_candidate.schema.json",
+  "title": "P:accine AI-assisted Media Visual Review Candidate",
+  "description": "A visually inspected candidate record. This is never medical, rights, deidentification, question-use, or student-visibility approval.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "record_type",
+    "visual_review_id",
+    "task_id",
+    "occurrence_id",
+    "media_object_id",
+    "reviewer",
+    "source",
+    "visual_assessment",
+    "question_alignment",
+    "safety",
+    "review_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "media_visual_review_candidate.v1"
+    },
+    "record_type": {
+      "const": "media_visual_review_candidate"
+    },
+    "visual_review_id": {
+      "type": "string",
+      "pattern": "^mvisual_[0-9a-f]{24}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^mreview_[0-9a-f]{24}$"
+    },
+    "occurrence_id": {
+      "type": "string",
+      "pattern": "^mediaocc_[0-9a-f]{24}$"
+    },
+    "media_object_id": {
+      "type": "string",
+      "pattern": "^mediaobj_[0-9a-f]{64}$"
+    },
+    "reviewer": {
+      "type": "object",
+      "required": ["type", "agent_id", "review_method"],
+      "properties": {
+        "type": {
+          "const": "ai_assisted_candidate_reviewer"
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_method": {
+          "const": "image_plus_original_question_context"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "worklist_task_sha256",
+        "image_sha256",
+        "image_path",
+        "question_ids"
+      ],
+      "properties": {
+        "worklist_task_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "image_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "image_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "visual_assessment": {
+      "type": "object",
+      "required": [
+        "image_readability",
+        "visual_description",
+        "modality_candidates",
+        "specimen_candidates",
+        "depicted_finding_candidates",
+        "visible_annotations",
+        "embedded_text",
+        "visual_confidence"
+      ],
+      "properties": {
+        "image_readability": {
+          "enum": ["readable", "limited", "unreadable"]
+        },
+        "visual_description": {
+          "type": "string"
+        },
+        "modality_candidates": {
+          "$ref": "#/definitions/candidateList"
+        },
+        "specimen_candidates": {
+          "$ref": "#/definitions/candidateList"
+        },
+        "depicted_finding_candidates": {
+          "$ref": "#/definitions/candidateList"
+        },
+        "visible_annotations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "embedded_text": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "visual_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "question_alignment": {
+      "type": "object",
+      "required": [
+        "status",
+        "associated_concept_candidates",
+        "assessment_axis_candidates",
+        "answer_leak_risk",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["supported", "uncertain", "conflict", "unlinked"]
+        },
+        "associated_concept_candidates": {
+          "$ref": "#/definitions/candidateList"
+        },
+        "assessment_axis_candidates": {
+          "$ref": "#/definitions/candidateList"
+        },
+        "answer_leak_risk": {
+          "enum": ["low", "medium", "high", "unknown"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "rights_status",
+        "deidentification_status",
+        "deidentification_risk_observed",
+        "rights_review_required",
+        "deidentification_review_required",
+        "medical_approval",
+        "approved_for_question_use",
+        "student_visible"
+      ],
+      "properties": {
+        "rights_status": {
+          "const": "unknown"
+        },
+        "deidentification_status": {
+          "const": "unknown"
+        },
+        "deidentification_risk_observed": {
+          "enum": ["none_observed", "possible", "present", "unknown"]
+        },
+        "rights_review_required": {
+          "const": true
+        },
+        "deidentification_review_required": {
+          "const": true
+        },
+        "medical_approval": {
+          "const": false
+        },
+        "approved_for_question_use": {
+          "const": false
+        },
+        "student_visible": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "review_status": {
+      "const": "human_review_required"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "label_text",
+        "normalized_key",
+        "target_id",
+        "status",
+        "confidence",
+        "basis"
+      ],
+      "properties": {
+        "label_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "type": ["string", "null"]
+        },
+        "status": {
+          "enum": [
+            "visually_supported_candidate",
+            "question_context_candidate"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "basis": {
+          "enum": [
+            "visual_only",
+            "question_only",
+            "visual_and_question",
+            "embedded_annotation"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "candidateList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/candidate"
+      }
+    }
+  }
+}

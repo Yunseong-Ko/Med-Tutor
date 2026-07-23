@@ -1,0 +1,473 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/axis_registry.schema.json",
+  "title": "P:accine Clinical Axis Claim Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_from",
+    "needs_review",
+    "harrison22_validation",
+    "review_decisions",
+    "stats",
+    "nodes",
+    "relationships"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.3.0" },
+    "generated_from": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "needs_review": { "type": "boolean" },
+    "harrison22_validation": { "$ref": "#/definitions/harrison22ValidationSummary" },
+    "review_decisions": { "$ref": "#/definitions/reviewDecisionSummary" },
+    "stats": { "$ref": "#/definitions/stats" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/axisNode" }
+    },
+    "relationships": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/axisRelationship" }
+    }
+  },
+  "definitions": {
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "qualifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "population",
+        "clinical_context",
+        "stage_or_grade",
+        "temporal_context",
+        "route",
+        "dose",
+        "assertion_polarity",
+        "certainty"
+      ],
+      "properties": {
+        "population": { "$ref": "#/definitions/stringArray" },
+        "clinical_context": { "$ref": "#/definitions/stringArray" },
+        "stage_or_grade": { "$ref": "#/definitions/stringArray" },
+        "temporal_context": { "$ref": "#/definitions/stringArray" },
+        "route": { "$ref": "#/definitions/stringArray" },
+        "dose": { "$ref": "#/definitions/stringArray" },
+        "assertion_polarity": { "enum": ["affirmed", "negated"] },
+        "certainty": { "enum": ["unspecified", "possible", "probable", "confirmed"] }
+      }
+    },
+    "qualifierPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "population": { "$ref": "#/definitions/stringArray" },
+        "clinical_context": { "$ref": "#/definitions/stringArray" },
+        "stage_or_grade": { "$ref": "#/definitions/stringArray" },
+        "temporal_context": { "$ref": "#/definitions/stringArray" },
+        "route": { "$ref": "#/definitions/stringArray" },
+        "dose": { "$ref": "#/definitions/stringArray" },
+        "assertion_polarity": { "enum": ["affirmed", "negated"] },
+        "certainty": { "enum": ["unspecified", "possible", "probable", "confirmed"] }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "required": ["ref_id", "source_type", "scope", "entailment_status"],
+      "properties": {
+        "ref_id": { "type": "string", "minLength": 1 },
+        "source_type": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "entailment_status": {
+          "enum": [
+            "unverified",
+            "needs_human_review",
+            "verified",
+            "not_supported",
+            "contradicted"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "claim_entailment", "evidence_refs"],
+      "properties": {
+        "status": { "enum": ["source_pointer_only", "retrieval_candidate", "human_review_override"] },
+        "claim_entailment": {
+          "enum": [
+            "unverified",
+            "needs_human_review",
+            "verified",
+            "not_supported",
+            "contradicted"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/evidenceRef" }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "medical_approval",
+        "applicability",
+        "flags",
+        "reviewer_id",
+        "reviewed_at",
+        "note",
+        "override_source"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "draft_unreviewed",
+            "reviewed_not_approved",
+            "changes_requested",
+            "rejected",
+            "approved"
+          ]
+        },
+        "medical_approval": { "type": "boolean" },
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "flags": { "$ref": "#/definitions/stringArray" },
+        "reviewer_id": { "type": ["string", "null"] },
+        "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+        "note": { "type": "string" },
+        "override_source": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "approved" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "medical_approval": { "const": true },
+              "applicability": { "const": "applicable" },
+              "reviewer_id": { "type": "string", "minLength": 1 },
+              "reviewed_at": { "type": "string", "format": "date-time" },
+              "override_source": { "type": "string", "minLength": 1 }
+            }
+          },
+          "else": {
+            "properties": { "medical_approval": { "const": false } }
+          }
+        }
+      ]
+    },
+    "axisNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axis_id",
+        "claim_id",
+        "claim_lineage_id",
+        "claim_revision_id",
+        "legacy_claim_ids",
+        "supersedes",
+        "axis_type",
+        "label",
+        "dimension",
+        "canonical_id",
+        "sources",
+        "disease_ids",
+        "qualifiers",
+        "applicability",
+        "needs_review",
+        "review_status",
+        "medical_approval",
+        "review",
+        "provenance_status",
+        "evidence_refs",
+        "provenance"
+      ],
+      "properties": {
+        "axis_id": { "type": "string", "pattern": "^a:[a-z_]+:[0-9a-f]{14}$" },
+        "claim_id": { "type": "string", "pattern": "^c:axis_node:[0-9a-f]{16}$" },
+        "claim_lineage_id": { "type": "string", "pattern": "^l:axis_node:[0-9a-f]{20}$" },
+        "claim_revision_id": { "type": "string", "pattern": "^r:[0-9a-f]{20}$" },
+        "legacy_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^c:axis_node:[0-9a-f]{16}$" }
+        },
+        "supersedes": { "type": ["string", "null"] },
+        "axis_type": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "dimension": { "type": "string" },
+        "canonical_id": { "type": "string" },
+        "sources": { "$ref": "#/definitions/stringArray" },
+        "disease_ids": { "$ref": "#/definitions/stringArray" },
+        "qualifiers": { "$ref": "#/definitions/qualifiers" },
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "needs_review": { "type": "boolean" },
+        "review_status": { "type": "string" },
+        "medical_approval": { "type": "boolean" },
+        "review": { "$ref": "#/definitions/review" },
+        "provenance_status": { "enum": ["source_pointer_only", "retrieval_candidate", "human_review_override"] },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/evidenceRef" }
+        },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "axisRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_lineage_id",
+        "claim_revision_id",
+        "legacy_claim_ids",
+        "supersedes",
+        "disease_concept_id",
+        "axis_id",
+        "relation",
+        "source",
+        "qualifiers",
+        "applicability",
+        "needs_review",
+        "review_status",
+        "medical_approval",
+        "review",
+        "provenance"
+      ],
+      "properties": {
+        "claim_id": { "type": "string", "pattern": "^c:axis_relation:[0-9a-f]{16}$" },
+        "claim_lineage_id": { "type": "string", "pattern": "^l:axis_relation:[0-9a-f]{20}$" },
+        "claim_revision_id": { "type": "string", "pattern": "^r:[0-9a-f]{20}$" },
+        "legacy_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^c:axis_relation:[0-9a-f]{16}$" }
+        },
+        "supersedes": { "type": ["string", "null"] },
+        "disease_concept_id": { "type": "string", "minLength": 1 },
+        "axis_id": { "type": "string", "pattern": "^a:[a-z_]+:[0-9a-f]{14}$" },
+        "relation": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "qualifiers": { "$ref": "#/definitions/qualifiers" },
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "needs_review": { "type": "boolean" },
+        "review_status": { "type": "string" },
+        "medical_approval": { "type": "boolean" },
+        "review": { "$ref": "#/definitions/review" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "reviewDecisionCore": {
+      "type": "object",
+      "required": [
+        "review_status",
+        "medical_approval",
+        "applicability",
+        "review_flags",
+        "reviewer_id",
+        "reviewed_at",
+        "claim_entailment"
+      ],
+      "properties": {
+        "review_status": {
+          "enum": ["reviewed_not_approved", "changes_requested", "rejected", "approved"]
+        },
+        "medical_approval": { "type": "boolean" },
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "review_flags": { "$ref": "#/definitions/stringArray" },
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "claim_entailment": {
+          "enum": [
+            "unverified",
+            "needs_human_review",
+            "verified",
+            "not_supported",
+            "contradicted"
+          ]
+        },
+        "note": { "type": "string" },
+        "qualifiers": { "$ref": "#/definitions/qualifierPatch" },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/evidenceRef" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "review_status": { "const": "approved" } },
+            "required": ["review_status"]
+          },
+          "then": {
+            "properties": {
+              "medical_approval": { "const": true },
+              "applicability": { "const": "applicable" },
+              "claim_entailment": { "const": "verified" }
+            }
+          },
+          "else": {
+            "properties": { "medical_approval": { "const": false } }
+          }
+        }
+      ]
+    },
+    "conceptReviewDecision": {
+      "allOf": [
+        { "$ref": "#/definitions/reviewDecisionCore" },
+        {
+          "type": "object",
+          "required": ["concept_id"],
+          "properties": {
+            "concept_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            }
+          }
+        }
+      ]
+    },
+    "axisNodeReviewDecision": {
+      "allOf": [
+        { "$ref": "#/definitions/reviewDecisionCore" },
+        {
+          "type": "object",
+          "required": ["claim_id"],
+          "properties": {
+            "claim_id": { "type": "string", "pattern": "^c:axis_node:[0-9a-f]{16}$" }
+          }
+        }
+      ]
+    },
+    "axisRelationshipReviewDecision": {
+      "allOf": [
+        { "$ref": "#/definitions/reviewDecisionCore" },
+        {
+          "type": "object",
+          "required": ["claim_id"],
+          "properties": {
+            "claim_id": { "type": "string", "pattern": "^c:axis_relation:[0-9a-f]{16}$" }
+          }
+        }
+      ]
+    },
+    "ontologyReviewDecisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "concepts", "axis_nodes", "axis_relationships"],
+      "properties": {
+        "schema_version": { "const": "ontology_review_decisions.v1" },
+        "concepts": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/conceptReviewDecision" }
+        },
+        "axis_nodes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/axisNodeReviewDecision" }
+        },
+        "axis_relationships": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/axisRelationshipReviewDecision" }
+        }
+      }
+    },
+    "reviewDecisionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "status",
+        "schema_version",
+        "decision_counts",
+        "override_count",
+        "applied_count"
+      ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["not_found_no_overrides_applied", "loaded"] },
+        "schema_version": { "const": "ontology_review_decisions.v1" },
+        "decision_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["concepts", "axis_nodes", "axis_relationships"],
+          "properties": {
+            "concepts": { "type": "integer", "minimum": 0 },
+            "axis_nodes": { "type": "integer", "minimum": 0 },
+            "axis_relationships": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "override_count": { "type": "integer", "minimum": 0 },
+        "applied_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "harrison22ValidationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "status",
+        "snapshot_id",
+        "candidate_claims",
+        "applied_claims"
+      ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["not_found_no_candidates_applied", "loaded"] },
+        "snapshot_id": { "type": ["string", "null"] },
+        "candidate_claims": { "type": "integer", "minimum": 0 },
+        "applied_claims": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "relationships",
+        "diseases_covered",
+        "typed_entities_excluded_from_disease_axes",
+        "types",
+        "relations",
+        "review_statuses",
+        "claim_entailment_statuses",
+        "medical_approval_claims",
+        "review_decisions_applied",
+        "harrison22_candidate_claims"
+      ],
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "relationships": { "type": "integer", "minimum": 0 },
+        "diseases_covered": { "type": "integer", "minimum": 0 },
+        "typed_entities_excluded_from_disease_axes": { "type": "integer", "minimum": 0 },
+        "types": { "$ref": "#/definitions/countMap" },
+        "relations": { "$ref": "#/definitions/countMap" },
+        "review_statuses": { "$ref": "#/definitions/countMap" },
+        "claim_entailment_statuses": { "$ref": "#/definitions/countMap" },
+        "medical_approval_claims": { "type": "integer", "minimum": 0 },
+        "review_decisions_applied": { "type": "integer", "minimum": 0 },
+        "harrison22_candidate_claims": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

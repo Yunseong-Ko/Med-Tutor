@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/faculty_question_intent.schema.json",
+  "title": "P:accine Faculty Question Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "assessment_claim", "task_model", "evidence_contract"],
+  "properties": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "concept_id", "label"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["condition", "presentation", "drug", "procedure"]
+        },
+        "concept_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "disease_concept_id": {"type": ["string", "null"]},
+        "intervention_concept_id": {"type": ["string", "null"]}
+      }
+    },
+    "assessment_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_family", "task", "faculty_claim"],
+      "properties": {
+        "task_family": {
+          "type": "string",
+          "enum": ["foundational", "assessment", "management", "trajectory", "custom"]
+        },
+        "task": {
+          "type": "string",
+          "enum": [
+            "etiology",
+            "risk_harm",
+            "mechanism",
+            "epidemiology",
+            "most_likely_diagnosis",
+            "differential_diagnosis",
+            "test_selection",
+            "test_interpretation",
+            "severity_staging",
+            "immediate_management",
+            "first_line_treatment",
+            "pharmacotherapy",
+            "clinical_intervention",
+            "indication",
+            "contraindication",
+            "monitoring",
+            "prevention",
+            "natural_history",
+            "prognostic_factor",
+            "complication",
+            "follow_up_recurrence",
+            "custom"
+          ]
+        },
+        "subtask": {"type": ["string", "null"]},
+        "faculty_claim": {"type": "string", "minLength": 5}
+      }
+    },
+    "task_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "reasoning_hops", "phase_of_care", "reveal_specialty"],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["clinical_vignette", "image_based", "data_interpretation", "basic_concept"]
+        },
+        "reasoning_hops": {"type": "integer", "minimum": 1, "maximum": 3},
+        "phase_of_care": {
+          "type": "string",
+          "enum": ["unspecified", "initial", "post_stabilization", "treatment_response", "follow_up"]
+        },
+        "site_of_care": {
+          "type": ["string", "null"],
+          "enum": [null, "outpatient", "emergency", "inpatient", "icu"]
+        },
+        "reveal_specialty": {"type": "boolean"}
+      }
+    },
+    "evidence_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "answer_dimensions",
+        "distractor_dimensions",
+        "coverage_status",
+        "needs_review",
+        "gen_ready"
+      ],
+      "properties": {
+        "answer_dimensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string"}
+        },
+        "distractor_dimensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string"}
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": ["grounded", "partial", "unsupported"]
+        },
+        "needs_review": {"type": "boolean", "const": true},
+        "gen_ready": {"type": "boolean", "const": false},
+        "block_reason": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "assessment_claim": {
+            "properties": {
+              "task": {"enum": ["indication", "contraindication"]}
+            },
+            "required": ["task"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "required": ["disease_concept_id", "intervention_concept_id"],
+            "properties": {
+              "disease_concept_id": {"type": "string", "minLength": 1},
+              "intervention_concept_id": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

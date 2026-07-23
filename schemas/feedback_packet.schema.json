@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/feedback_packet.schema.json",
+  "title": "P:accine post-answer FeedbackPacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "feedback_id", "attempt_event_id", "question_id", "item_version", "status", "release_mode", "result", "safe_message"],
+  "properties": {
+    "schema_version": {"const": "feedback_packet.v1"},
+    "feedback_id": {"type": "string", "pattern": "^fb:[a-f0-9]{16}$"},
+    "attempt_event_id": {"type": "string", "minLength": 1},
+    "question_id": {"type": "string", "minLength": 1},
+    "item_version": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["released", "withheld"]},
+    "release_mode": {"enum": ["immediate", "session_end"]},
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_correct", "selected_choices"],
+      "properties": {
+        "is_correct": {"type": "boolean"},
+        "selected_choices": {"type": "array", "items": {"type": "string"}},
+        "correct_choices": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disease_concept_id", "axis_type", "axis_ids", "claim_ids"],
+      "properties": {
+        "disease_concept_id": {"type": "string"},
+        "axis_type": {"type": "string"},
+        "axis_ids": {"type": "array", "items": {"type": "string"}},
+        "claim_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "selected_distractors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["choice", "source_concept_id", "why_attractive", "discriminating_rule"],
+        "properties": {
+          "choice": {"type": "string"},
+          "source_concept_id": {"type": "string"},
+          "why_attractive": {"type": "string"},
+          "discriminating_rule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "text"],
+            "properties": {
+              "claim_id": {"type": "string"},
+              "text": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "next_action": {"type": "object"},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "approval": {"type": "object"},
+    "withheld_reasons": {"type": "array", "items": {"type": "string"}},
+    "safe_message": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "released"}}},
+      "then": {"required": ["target", "selected_distractors", "next_action", "evidence", "approval"]},
+      "else": {
+        "required": ["withheld_reasons"],
+        "not": {"anyOf": [{"required": ["target"]}, {"required": ["evidence"]}, {"required": ["approval"]}]}
+      }
+    }
+  ]
+}

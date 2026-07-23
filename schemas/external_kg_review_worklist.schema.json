@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/external_kg_review_worklist.schema.json",
+  "title": "P:accine external KG human review worklist",
+  "description": "A deterministic, fail-closed queue. It does not contain reviewer decisions and cannot approve or promote ontology claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "worklist_id",
+    "generated_at",
+    "scope",
+    "source_artifacts",
+    "prioritization_policy",
+    "decision_boundary",
+    "stats",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {"const": "external_kg_review_worklist.v1"},
+    "worklist_id": {
+      "type": "string",
+      "pattern": "^external_kg_review_worklist:[a-z0-9][a-z0-9._-]*:[0-9a-f]{16}$"
+    },
+    "generated_at": {"type": "string", "format": "date-time"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "source_artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/sourceArtifact"},
+      "allOf": [
+        {"contains": {"properties": {"role": {"const": "validation_report"}}}},
+        {"contains": {"properties": {"role": {"const": "candidate_graph"}}}},
+        {"contains": {"properties": {"role": {"const": "crosswalk"}}}}
+      ]
+    },
+    "prioritization_policy": {"$ref": "#/$defs/prioritizationPolicy"},
+    "decision_boundary": {"$ref": "#/$defs/decisionBoundary"},
+    "stats": {"$ref": "#/$defs/stats"},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    }
+  },
+  "$defs": {
+    "curie": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*:[^\\s]+$"
+    },
+    "curieOrNull": {
+      "oneOf": [
+        {"$ref": "#/$defs/curie"},
+        {"type": "null"}
+      ]
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_id", "selection_mode", "local_concept_ids"],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "selection_mode": {"const": "input_validation_report"},
+        "local_concept_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    },
+    "sourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "artifact_id", "schema_version", "artifact_sha256"],
+      "properties": {
+        "role": {
+          "enum": ["validation_report", "candidate_graph", "crosswalk"]
+        },
+        "artifact_id": {"type": "string", "minLength": 1},
+        "schema_version": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "prioritizationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_set",
+        "external_conflict_candidate",
+        "negated_external_new_candidate",
+        "externally_concordant",
+        "exact_local_only_not_disproven",
+        "affirmed_external_new_candidate",
+        "unknown_external_new_candidate",
+        "grouped_or_missing_not_evaluable",
+        "lexical_medical_scoring_used",
+        "absence_is_not_contradiction",
+        "negated_external_new_is_positive_finding"
+      ],
+      "properties": {
+        "rule_set": {"const": "external_kg_review_priority.v1"},
+        "external_conflict_candidate": {"const": "P0"},
+        "negated_external_new_candidate": {"const": "P0"},
+        "externally_concordant": {"const": "P1"},
+        "exact_local_only_not_disproven": {"const": "P1"},
+        "affirmed_external_new_candidate": {"const": "P2"},
+        "unknown_external_new_candidate": {"const": "P2"},
+        "grouped_or_missing_not_evaluable": {"const": "P2"},
+        "lexical_medical_scoring_used": {"const": false},
+        "absence_is_not_contradiction": {"const": true},
+        "negated_external_new_is_positive_finding": {"const": false}
+      }
+    },
+    "decisionBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_decisions_embedded",
+        "decision_overlay_schema",
+        "automatic_medical_approval",
+        "automatic_promotion",
+        "canonical_ontology_mutation",
+        "student_exposure"
+      ],
+      "properties": {
+        "reviewer_decisions_embedded": {"const": false},
+        "decision_overlay_schema": {"const": "external_kg_review_decisions.v1"},
+        "automatic_medical_approval": {"const": false},
+        "automatic_promotion": {"const": false},
+        "canonical_ontology_mutation": {"const": false},
+        "student_exposure": {"const": false}
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_count",
+        "counts_by_priority",
+        "counts_by_classification",
+        "counts_by_priority_reason",
+        "all_human_review_required",
+        "medical_approval_count",
+        "promoted_count"
+      ],
+      "properties": {
+        "item_count": {"type": "integer", "minimum": 0},
+        "counts_by_priority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["P0", "P1", "P2"],
+          "properties": {
+            "P0": {"type": "integer", "minimum": 0},
+            "P1": {"type": "integer", "minimum": 0},
+            "P2": {"type": "integer", "minimum": 0}
+          }
+        },
+        "counts_by_classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "externally_concordant",
+            "external_conflict_candidate",
+            "local_only_not_disproven",
+            "external_new_candidate"
+          ],
+          "properties": {
+            "externally_concordant": {"type": "integer", "minimum": 0},
+            "external_conflict_candidate": {"type": "integer", "minimum": 0},
+            "local_only_not_disproven": {"type": "integer", "minimum": 0},
+            "external_new_candidate": {"type": "integer", "minimum": 0}
+          }
+        },
+        "counts_by_priority_reason": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "all_human_review_required": {"const": true},
+        "medical_approval_count": {"const": 0},
+        "promoted_count": {"const": 0}
+      }
+    },
+    "localRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concept_id",
+        "finding_id",
+        "finding_label",
+        "hpo_curie",
+        "claim_ids"
+      ],
+      "properties": {
+        "concept_id": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "finding_id": {"type": ["string", "null"]},
+        "finding_label": {"type": ["string", "null"]},
+        "hpo_curie": {"$ref": "#/$defs/curieOrNull"},
+        "claim_ids": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_curie",
+        "predicate",
+        "object_curie",
+        "mapped_disease_curies"
+      ],
+      "properties": {
+        "subject_curie": {"$ref": "#/$defs/curieOrNull"},
+        "predicate": {"type": ["string", "null"]},
+        "object_curie": {"$ref": "#/$defs/curieOrNull"},
+        "mapped_disease_curies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/curie"}
+        }
+      }
+    },
+    "mappingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_id",
+        "external_curie",
+        "external_snapshot_id",
+        "mapping_relation",
+        "mapping_method",
+        "confidence",
+        "evidence_record_sha256"
+      ],
+      "properties": {
+        "mapping_id": {
+          "type": "string",
+          "pattern": "^ekg:x:[0-9a-f]{24}$"
+        },
+        "external_curie": {"$ref": "#/$defs/curie"},
+        "external_snapshot_id": {"type": "string", "minLength": 1},
+        "mapping_relation": {
+          "enum": [
+            "exact_match",
+            "close_match",
+            "broad_match",
+            "narrow_match",
+            "related_match",
+            "member_of_group"
+          ]
+        },
+        "mapping_method": {
+          "enum": [
+            "identifier_exact",
+            "source_xref",
+            "curated",
+            "lexical_candidate",
+            "group_member_candidate"
+          ]
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_record_sha256": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "snapshotRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "provider",
+        "dataset_name",
+        "dataset_version",
+        "artifact_sha256",
+        "license",
+        "license_url",
+        "redistribution_status",
+        "source_url"
+      ],
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "provider": {"type": "string", "minLength": 1},
+        "dataset_name": {"type": "string", "minLength": 1},
+        "dataset_version": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "license": {"type": "string", "minLength": 1},
+        "license_url": {"type": ["string", "null"], "format": "uri"},
+        "redistribution_status": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "source_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "sourceRecordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_edge_id",
+        "snapshot_id",
+        "source_record_id",
+        "source_record_sha256",
+        "artifact_sha256",
+        "license",
+        "redistribution_status",
+        "source_refs"
+      ],
+      "properties": {
+        "candidate_edge_id": {
+          "type": "string",
+          "pattern": "^ekg:e:[0-9a-f]{24}$"
+        },
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "source_record_id": {"type": "string", "minLength": 1},
+        "source_record_sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "license": {"type": "string", "minLength": 1},
+        "redistribution_status": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "source_refs": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_item_sha256",
+        "external_snapshots",
+        "source_records"
+      ],
+      "properties": {
+        "validation_item_sha256": {"$ref": "#/$defs/sha256"},
+        "external_snapshots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/snapshotRef"}
+        },
+        "source_records": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/sourceRecordRef"}
+        }
+      }
+    },
+    "reviewGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "analytics_eligible",
+        "promotion_status"
+      ],
+      "properties": {
+        "status": {"const": "human_review_required"},
+        "needs_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "analytics_eligible": {"const": false},
+        "promotion_status": {"const": "not_promoted"}
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_task_id",
+        "priority",
+        "priority_reason",
+        "validation_item_id",
+        "classification",
+        "evaluation_status",
+        "coverage_reason",
+        "local",
+        "external",
+        "candidate_edge_ids",
+        "polarities",
+        "crosswalk_mappings",
+        "provenance",
+        "review_instructions",
+        "review_gate",
+        "reviewer_decision_ref"
+      ],
+      "properties": {
+        "review_task_id": {
+          "type": "string",
+          "pattern": "^ekg:r:[0-9a-f]{24}$"
+        },
+        "priority": {"enum": ["P0", "P1", "P2"]},
+        "priority_reason": {
+          "enum": [
+            "external_conflict_candidate",
+            "negated_external_new_candidate",
+            "externally_concordant",
+            "exact_local_only_not_disproven",
+            "affirmed_external_new_candidate",
+            "unknown_external_new_candidate",
+            "grouped_mapping_not_evaluable",
+            "missing_mapping_not_evaluable"
+          ]
+        },
+        "validation_item_id": {
+          "type": "string",
+          "pattern": "^ekg:v:[0-9a-f]{24}$"
+        },
+        "classification": {
+          "enum": [
+            "externally_concordant",
+            "external_conflict_candidate",
+            "local_only_not_disproven",
+            "external_new_candidate"
+          ]
+        },
+        "evaluation_status": {
+          "enum": [
+            "evaluated_exact_mapping",
+            "not_evaluable_grouped_mapping",
+            "not_evaluable_missing_mapping"
+          ]
+        },
+        "coverage_reason": {
+          "enum": [
+            "external_edge_present",
+            "exact_mapping_no_external_edge",
+            "grouped_mapping_excluded",
+            "local_mapping_missing"
+          ]
+        },
+        "local": {"$ref": "#/$defs/localRef"},
+        "external": {"$ref": "#/$defs/externalRef"},
+        "candidate_edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^ekg:e:[0-9a-f]{24}$"
+          }
+        },
+        "polarities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["affirmed", "negated", "unknown"]}
+        },
+        "crosswalk_mappings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mappingRef"}
+        },
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "review_instructions": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "verify_external_source_and_license",
+              "review_authoritative_medical_evidence",
+              "do_not_treat_absence_as_contradiction",
+              "negated_relation_is_not_positive_finding",
+              "do_not_promote_without_separate_curated_gate"
+            ]
+          },
+          "allOf": [
+            {"contains": {"const": "verify_external_source_and_license"}},
+            {"contains": {"const": "review_authoritative_medical_evidence"}},
+            {"contains": {"const": "do_not_promote_without_separate_curated_gate"}}
+          ]
+        },
+        "review_gate": {"$ref": "#/$defs/reviewGate"},
+        "reviewer_decision_ref": {"const": null}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "local_only_not_disproven"}
+            },
+            "required": ["classification"]
+          },
+          "then": {
+            "properties": {
+              "candidate_edge_ids": {"maxItems": 0},
+              "polarities": {"maxItems": 0},
+              "review_instructions": {
+                "contains": {"const": "do_not_treat_absence_as_contradiction"}
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "candidate_edge_ids": {"minItems": 1},
+              "polarities": {"minItems": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"classification": {"const": "external_conflict_candidate"}},
+            "required": ["classification"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P0"},
+              "priority_reason": {"const": "external_conflict_candidate"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"classification": {"const": "externally_concordant"}},
+            "required": ["classification"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P1"},
+              "priority_reason": {"const": "externally_concordant"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "external_new_candidate"},
+              "polarities": {"contains": {"const": "negated"}}
+            },
+            "required": ["classification", "polarities"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P0"},
+              "priority_reason": {"const": "negated_external_new_candidate"},
+              "review_instructions": {
+                "contains": {"const": "negated_relation_is_not_positive_finding"}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "external_new_candidate"},
+              "polarities": {
+                "allOf": [
+                  {"contains": {"const": "affirmed"}},
+                  {"not": {"contains": {"const": "negated"}}}
+                ]
+              }
+            },
+            "required": ["classification", "polarities"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P2"},
+              "priority_reason": {"const": "affirmed_external_new_candidate"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "external_new_candidate"},
+              "polarities": {
+                "allOf": [
+                  {"not": {"contains": {"const": "affirmed"}}},
+                  {"not": {"contains": {"const": "negated"}}}
+                ]
+              }
+            },
+            "required": ["classification", "polarities"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P2"},
+              "priority_reason": {"const": "unknown_external_new_candidate"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {"const": "local_only_not_disproven"},
+              "evaluation_status": {"const": "evaluated_exact_mapping"}
+            },
+            "required": ["classification", "evaluation_status"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P1"},
+              "priority_reason": {"const": "exact_local_only_not_disproven"},
+              "candidate_edge_ids": {"maxItems": 0},
+              "polarities": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluation_status": {"const": "not_evaluable_grouped_mapping"}
+            },
+            "required": ["evaluation_status"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P2"},
+              "priority_reason": {"const": "grouped_mapping_not_evaluable"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluation_status": {"const": "not_evaluable_missing_mapping"}
+            },
+            "required": ["evaluation_status"]
+          },
+          "then": {
+            "properties": {
+              "priority": {"const": "P2"},
+              "priority_reason": {"const": "missing_mapping_not_evaluable"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

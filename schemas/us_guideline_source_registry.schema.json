@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/us_guideline_source_registry.schema.json",
+  "title": "United States guideline source registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "latest_checked_at",
+    "registry_role",
+    "jurisdiction_policy",
+    "safety_boundary",
+    "summary",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": { "const": "us_guideline_source_registry.v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "latest_checked_at": { "type": "string", "format": "date" },
+    "registry_role": { "const": "source_inventory_and_comparison_overlay_not_medical_approval" },
+    "jurisdiction_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_for_korean_care", "permitted_roles", "silent_merge_allowed"],
+      "properties": {
+        "primary_for_korean_care": { "const": false },
+        "permitted_roles": {
+          "type": "array",
+          "items": { "enum": ["gap_fill", "kr_us_comparison", "us_exam_mode", "research_review"] },
+          "uniqueItems": true
+        },
+        "silent_merge_allowed": { "const": false }
+      }
+    },
+    "catalog": { "type": "object" },
+    "summary": { "type": "object" },
+    "safety_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "generation_eligible",
+        "runtime_ingest_enabled",
+        "automatic_claim_promotion"
+      ],
+      "properties": {
+        "needs_review": { "const": true },
+        "medical_approval": { "const": false },
+        "student_visible": { "const": false },
+        "generation_eligible": { "const": false },
+        "runtime_ingest_enabled": { "const": false },
+        "automatic_claim_promotion": { "const": false }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/source" }
+    }
+  },
+  "definitions": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "issuing_body",
+        "jurisdiction",
+        "document_type",
+        "publication_year",
+        "official_landing_url",
+        "latest_status",
+        "latest_checked_at",
+        "priority",
+        "specialties",
+        "clinical_axes",
+        "topic_concept_ids",
+        "summary_themes",
+        "applicability",
+        "rights",
+        "attachments",
+        "needs_review",
+        "medical_approval",
+        "student_visible",
+        "generation_eligible"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^us-cpg:[a-z0-9._:-]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "issuing_body": { "type": "string", "minLength": 1 },
+        "jurisdiction": { "const": "US" },
+        "document_type": {
+          "enum": [
+            "clinical_practice_guideline",
+            "living_guidance",
+            "preventive_recommendation",
+            "immunization_schedule",
+            "focused_update",
+            "clinical_pathway",
+            "guideline_catalog",
+            "guideline_update_summary"
+          ]
+        },
+        "publication_year": { "type": ["integer", "null"], "minimum": 1990, "maximum": 2100 },
+        "version": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "display_version": { "type": ["string", "null"] },
+            "publication_date": { "type": ["string", "null"], "format": "date" },
+            "operational_release": { "type": ["string", "null"] },
+            "supersedes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+            "currentness_note": { "type": "string" },
+            "next_review_due": { "type": ["string", "null"], "format": "date" }
+          }
+        },
+        "official_landing_url": { "type": "string", "format": "uri" },
+        "latest_status": {
+          "enum": [
+            "verified_current_on_official_source",
+            "current_listing_on_official_source",
+            "living_guidance_current",
+            "latest_uncertain",
+            "possibly_superseded",
+            "superseded"
+          ]
+        },
+        "latest_checked_at": { "type": "string", "format": "date" },
+        "priority": { "enum": ["P0", "P1", "P2"] },
+        "specialties": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+        "clinical_axes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "screening",
+              "prevention",
+              "epidemiology",
+              "risk_factor",
+              "diagnosis",
+              "treatment",
+              "indication",
+              "contraindication",
+              "prognosis",
+              "follow_up",
+              "procedure",
+              "public_health"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "topic_concept_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "summary_themes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kr_role", "direct_korean_applicability", "localization_risks"],
+          "properties": {
+            "kr_role": { "enum": ["gap_fill", "kr_us_comparison", "us_exam_mode", "research_review", "source_surveillance"] },
+            "direct_korean_applicability": { "enum": ["none", "limited", "conditional"] },
+            "localization_risks": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          }
+        },
+        "rights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "local_private_snapshot_allowed",
+            "runtime_ingest_allowed",
+            "redistribution_allowed",
+            "commercial_reuse_allowed",
+            "notes"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "government_or_public_reuse_with_conditions",
+                "society_copyright_metadata_only",
+                "journal_copyright_metadata_only",
+                "permission_required",
+                "unknown"
+              ]
+            },
+            "local_private_snapshot_allowed": { "type": ["boolean", "null"] },
+            "runtime_ingest_allowed": { "const": false },
+            "redistribution_allowed": { "type": ["boolean", "null"] },
+            "commercial_reuse_allowed": { "type": ["boolean", "null"] },
+            "permission_url": { "type": ["string", "null"], "format": "uri" },
+            "notes": { "type": "string" }
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/attachment" }
+        },
+        "needs_review": { "const": true },
+        "medical_approval": { "const": false },
+        "student_visible": { "const": false },
+        "generation_eligible": { "const": false }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attachment_id",
+        "role",
+        "source_url",
+        "filename",
+        "file_type",
+        "public_download",
+        "private_snapshot_authorized",
+        "download_status"
+      ],
+      "properties": {
+        "attachment_id": { "type": "string", "pattern": "^us-cpg:[a-z0-9._:-]+:attachment:[a-z0-9._-]+$" },
+        "role": { "enum": ["main", "summary", "schedule", "bulletin", "clinical_pathway", "update_summary"] },
+        "source_url": { "type": "string", "format": "uri" },
+        "filename": { "type": "string", "minLength": 1 },
+        "file_type": { "enum": ["pdf", "html", "none"] },
+        "public_download": { "type": "boolean" },
+        "private_snapshot_authorized": { "type": "boolean" },
+        "download_status": { "enum": ["not_requested", "downloaded", "metadata_only", "restricted", "failed"] },
+        "relative_path": { "type": ["string", "null"] },
+        "bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "content_type": { "type": ["string", "null"] },
+        "pdf_pages": { "type": ["integer", "null"], "minimum": 0 },
+        "pdf_text_chars": { "type": ["integer", "null"], "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

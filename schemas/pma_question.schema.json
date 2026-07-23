@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paccine.internal/schemas/pma_question.schema.json",
+  "title": "PMA Question Record",
+  "description": "Schema for a single PMA exam question extracted by extract_pma_questions.py",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "question_id",
+      "source_exam",
+      "period",
+      "question_number",
+      "stem",
+      "choices",
+      "answer",
+      "has_image",
+      "raw_text",
+      "needs_review",
+      "review_reasons",
+      "parser_version"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "question_id": {
+        "type": "string",
+        "description": "Unique identifier: {source_exam}_{period}_Q{number:03d}",
+        "pattern": "^PMA_[A-Z0-9_]+_Q\\d{3}$"
+      },
+      "source_exam": {
+        "type": "string",
+        "description": "Exam series identifier, e.g. PMA_2023_06_B",
+        "pattern": "^PMA_"
+      },
+      "period": {
+        "type": "string",
+        "description": "Session/period within the exam, e.g. '1' for 1교시"
+      },
+      "question_number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 120,
+        "description": "Sequential question number as it appears in the source PDF"
+      },
+      "stem": {
+        "type": "string",
+        "description": "Question stem text (choices stripped, trailing answer marker stripped)"
+      },
+      "choices": {
+        "type": "object",
+        "description": "Map of choice key (1-5) to choice text",
+        "properties": {
+          "1": { "type": "string" },
+          "2": { "type": "string" },
+          "3": { "type": "string" },
+          "4": { "type": "string" },
+          "5": { "type": "string" }
+        },
+        "additionalProperties": { "type": "string" }
+      },
+      "answer": {
+        "type": ["string", "null"],
+        "description": "Correct answer key. Always null in pipeline v0.1.0."
+      },
+      "has_image": {
+        "type": "boolean",
+        "description": "True when the question references or contains a visual element (image, scan, graph, slide)"
+      },
+      "raw_text": {
+        "type": "string",
+        "description": "Unprocessed text block from PDF for debugging. Do NOT expose in UI or logs."
+      },
+      "needs_review": {
+        "type": "boolean",
+        "description": "True when parser confidence is low (missing choices, non-sequential number, etc.)"
+      },
+      "review_reasons": {
+        "type": "array",
+        "description": "Human-readable list of reasons why needs_review was set",
+        "items": { "type": "string" }
+      },
+      "parser_version": {
+        "type": "string",
+        "description": "Version of extract_pma_questions.py that produced this record",
+        "pattern": "^\\d+\\.\\d+\\.\\d+$"
+      }
+    }
+  }
+}

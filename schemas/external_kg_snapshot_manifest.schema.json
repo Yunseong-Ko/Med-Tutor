@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paccine.local/schemas/external_kg_snapshot_manifest.schema.json",
+  "title": "P:accine external knowledge graph snapshot manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "created_at",
+    "policy",
+    "snapshots"
+  ],
+  "properties": {
+    "schema_version": {"const": "external_kg_snapshot_manifest.v1"},
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^external_kg_manifest:[a-z0-9][a-z0-9._-]*$"
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "policy": {"$ref": "#/$defs/failClosedPolicy"},
+    "snapshots": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/snapshot"}
+    }
+  },
+  "$defs": {
+    "failClosedPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "external_candidate_only",
+        "requires_human_review",
+        "medical_approval",
+        "student_visible",
+        "analytics_eligible"
+      ],
+      "properties": {
+        "external_candidate_only": {"const": true},
+        "requires_human_review": {"const": true},
+        "medical_approval": {"const": false},
+        "student_visible": {"const": false},
+        "analytics_eligible": {"const": false}
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "redistribution_status", "notes"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "spdx_id": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"], "format": "uri"},
+        "redistribution_status": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "notes": {"type": "string"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "content_sha256", "byte_size"],
+      "properties": {
+        "format": {
+          "enum": ["csv", "tsv", "parquet", "json", "jsonl", "other"]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byte_size": {"type": ["integer", "null"], "minimum": 0},
+        "relative_path": {"type": ["string", "null"]},
+        "media_type": {"type": ["string", "null"]}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "provider",
+        "dataset_name",
+        "dataset_version",
+        "source_url",
+        "retrieved_at",
+        "artifact",
+        "license",
+        "citation",
+        "ingest_policy"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^external_kg_snapshot:[a-z0-9][a-z0-9._-]*:[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+        },
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "dataset_name": {"type": "string", "minLength": 1},
+        "dataset_version": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string", "format": "uri"},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "artifact": {"$ref": "#/$defs/artifact"},
+        "license": {"$ref": "#/$defs/license"},
+        "citation": {"type": "string"},
+        "upstream_manifest_url": {"type": ["string", "null"], "format": "uri"},
+        "ingest_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "external_candidate_only",
+            "requires_human_review",
+            "medical_approval",
+            "student_visible",
+            "analytics_eligible"
+          ],
+          "properties": {
+            "mode": {"enum": ["metadata_only", "local_snapshot"]},
+            "external_candidate_only": {"const": true},
+            "requires_human_review": {"const": true},
+            "medical_approval": {"const": false},
+            "student_visible": {"const": false},
+            "analytics_eligible": {"const": false}
+          }
+        }
+      }
+    }
+  }
+}
