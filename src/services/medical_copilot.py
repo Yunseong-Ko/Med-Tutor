@@ -3756,9 +3756,20 @@ def build_medical_copilot_response(
     history: Any = None,
     composer: AnswerComposer | None = None,
     entailment_judge: EntailmentJudge | None = None,
+    progress_callback: Callable[[str], None] | None = None,
     generate_answer: bool = True,
     root: Path | None = None,
 ) -> dict[str, Any]:
+    def report_progress(stage: str) -> None:
+        if progress_callback is None:
+            return
+        try:
+            progress_callback(stage)
+        except Exception:
+            # Progress reporting is presentation-only. A disconnected UI must
+            # never change retrieval, validation, or the answer safety gate.
+            pass
+
     normalized_query = _clean_text(query)
     if not normalized_query:
         raise ValueError("query가 필요합니다.")
@@ -3784,6 +3795,7 @@ def build_medical_copilot_response(
             "safety": {"retrieval_started": False, "input_persisted": False},
         }
 
+    report_progress("analyzing_question")
     resolved_root = _root(root)
     routing_query = _clean_text(f"{normalized_query} {str(case_text or '')[:3000]}")
     guideline_intents = detect_guideline_intents(routing_query)
@@ -3893,6 +3905,7 @@ def build_medical_copilot_response(
         8 if acute_mi_harrison_routes else 6 if supplemental_harrison_routes else 0,
         int(answer_scope["evidence_limit"]),
     )
+    report_progress("retrieving_evidence")
     if answer_contract.get("archetype") == "multi_entity_comparison" and concepts:
         harrison_public, harrison_internal = retrieve_harrison_evidence_per_concept(
             normalized_query,
@@ -4055,6 +4068,7 @@ def build_medical_copilot_response(
         ),
         root=resolved_root,
     )
+    report_progress("composing_answer")
     provider = _provider_status()
     answer: dict[str, Any] | None = None
     entailment_shadow: dict[str, Any] = {
@@ -4273,6 +4287,7 @@ def build_medical_copilot_response(
             message = "근거 검색은 완료했지만 답변 작성 단계가 지연되어 근거 위치만 제공합니다. 다시 시도해 주세요."
 
     blocked = answer is None or bool(answer and answer.get("direct_answer_supported") is False)
+    report_progress("finalizing_answer")
     return {
         "status": "ready" if answer or harrison_public or guidelines or approved_guideline_claims else "evidence_insufficient",
         "mode": normalized_mode,

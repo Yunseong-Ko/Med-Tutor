@@ -136,6 +136,14 @@ def _run_job(
     *,
     builder: Callable[..., dict[str, Any]] = build_medical_copilot_response,
 ) -> None:
+    def update_stage(stage: str) -> None:
+        with _LOCK:
+            active_job = _JOBS.get(job_id)
+            if not active_job or active_job.get("cancel_requested"):
+                return
+            active_job["stage"] = str(stage or "running")
+            active_job["updated_monotonic"] = time.monotonic()
+
     with _LOCK:
         job = _JOBS.get(job_id)
         if not job:
@@ -152,7 +160,7 @@ def _run_job(
         request = dict(job.get("request") or {})
         job.update(
             status="running",
-            stage="grounding_and_answer",
+            stage="analyzing_question",
             started_at=_now(),
             started_monotonic=time.monotonic(),
             updated_monotonic=time.monotonic(),
@@ -166,6 +174,7 @@ def _run_job(
             specialty=request["specialty"],
             case_text=request["case_text"],
             history=request["history"],
+            progress_callback=update_stage,
             generate_answer=request["generate_answer"],
         )
     except Exception as exc:  # The public endpoint returns a safe failure state.

@@ -924,13 +924,26 @@ function resumeCopilotReveal() {
 
 function copilotProgressSteps(stage) {
   const normalized = String(stage || "").toLowerCase();
-  const activeIndex = ["privacy_preflight", "queued", "recovering"].includes(normalized) ? 0
-    : ["grounding_and_answer", "retrieving", "grounding"].includes(normalized) ? 1
-      : 2;
+  const activeIndex = ["privacy_preflight", "queued", "recovering", "analyzing_question"].includes(normalized) ? 0
+    : ["grounding_and_answer", "retrieving", "grounding", "retrieving_evidence"].includes(normalized) ? 1
+      : ["composing_answer", "validating_answer", "finalizing_answer"].includes(normalized) ? 2
+        : normalized === "complete" ? 3 : 0;
   return ["임상 질문 분석", "최신 의학 근거 정리", "전공·필요에 맞게 다듬기"].map((label, index) => ({
     label,
     state: index < activeIndex ? "done" : index === activeIndex ? "active" : "pending",
   }));
+}
+
+function updateCopilotProgressDom(stage) {
+  const steps = copilotProgressSteps(stage);
+  document.querySelectorAll("[data-copilot-progress-step]").forEach((node, index) => {
+    const step = steps[index];
+    if (!step) return;
+    node.className = step.state;
+    node.setAttribute("aria-current", step.state === "active" ? "step" : "false");
+    const icon = node.querySelector("i");
+    if (icon) icon.textContent = step.state === "done" ? "✓" : "";
+  });
 }
 
 function renderCopilotConversation() {
@@ -954,7 +967,7 @@ function renderCopilotConversation() {
     : `<div class="chat-turn assistant-turn"><div class="chat-bubble assistant-bubble">${renderAssistantResult(message.result, `turn-${index}`, message.reveal)}</div></div>`).join("");
   const elapsed = state.copilotStartedAt ? Math.floor((Date.now() - state.copilotStartedAt) / 1000) : 0;
   const progressSteps = copilotProgressSteps(state.copilotJobStage);
-  const pending = state.assistantBusy ? `<div class="chat-turn assistant-turn"><div class="chat-bubble thinking copilot-progress"><div class="progress-head"><span class="spinner"></span><div><strong>AI 임상 학습 모드</strong><small>경과 <b data-copilot-elapsed>${formatElapsed(elapsed)}</b> · 근거를 단계별로 확인하고 있어요</small></div></div><ol>${progressSteps.map((step) => `<li class="${step.state}"><i>${step.state === "done" ? "✓" : ""}</i><span>${step.label}</span></li>`).join("")}</ol><p class="copilot-recovery-note">진행 중인 답변은 같은 브라우저 탭에서 새로고침해도 이어집니다.</p></div></div>` : "";
+  const pending = state.assistantBusy ? `<div class="chat-turn assistant-turn"><div class="chat-bubble thinking copilot-progress"><div class="progress-head"><span class="spinner"></span><div><strong>AI 임상 학습 모드</strong><small>경과 <b data-copilot-elapsed>${formatElapsed(elapsed)}</b> · 근거를 단계별로 확인하고 있어요</small></div></div><ol>${progressSteps.map((step, index) => `<li class="${step.state}" data-copilot-progress-step="${index}" aria-current="${step.state === "active" ? "step" : "false"}"><i>${step.state === "done" ? "✓" : ""}</i><span>${step.label}</span></li>`).join("")}</ol><p class="copilot-recovery-note">진행 중인 답변은 같은 브라우저 탭에서 새로고침해도 이어집니다.</p></div></div>` : "";
   return `${turns}${pending}`;
 }
 
@@ -1013,7 +1026,11 @@ async function pollCopilotJob({jobId, question, mode, runToken}) {
       const job = await api(`/api/student/medical-copilot/jobs/${encodeURIComponent(jobId)}`);
       consecutiveErrors = 0;
       if (runToken !== state.copilotRunToken || state.activeCopilotJobId !== jobId) return;
-      state.copilotJobStage = job.stage || job.status || "running";
+      const nextStage = job.stage || job.status || "running";
+      if (nextStage !== state.copilotJobStage) {
+        state.copilotJobStage = nextStage;
+        updateCopilotProgressDom(nextStage);
+      }
       if (job.status === "done") {
         finishCopilotResult(job.result || failedCopilotResult("완료된 답변 내용을 불러오지 못했습니다."), {question, mode, runToken});
         return;

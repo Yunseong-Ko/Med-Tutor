@@ -53,6 +53,34 @@ def test_memory_only_job_hides_request_and_completes() -> None:
     assert jobs._JOBS[public["job_id"]]["request"] is None
 
 
+def test_job_progress_callback_exposes_real_pipeline_stages() -> None:
+    public = jobs.create_medical_copilot_job(
+        request_payload(), owner_id="student-a", auto_submit=False
+    )
+    observed: list[str] = []
+
+    def staged_builder(query: str, *, progress_callback, **kwargs) -> dict:
+        assert query == request_payload()["query"]
+        for stage in ("retrieving_evidence", "composing_answer", "finalizing_answer"):
+            progress_callback(stage)
+            current = jobs.get_medical_copilot_job(
+                public["job_id"], owner_id="student-a"
+            )
+            observed.append(current["stage"])
+        return fake_builder(query, **kwargs)
+
+    jobs._run_job(public["job_id"], builder=staged_builder)
+
+    assert observed == [
+        "retrieving_evidence",
+        "composing_answer",
+        "finalizing_answer",
+    ]
+    assert jobs.get_medical_copilot_job(
+        public["job_id"], owner_id="student-a"
+    )["stage"] == "complete"
+
+
 def test_job_is_isolated_by_student_identity() -> None:
     public = jobs.create_medical_copilot_job(
         request_payload(), owner_id="student-a", auto_submit=False

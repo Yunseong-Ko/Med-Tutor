@@ -47,7 +47,7 @@ class StudentCopilotExampleTests(unittest.TestCase):
     def test_student_bundle_cache_key_changes_with_example_release(self):
         html = INDEX_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("/student-v3/app.js?v=20260723-demo-refinement-v3", html)
+        self.assertIn("/student-v3/app.js?v=20260723-copilot-progress-v4", html)
 
     def test_citation_click_is_scoped_to_its_own_answer_card(self):
         text = APP_PATH.read_text(encoding="utf-8")
@@ -73,6 +73,9 @@ class StudentCopilotExampleTests(unittest.TestCase):
         self.assertIn("최신 의학 근거 정리", text)
         self.assertIn("전공·필요에 맞게 다듬기", text)
         self.assertIn('data-cancel-copilot type="button" aria-label="답변 생성 중단">■', text)
+        self.assertIn('function updateCopilotProgressDom(stage)', text)
+        self.assertIn('data-copilot-progress-step="${index}"', text)
+        self.assertIn('updateCopilotProgressDom(nextStage)', text)
 
     def test_report_uses_the_canonical_ten_axes_and_distinguishes_no_data(self):
         text = APP_PATH.read_text(encoding="utf-8")
