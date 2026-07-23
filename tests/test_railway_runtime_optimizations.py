@@ -23,6 +23,11 @@ def test_qbank_catalog_supports_conditional_revalidation(monkeypatch):
     assert second.status_code == 304
     assert second.headers["etag"] == etag
 
+    weak = client.get("/api/student/qbank", headers={"if-none-match": f"W/{etag}"})
+    assert weak.status_code == 304
+    assert weak.headers["etag"] == etag
+    assert not weak.content
+
 
 def test_versioned_static_assets_are_immutable(monkeypatch):
     monkeypatch.setattr(api_server, "_ALLOWED_EMAIL", "")

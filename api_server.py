@@ -3114,6 +3114,29 @@ def _student_qbank_cache_key() -> tuple[object, ...]:
     )
 
 
+def _if_none_match_matches(request_value: str | None, etag: str) -> bool:
+    """Use weak comparison when revalidating a GET response.
+
+    Railway's edge may rewrite the ETag of a compressed response from
+    ``"hash"`` to ``W/"hash"``. Both validators identify the same qbank
+    snapshot and should therefore produce a 304 response.
+    """
+
+    def normalize(value: str) -> str:
+        candidate = value.strip()
+        if candidate[:2].lower() == "w/":
+            candidate = candidate[2:].strip()
+        return candidate
+
+    if not request_value:
+        return False
+    expected = normalize(etag)
+    return any(
+        candidate.strip() == "*" or normalize(candidate) == expected
+        for candidate in request_value.split(",")
+    )
+
+
 @lru_cache(maxsize=8)
 def _student_qbank_catalog_snapshot(cache_key: tuple[object, ...]) -> dict:
     """Build the immutable pre-answer catalog once per data snapshot."""
@@ -3180,7 +3203,7 @@ def student_qbank_catalog(request: Request) -> Response:
         "ETag": etag,
         "Vary": "Cookie",
     }
-    if request.headers.get("if-none-match") == etag:
+    if _if_none_match_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
     try:
         payload = _student_qbank_catalog_snapshot(cache_key)
