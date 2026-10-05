@@ -11,8 +11,6 @@ const healthStatus = document.querySelector("#healthStatus");
 const runStatus = document.querySelector("#runStatus");
 const results = document.querySelector("#results");
 const generateButton = document.querySelector("#generateButton");
-const providerSelect = document.querySelector("#providerSelect");
-const modelSelect = document.querySelector("#modelSelect");
 const metricQuestions = document.querySelector("#metricQuestions");
 const metricReview = document.querySelector("#metricReview");
 const metricMedia = document.querySelector("#metricMedia");
@@ -25,7 +23,9 @@ const progressBar = document.querySelector("#progressBar");
 const includeImagesToggle = document.querySelector("#includeImagesToggle");
 const imagePolicySelect = document.querySelector("#imagePolicySelect");
 const imagePolicyField = document.querySelector("#imagePolicyField");
+const imageConfigBlock = document.querySelector("#imageConfigBlock");
 const questionTypeSelect = document.querySelector('select[name="question_type"]');
+const targetAxisTypeSelect = document.querySelector("#targetAxisTypeSelect");
 const selectedMediaIdsInput = document.querySelector("#selectedMediaIds");
 const mediaForm = document.querySelector("#mediaForm");
 const mediaFile = document.querySelector("#mediaFile");
@@ -45,6 +45,8 @@ const ankiCardDialogBody = document.querySelector("#ankiCardDialogBody");
 const ankiCardDialogClose = document.querySelector("#ankiCardDialogClose");
 const appTitle = document.querySelector("#appTitle");
 const appSubtitle = document.querySelector("#appSubtitle");
+const workspaceRail = document.querySelector("#workspaceRail");
+const workspaceRailToggle = document.querySelector("#workspaceRailToggle");
 const sidebarNoteTitle = document.querySelector("#sidebarNoteTitle");
 const sidebarNoteCopy = document.querySelector("#sidebarNoteCopy");
 const roleButtons = Array.from(document.querySelectorAll("[data-role-toggle]"));
@@ -66,23 +68,19 @@ const answerKeyFile = document.querySelector("#answerKeyFile");
 const answerKeyFileLabel = document.querySelector("#answerKeyFileLabel");
 const courseExamButton = document.querySelector("#courseExamButton");
 const courseExamImportResult = document.querySelector("#courseExamImportResult");
-const notebookLmImportForm = document.querySelector("#notebookLmImportForm");
-const notebookLmRawText = document.querySelector("#notebookLmRawText");
-const notebookLmSourceName = document.querySelector("#notebookLmSourceName");
-const notebookLmSubjectUnit = document.querySelector("#notebookLmSubjectUnit");
-const notebookLmImportButton = document.querySelector("#notebookLmImportButton");
-const notebookLmImportResult = document.querySelector("#notebookLmImportResult");
-const notebookLmPrompt = document.querySelector("#notebookLmPrompt");
-const copyNotebookLmPrompt = document.querySelector("#copyNotebookLmPrompt");
 const studentExamSelect = document.querySelector("#studentExamSelect");
 const studentPracticeMode = document.querySelector("#studentPracticeMode");
+const studentPracticeShuffle = document.querySelector("#studentPracticeShuffle");
+const studentPracticeCount = document.querySelector("#studentPracticeCount");
 const startStudentPracticeButton = document.querySelector("#startStudentPractice");
 const studentPracticeStatus = document.querySelector("#studentPracticeStatus");
 const studentPracticeStage = document.querySelector("#studentPracticeStage");
 const studentPracticePage = document.querySelector("#student-practice");
 const studentCourseBuilder = document.querySelector("#studentCourseBuilder");
+const studentReviewAnalytics = document.querySelector("#studentReviewAnalytics");
+const facultyReportAnalytics = document.querySelector("#facultyReportAnalytics");
+const cpxOsceModule = document.querySelector("#cpxOsceModule");
 
-let modelCatalog = null;
 let progressTimer = null;
 let imageAutoEnabled = false;
 let mediaAssets = [];
@@ -117,6 +115,7 @@ let courseExamDetailCache = {};
 let studentLibraryIndex = null;
 let studentLibraryMajorLookup = {};
 let studentLibraryTopicLookup = {};
+let selectedLibraryTopicIds = new Set();
 let studentCategoryQuestionCounts = {};
 let selectedLibraryCourseKey = "hematology_oncology";
 let studentLibraryRenderSeq = 0;
@@ -124,6 +123,23 @@ let practiceTimerInterval = null;
 let practiceAnkiStyleText = true;
 let practiceSelectedAnkiCardIds = new Set();
 let practiceAnkiDialogCards = [];
+const CPX_OSCE_STORAGE_KEY = "paccine.cpxosce.state.v1";
+const CPX_OSCE_TABS = new Set(["study", "diagnosis", "checklist", "patient", "summary", "coach"]);
+let cpxOsceState = {
+  selectedCaseId: "",
+  query: "",
+  category: "전체",
+  activeTab: "study",
+  checklistSectionId: "history",
+  checked: {},
+  notes: {},
+  coachMessages: {},
+  coachDraft: "",
+  timerRemaining: 12 * 60,
+  timerRunning: false,
+  timerCaseId: "",
+};
+let cpxOsceTimerInterval = null;
 
 try {
   const restoredMediaIds = JSON.parse(window.sessionStorage?.getItem("axioma.selectedMediaIds") || "[]");
@@ -138,15 +154,17 @@ const pageMeta = {
   "faculty-dashboard": ["교수 홈", "강의록 및 시험 기출 통합 아카이브"],
   "faculty-studio": ["문항 생성", "문항 파싱 및 JSON 변환"],
   "faculty-review": ["문항 검토", "승인 전 문항 확인"],
+  "faculty-evidence": ["근거 검토", "자동 부착된 논문 근거 승인·반려"],
   "faculty-archive": ["아카이브/내보내기", "승인 세트 보관과 export"],
-  "faculty-report": ["수업 리포트", "신경 및 특수감각기학 통합 성취도 분석"],
+  "faculty-report": ["시험 피드백", "학생 피드백·오답 분석·취약 영역 정리"],
   "faculty-ops": ["운영 보드", "팀 작업 배분과 주차별 산출물 관리"],
   "faculty-medlegal": ["EMR/CPX 훈련", "의료법·설명의무·진료기록 교육"],
   "student-dashboard": ["학습 홈", "문항 세트와 풀이 기록"],
   "student-library": ["나의 서재", "시험지·파트별 문항 선택"],
   "student-practice": ["문제 풀기", "승인 문항 기반 학습/시험 모드"],
+  "student-cpx-osce": ["CPX/OSCE", "실전 스테이션과 술기 체크리스트"],
   "student-concepts": ["개념 노트", "Obsidian식 문항·강의록·레퍼런스 연결"],
-  "student-review": ["복습 카드", "오답과 핵심 개념 플래시카드"],
+  "student-review": ["학습 리포트", "풀이 기록과 취약 영역"],
 };
 
 const departmentCategories = [
@@ -156,6 +174,7 @@ const departmentCategories = [
   { key: "immunology_dermatology", title: "면역및피부질환", icon: "면", tone: "teal", desc: "면역, 알레르기, 피부질환" },
   { key: "reproductive_medicine", title: "생식계의학", icon: "생", tone: "rose", desc: "산부인과, 생식, 임신과 분만" },
   { key: "growth_development_aging", title: "성장발달노화", icon: "성", tone: "amber", desc: "소아 성장, 발달, 노화" },
+  { key: "clinical_intro", title: "임상의학입문", icon: "입", tone: "blue", desc: "기본진료, 급성 복증, 탈장" },
   { key: "gastroenterology_nutrition", title: "소화기및영양학", icon: "소", tone: "amber", desc: "위장관, 간담췌, 영양" },
   { key: "cardiology", title: "순환기학", icon: "순", tone: "blue", desc: "심전도, 심부전, 허혈성 심질환" },
   { key: "neuro_special_senses", title: "신경및특수감각기학", icon: "신", tone: "teal", desc: "신경계, 감각기, 뇌영상" },
@@ -168,6 +187,49 @@ const departmentCategories = [
   { key: "pulmonology", title: "호흡기학", icon: "호", tone: "teal", desc: "폐렴, 천식/COPD, 흉부영상" },
 ];
 
+const WORKSPACE_RAIL_STORAGE_KEY = "paccine.workspaceRailCollapsed";
+
+function applyWorkspaceRailState(collapsed, options = {}) {
+  const { persist = true } = options;
+  const isCompactViewport = window.matchMedia("(max-width: 820px)").matches;
+  const shouldCollapse = Boolean(collapsed) && !isCompactViewport;
+  document.body.classList.toggle("rail-collapsed", shouldCollapse);
+  workspaceRailToggle?.setAttribute("aria-expanded", String(!shouldCollapse));
+  workspaceRailToggle?.setAttribute("aria-label", shouldCollapse ? "내비게이션 펼치기" : "내비게이션 접기");
+  const toggleGlyph = workspaceRailToggle?.querySelector("span");
+  if (toggleGlyph) toggleGlyph.textContent = shouldCollapse ? "›" : "‹";
+  if (persist) {
+    try {
+      window.localStorage?.setItem(WORKSPACE_RAIL_STORAGE_KEY, shouldCollapse ? "1" : "0");
+    } catch (error) {
+      // Storage is optional; navigation still works when it is unavailable.
+    }
+  }
+}
+
+function initWorkspaceRail() {
+  if (!workspaceRail || !workspaceRailToggle) return;
+  let storedCollapsed = false;
+  try {
+    storedCollapsed = window.localStorage?.getItem(WORKSPACE_RAIL_STORAGE_KEY) === "1";
+  } catch (error) {
+    storedCollapsed = false;
+  }
+  applyWorkspaceRailState(storedCollapsed, { persist: false });
+  workspaceRailToggle.addEventListener("click", () => {
+    applyWorkspaceRailState(!document.body.classList.contains("rail-collapsed"));
+  });
+  window.addEventListener("resize", () => {
+    let preferredCollapsed = false;
+    try {
+      preferredCollapsed = window.localStorage?.getItem(WORKSPACE_RAIL_STORAGE_KEY) === "1";
+    } catch (error) {
+      preferredCollapsed = false;
+    }
+    applyWorkspaceRailState(preferredCollapsed, { persist: false });
+  });
+}
+
 const categoryLearningMetrics = {
   infectious_diseases: { progress: 42, weakness: "항생제 선택" },
   musculoskeletal: { progress: 28, weakness: "외상 처치" },
@@ -175,6 +237,7 @@ const categoryLearningMetrics = {
   immunology_dermatology: { progress: 34, weakness: "피부 병변" },
   reproductive_medicine: { progress: 49, weakness: "산과 응급" },
   growth_development_aging: { progress: 31, weakness: "성장곡선" },
+  clinical_intro: { progress: 35, weakness: "응급 감별" },
   gastroenterology_nutrition: { progress: 63, weakness: "간담췌" },
   cardiology: { progress: 71, weakness: "심전도" },
   neuro_special_senses: { progress: 62, weakness: "병변 위치" },
@@ -203,6 +266,19 @@ function setProgressMessage(text) {
   if (progressMessage) {
     progressMessage.textContent = text;
   }
+}
+
+function ontologyGenerationSummary(data) {
+  const ontology = data?.ontology || data?.grounding || {};
+  if (!ontology.ontology_used || !ontology.disease_concept_id) {
+    return " · Ontology 미매칭(일반 생성 fallback)";
+  }
+  const axes = Number(ontology.axis_node_count || 0);
+  const blueprint = data?.question_blueprint || {};
+  const target = blueprint?.target || {};
+  const targetAxis = target.axis_type ? ` · 평가 축 ${practiceLabelText(target.axis_type)}` : "";
+  const blueprintStatus = blueprint.status === "blocked" ? " · 평가 축 확인 필요" : "";
+  return ` · Ontology ${ontology.disease_concept_id} · 임상 축 ${axes}개 사용${targetAxis}${blueprintStatus}`;
 }
 
 function setReviewCount(count) {
@@ -273,11 +349,11 @@ function startProgressTimer(formData) {
     if (elapsed >= 210) {
       setProgressMessage("아직 생성 중입니다. 큰 강의록이나 5문항 이상은 시간이 오래 걸릴 수 있어요. 실패하면 2~3문항으로 줄여 다시 시도하면 안정적입니다.");
     } else if (elapsed >= 120) {
-      setProgressMessage("Claude Code가 문항과 해설, 참고문헌을 구성하는 중입니다. 현재 단계는 오래 걸려도 정상일 수 있습니다.");
+      setProgressMessage("P:accine이 문항과 해설, 참고문헌을 구성하는 중입니다. 현재 단계는 오래 걸려도 정상일 수 있습니다.");
     } else if (elapsed >= 45) {
       setProgressMessage(`강의자료를 바탕으로 ${count || "선택한 개수"}문항 초안을 만드는 중입니다. 보통 2문항 기준 1~3분 정도 걸립니다.`);
     } else if (elapsed >= 15) {
-      setProgressMessage("업로드는 완료됐고, 강의록 텍스트와 이미지 후보를 정리한 뒤 모델에 넘기는 중입니다.");
+      setProgressMessage("업로드는 완료됐고, 강의록 텍스트와 이미지 후보를 정리한 뒤 문항 초안을 구성하는 중입니다.");
     } else {
       setProgressMessage("파일을 읽고 문항 생성 요청을 준비하고 있습니다.");
     }
@@ -326,6 +402,10 @@ function setRole(role) {
 
 function showPage(pageId, options = {}) {
   const safePage = pageMeta[pageId] ? pageId : "faculty-dashboard";
+  if (safePage === "student-cpx-osce") {
+    window.location.assign("/cpx-osce/");
+    return;
+  }
   if (safePage !== "student-practice") {
     document.body.classList.remove("practice-session-active");
   }
@@ -353,6 +433,17 @@ function showPage(pageId, options = {}) {
       renderStudentLibraryCourseBuilder(selectedLibraryCourseKey);
     }
   }
+  if (safePage === "student-review") {
+    loadStudentPracticeAnalytics();
+  }
+  if (safePage === "faculty-report") {
+    loadFacultyPracticeAnalytics();
+    loadFacultyFeedback();
+    loadDistractorAnalysis();
+  }
+  if (safePage === "faculty-evidence") {
+    loadEvidenceReview();
+  }
   if (options.updateHash !== false && window.location.hash !== `#${safePage}`) {
     window.history.pushState(null, "", `#${safePage}`);
   }
@@ -367,7 +458,80 @@ function updateImagePolicyState() {
   imagePolicySelect.disabled = !enabled;
   imagePolicyField.classList.toggle("is-disabled", !enabled);
   imagePolicySelect.value = enabled ? (imagePolicySelect.value === "none" ? "clinical_visuals" : imagePolicySelect.value) : "none";
+  imageConfigBlock?.classList.toggle("is-active", enabled);
   updateSelectedMediaInput();
+}
+
+function initFeedbackWidget() {
+  const fabButton = document.querySelector("#feedbackFabButton");
+  const panel = document.querySelector("#feedbackPanel");
+  const closeButton = document.querySelector("#feedbackPanelClose");
+  const ratingButtons = Array.from(document.querySelectorAll(".feedback-rating button[data-feedback-rating]"));
+  const comment = document.querySelector("#feedbackComment");
+  const submitButton = document.querySelector("#feedbackSubmitButton");
+  const status = document.querySelector("#feedbackStatus");
+  if (!fabButton || !panel) return;
+
+  let selectedRating = null;
+
+  const setPanelOpen = (open) => {
+    panel.hidden = !open;
+  };
+
+  fabButton.addEventListener("click", () => setPanelOpen(panel.hidden));
+  closeButton?.addEventListener("click", () => setPanelOpen(false));
+
+  ratingButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedRating = Number(button.dataset.feedbackRating);
+      ratingButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
+    });
+  });
+
+  submitButton?.addEventListener("click", async () => {
+    if (!selectedRating) {
+      if (status) status.textContent = "먼저 만족도 점수를 선택해주세요.";
+      return;
+    }
+    submitButton.disabled = true;
+    if (status) status.textContent = "보내는 중입니다...";
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          rating: selectedRating,
+          comment: comment?.value || "",
+          page: window.location.hash.replace("#", "") || "",
+          exam_id: currentPracticeExam?.exam_id || "",
+        }),
+      });
+      if (!response.ok) throw new Error("전송 실패");
+      if (status) status.textContent = "소중한 의견 감사합니다!";
+      if (comment) comment.value = "";
+      selectedRating = null;
+      ratingButtons.forEach((btn) => btn.classList.remove("active"));
+      window.setTimeout(() => setPanelOpen(false), 1200);
+    } catch (error) {
+      if (status) status.textContent = "전송에 실패했습니다. 다시 시도해주세요.";
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
+function initStudioMethodTabs() {
+  const tabButtons = document.querySelectorAll(".studio-method-tabs button[data-studio-method]");
+  const panels = document.querySelectorAll(".studio-method-panel[data-studio-panel]");
+  if (!tabButtons.length || !panels.length) return;
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const method = button.dataset.studioMethod;
+      tabButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.studioPanel === method));
+      if (method === "simple") renderSimpleImagePicker();
+    });
+  });
 }
 
 function syncImagePolicyWithQuestionType() {
@@ -387,6 +551,137 @@ function syncImagePolicyWithQuestionType() {
 function handleImageToggleChange() {
   imageAutoEnabled = false;
   updateImagePolicyState();
+}
+
+function initTopicImageFinder() {
+  const button = document.querySelector("#findTopicImagesButton");
+  const hint = document.querySelector("#topicImageHint");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const unit = document.querySelector("#studioUnitInput")?.value?.trim() || "";
+    const subject = document.querySelector("#studioSubjectInput")?.value?.trim() || "";
+    const topic = unit || subject;
+    if (!topic) {
+      if (hint) hint.textContent = "먼저 과목명이나 단원명을 입력하세요.";
+      return;
+    }
+    if (mediaSearch) {
+      mediaSearch.value = topic;
+      renderMediaAssets(mediaAssets);
+    }
+    // 이미지 삽입을 자동으로 켜서 고른 이미지가 문항에 반영되게 한다.
+    if (includeImagesToggle && !includeImagesToggle.checked) {
+      includeImagesToggle.checked = true;
+      updateImagePolicyState();
+    }
+    const matched = mediaAssets.filter((asset) => mediaMaterialText(asset).includes(topic.toLowerCase())).length;
+    if (hint) {
+      hint.textContent = matched
+        ? `"${topic}" 관련 이미지 ${matched}개를 오른쪽 제시자료에서 확인하세요.`
+        : `"${topic}" 관련 저장 이미지가 없습니다. 오른쪽에서 새로 저장하거나 검색어를 바꿔보세요.`;
+    }
+    document.querySelector(".media-helper-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function initQuestionPresetChips() {
+  const chipWrap = document.querySelector("#questionPresetChips");
+  if (!chipWrap) return;
+  const chips = Array.from(chipWrap.querySelectorAll(".preset-chip"));
+  const difficultySelect = document.querySelector("#difficultySelect");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.toggle("active", c === chip));
+      if (questionTypeSelect && chip.dataset.preset) {
+        questionTypeSelect.value = chip.dataset.preset;
+        // 이미지형 프리셋이 아니면 이미지 자동토글 원복
+        syncImagePolicyWithQuestionType();
+        syncTargetAxisWithQuestionType();
+      }
+      if (difficultySelect && chip.dataset.difficulty) {
+        difficultySelect.value = chip.dataset.difficulty;
+      }
+    });
+  });
+}
+
+function suggestedTargetAxis(questionType) {
+  return {
+    mechanism: "pathophysiology",
+    diagnostic: "diagnosis",
+    management: "treatment",
+  }[questionType] || "";
+}
+
+function syncTargetAxisWithQuestionType() {
+  if (!questionTypeSelect || !targetAxisTypeSelect) return;
+  const suggested = suggestedTargetAxis(questionTypeSelect.value);
+  if (suggested) targetAxisTypeSelect.value = suggested;
+}
+
+function initTopicGenerate() {
+  const form = document.querySelector("#topicGenerateForm");
+  if (!form) return;
+  const chips = Array.from(document.querySelectorAll("#topicPresetChips .preset-chip"));
+  const qtField = document.querySelector("#topicGenQuestionType");
+  const diffField = document.querySelector("#topicGenDifficulty");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.toggle("active", c === chip));
+      if (qtField) qtField.value = chip.dataset.preset || "clinical_case";
+      if (diffField) diffField.value = chip.dataset.difficulty || "보통";
+    });
+  });
+
+  const button = document.querySelector("#topicGenerateButton");
+  const status = document.querySelector("#topicGenerateStatus");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const topic = document.querySelector("#topicGenTopic")?.value?.trim();
+    if (!topic) {
+      if (status) status.textContent = "출제 주제를 입력하세요.";
+      return;
+    }
+    const body = {
+      topic,
+      teaching_points: document.querySelector("#topicGenPoints")?.value || "",
+      textbook_reference: document.querySelector("#topicGenRef")?.value || "",
+      subject: document.querySelector("#topicGenSubject")?.value || "",
+      unit: document.querySelector("#topicGenUnit")?.value || "",
+      num_questions: Number(document.querySelector("#topicGenCount")?.value || 5),
+      question_type: qtField?.value || "clinical_case",
+      target_axis_type: document.querySelector("#topicGenTargetAxisType")?.value || "",
+      difficulty: diffField?.value || "보통",
+      provider: "auto",
+      model: "auto",
+    };
+    if (button) button.disabled = true;
+    if (status) status.textContent = "주제로 문항을 생성하는 중입니다. 잠시만 기다려주세요.";
+    try {
+      const response = await fetch("/api/generate-from-topic", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "생성 실패");
+      if (status) {
+        status.textContent = `${payload.question_count || 0}문항 초안을 만들었습니다. 문항 검토 화면으로 이동합니다.`;
+      }
+      if (payload.set_id) {
+        await loadQuestionSet(payload.set_id);
+        showPage("faculty-review", { scrollTop: true });
+      } else {
+        showPage("faculty-review", { scrollTop: true });
+        renderQuestions(payload);
+      }
+      await loadArchiveSets();
+    } catch (error) {
+      if (status) status.textContent = `생성 실패: ${error.message}`;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 }
 
 function fileSummary(input, fallback) {
@@ -423,83 +718,6 @@ function renderCourseExamImportResult(payload) {
   `;
 }
 
-function parseNotebookLmSubjectUnit(value) {
-  const parts = String(value || "")
-    .split(/[/>|]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return {
-    subject: parts[0] || "미분류",
-    unit: parts.slice(1).join(" / ") || "미분류",
-  };
-}
-
-function renderNotebookLmImportResult(packet) {
-  if (!notebookLmImportResult) return;
-  const summary = packet?.summary || {};
-  notebookLmImportResult.hidden = false;
-  notebookLmImportResult.className = "notebooklm-import-result";
-  notebookLmImportResult.innerHTML = `
-    <div>
-      <strong>${escapeHtml(summary.source_name || packet?.set_id || "NotebookLM import")}</strong>
-      <p>문항 ${escapeHtml(summary.question_count || 0)}개를 검토 큐에 저장했습니다. 모든 문항은 검토 전 초안 상태입니다.</p>
-    </div>
-    <div class="notebooklm-import-actions">
-      <span class="badge light">확인 필요 ${escapeHtml(summary.needs_review_count || 0)}개</span>
-      <button type="button" class="secondary-button" data-open-set="${escapeHtml(packet?.set_id || "")}">문항 검토로 이동</button>
-    </div>
-  `;
-}
-
-async function importNotebookLmQuestions() {
-  if (!notebookLmRawText?.value.trim()) {
-    if (notebookLmImportResult) {
-      notebookLmImportResult.hidden = false;
-      notebookLmImportResult.className = "notebooklm-import-result error";
-      notebookLmImportResult.innerHTML = '<p class="inline-error">NotebookLM에서 복사한 JSON을 먼저 붙여넣어 주세요.</p>';
-    }
-    return;
-  }
-  const { subject, unit } = parseNotebookLmSubjectUnit(notebookLmSubjectUnit?.value);
-  if (notebookLmImportButton) notebookLmImportButton.disabled = true;
-  setStatus("NotebookLM 문항 가져오는 중");
-  if (notebookLmImportResult) {
-    notebookLmImportResult.hidden = false;
-    notebookLmImportResult.className = "notebooklm-import-result";
-    notebookLmImportResult.textContent = "NotebookLM 결과를 문항 DB 형식으로 변환하고 있습니다.";
-  }
-  try {
-    const response = await fetch("/api/notebooklm/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        raw_text: notebookLmRawText.value,
-        source_name: notebookLmSourceName?.value?.trim() || "NotebookLM 문항 초안",
-        subject,
-        unit,
-      }),
-    });
-    const packet = await response.json();
-    if (!response.ok) {
-      throw new Error(packet.detail || "NotebookLM import 실패");
-    }
-    renderNotebookLmImportResult(packet);
-    await loadArchiveSets();
-    if (metricQuestions) metricQuestions.textContent = packet.summary?.question_count || packet.questions?.length || 0;
-    setReviewCount(packet.summary?.needs_review_count || packet.questions?.length || 0);
-    setStatus("NotebookLM 문항 가져오기 완료", "muted");
-  } catch (error) {
-    setStatus("NotebookLM import 오류");
-    if (notebookLmImportResult) {
-      notebookLmImportResult.hidden = false;
-      notebookLmImportResult.className = "notebooklm-import-result error";
-      notebookLmImportResult.innerHTML = `<p class="inline-error">가져오기 실패: ${escapeHtml(error.message)}</p>`;
-    }
-  } finally {
-    if (notebookLmImportButton) notebookLmImportButton.disabled = false;
-  }
-}
-
 function joinList(values) {
   return (values || []).filter(Boolean).join(", ");
 }
@@ -521,11 +739,23 @@ function escapeCssValue(value) {
 }
 
 function examTitle(summary) {
+  const year = summary.exam_date ? String(summary.exam_date).slice(0, 4) : "";
   return [
     summary.course_name || "미분류 시험",
+    year,
     summary.round_label,
+    summary.period_label,
     summary.question_count ? `${summary.question_count}문항` : "",
   ].filter(Boolean).join(" · ");
+}
+
+function shuffleArray(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
 }
 
 function practiceSourceTags(question) {
@@ -789,7 +1019,33 @@ function extractPracticeMarkedExplanations(explanation) {
   return rows;
 }
 
-function existingChoiceExplanationMap(question) {
+function normalizePracticeEducationalMediaItems(value) {
+  const items = Array.isArray(value) ? value : value ? [value] : [];
+  return items
+    .map((item) => {
+      if (typeof item === "string") {
+        const url = item.trim();
+        return url ? { url, title: "해설 보조자료" } : null;
+      }
+      if (!item || typeof item !== "object") return null;
+      const url = String(item.url || item.src || item.image_url || "").trim();
+      const sourceUrl = String(item.source_url || item.sourceUrl || item.source || "").trim();
+      const title = String(item.title || item.caption || item.name || "해설 보조자료").trim();
+      if (!url && !sourceUrl && !title) return null;
+      return {
+        title,
+        url,
+        sourceUrl,
+        type: String(item.type || item.kind || "diagram").trim(),
+        note: String(item.note || item.description || "").trim(),
+        license: String(item.license || "").trim(),
+        attribution: String(item.attribution || "").trim(),
+      };
+    })
+    .filter(Boolean);
+}
+
+function existingChoiceExplanationDetailMap(question) {
   const candidates = [
     question?.choice_explanations,
     question?.pma_solution?.choice_explanations,
@@ -800,22 +1056,49 @@ function existingChoiceExplanationMap(question) {
     if (Array.isArray(candidate)) {
       const rows = {};
       candidate.forEach((value, index) => {
-        if (String(value || "").trim()) rows[String(index + 1)] = String(value).trim();
+        if (String(value || "").trim()) {
+          rows[String(index + 1)] = { rationale: String(value).trim() };
+        }
       });
       if (Object.keys(rows).length) return rows;
     }
     if (typeof candidate === "object") {
       const rows = {};
       Object.entries(candidate).forEach(([key, value]) => {
-        const body = typeof value === "object" && value
-          ? String(value.rationale || value.explanation || value.text || "").trim()
-          : String(value || "").trim();
-        if (body) rows[normalizePracticeChoiceKey(key)] = body;
+        if (typeof value === "object" && value) {
+          const body = String(value.rationale || value.explanation || value.text || "").trim();
+          if (body) {
+            rows[normalizePracticeChoiceKey(key)] = {
+              choiceText: value.choice_text || value.choiceText || "",
+              rationale: body,
+              isCorrect: Boolean(value.is_correct ?? value.isCorrect),
+              needsReview: Boolean(value.needs_review ?? value.needsReview),
+              learningPoints: Array.isArray(value.learning_points)
+                ? value.learning_points
+                : Array.isArray(value.learningPoints) ? value.learningPoints : [],
+              educationalMedia: normalizePracticeEducationalMediaItems(
+                value.educational_media || value.educationalMedia || value.media || value.media_refs
+              ),
+              source: value.source || "existing_choice_explanation",
+              evidence: Array.isArray(value.evidence) ? value.evidence : [],
+            };
+          }
+        } else {
+          const body = String(value || "").trim();
+          if (body) rows[normalizePracticeChoiceKey(key)] = { rationale: body };
+        }
       });
       if (Object.keys(rows).length) return rows;
     }
   }
   return {};
+}
+
+function existingChoiceExplanationMap(question) {
+  const details = existingChoiceExplanationDetailMap(question);
+  return Object.fromEntries(
+    Object.entries(details).map(([key, value]) => [key, value?.rationale || ""])
+  );
 }
 
 function choiceKeywords(choiceText) {
@@ -1083,7 +1366,10 @@ function explanationForVisibleChoice(question, answer, choiceKey, draftRows) {
 }
 
 function buildPracticeChoiceExplanationDraft(question, answer, explanationInfo) {
-  const existingMap = existingChoiceExplanationMap(question);
+  const existingDetails = existingChoiceExplanationDetailMap(question);
+  const existingMap = Object.fromEntries(
+    Object.entries(existingDetails).map(([key, value]) => [key, value?.rationale || ""])
+  );
   const markedMap = extractPracticeMarkedExplanations(question?.explanation || "");
   const correctAnswer = normalizePracticeChoiceKey(answer);
   const originalExplanation = String(question?.explanation || "").trim();
@@ -1112,8 +1398,11 @@ function buildPracticeChoiceExplanationDraft(question, answer, explanationInfo) 
     rows[normalizedKey] = {
       choiceText: text,
       isCorrect,
-      needsReview: isWeakPracticeExplanationText(rationale),
+      needsReview: Boolean(existingDetails[normalizedKey]?.needsReview) || isWeakPracticeExplanationText(rationale),
       rationale,
+      learningPoints: existingDetails[normalizedKey]?.learningPoints || [],
+      educationalMedia: existingDetails[normalizedKey]?.educationalMedia || [],
+      evidence: existingDetails[normalizedKey]?.evidence || [],
       source,
     };
   });
@@ -1134,6 +1423,9 @@ function normalizePracticeChoiceExplanationPayload(payload, question) {
       learningPoints: Array.isArray(value?.learning_points)
         ? value.learning_points
         : Array.isArray(value?.learningPoints) ? value.learningPoints : [],
+      educationalMedia: normalizePracticeEducationalMediaItems(
+        value?.educational_media || value?.educationalMedia || value?.media || value?.media_refs
+      ),
       questionPolarity: value?.question_polarity || value?.questionPolarity || "",
       statementStatus: value?.statement_status || value?.statementStatus || "",
       source: value?.source || "server_choice_explanation",
@@ -1328,6 +1620,9 @@ function renderPracticeChoiceExplanation(choiceKey, explanation, sourceTags) {
   const learningPoints = Array.isArray(explanation?.learningPoints)
     ? explanation.learningPoints
     : Array.isArray(explanation?.learning_points) ? explanation.learning_points : [];
+  const educationalMedia = normalizePracticeEducationalMediaItems(
+    explanation?.educationalMedia || explanation?.educational_media || explanation?.media || []
+  );
   const evidenceHtml = evidence.length
     ? evidence.map((item) => `
       <span class="provenance-chip">
@@ -1348,7 +1643,7 @@ function renderPracticeChoiceExplanation(choiceKey, explanation, sourceTags) {
     `
     : `<p>${escapeHtml(explanation?.rationale || "")}</p>`;
   return `
-    <div class="amboss-choice-explanation ${className}">
+    <div class="axioma-choice-explanation ${className}">
       <div class="choice-explanation-meta">
         <span>${escapeHtml(choiceKey)}번 ${escapeHtml(metaLabel)}</span>
         <em>${escapeHtml(sourceLabel)}</em>
@@ -1360,6 +1655,29 @@ function renderPracticeChoiceExplanation(choiceKey, explanation, sourceTags) {
             <article>
               <strong>${escapeHtml(point.label || "학습 포인트")}</strong>
               <span>${escapeHtml(point.body || "")}</span>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+      ${educationalMedia.length ? `
+        <div class="choice-educational-media" aria-label="해설 보조자료">
+          ${educationalMedia.map((item) => `
+            <article>
+              ${item.url ? `
+                <figure>
+                  <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title || "해설 보조자료")}" loading="lazy">
+                </figure>
+              ` : ""}
+              <div>
+                <strong>${escapeHtml(item.title || "해설 보조자료")}</strong>
+                ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
+                <small>
+                  ${escapeHtml(item.type || "diagram")}
+                  ${item.license ? ` · ${escapeHtml(item.license)}` : ""}
+                  ${item.attribution ? ` · ${escapeHtml(item.attribution)}` : ""}
+                  ${item.sourceUrl ? ` · <a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noreferrer">원자료</a>` : ""}
+                </small>
+              </div>
             </article>
           `).join("")}
         </div>
@@ -1551,6 +1869,494 @@ function practiceRagCourseLabel(courseId) {
     hematology_oncology: "혈액종양 근거 DB",
     neuro_special_senses: "신경·특수감각 근거 DB",
   }[courseId] || "근거 DB";
+}
+
+// ---------------------------------------------------------------------------
+// 원서/공개 근거 바로가기 — 해설 확인 시 과목별로 맞는 교과서·공개 자료 링크를 부착.
+//
+// 기본 원칙:
+// 1) 직접 문서 URL을 안정적으로 알 수 있는 주제는 direct link를 먼저 보여준다.
+// 2) 유료 교과서는 교내/도서관 인증이 필요하므로 전자책 랜딩 또는 검증된 챕터까지만 연결한다.
+// 3) 직접 링크가 없거나 기관 인증이 막히면 검색 fallback을 함께 제공한다.
+const MSD_SEARCH_BASE = "https://www.msdmanuals.com/professional/SearchResults";
+const ACCESSMEDICINE_BASE = "https://accessmedicine.mhmedical.com";
+const ACCESS_OBGYN_BASE = "https://obgyn.mhmedical.com";
+const PNU_DISCOVERY_BASE = "https://lib.pusan.ac.kr/search/i-discovery";
+
+function buildPnuDiscoveryLink(search, extraParams = "") {
+  const baseParams = `tabIndex=4&search=${encodeURIComponent(search)}`;
+  return `${PNU_DISCOVERY_BASE}?${baseParams}${extraParams ? `&${extraParams}` : ""}`;
+}
+
+function buildMsdSearchLink(topic) {
+  return `${MSD_SEARCH_BASE}?query=${encodeURIComponent(topic)}`;
+}
+
+function directReferenceHaystack(question, labels = {}, conceptTags = [], topic = "") {
+  return [
+    topic,
+    labels.course_name,
+    labels.major_category,
+    labels.topic,
+    labels.subtopic,
+    labels.unit,
+    labels.question_type,
+    labels.cognitive_level,
+    ...(conceptTags || []),
+    question?.stem,
+    question?.stimulus,
+    question?.explanation,
+    ...(question?.choices ? Object.values(question.choices) : []),
+  ].filter(Boolean).join(" ").replace(/_/g, " ").toLowerCase();
+}
+
+const DIRECT_REFERENCE_RULES = [
+  {
+    id: "primary_dysmenorrhea",
+    pattern: /원발\s*월경통|월경통|dysmenorrhea|dysmenorrhoea|prostaglandin|프로스타글란딘|nsaid|비스테로이드/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Dysmenorrhea",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/abnormal-uterine-bleeding/dysmenorrhea",
+        type: "open",
+      },
+      {
+        label: "📗 Williams Gynecology: Pelvic Pain",
+        url: `${ACCESS_OBGYN_BASE}/content.aspx?legacysectionid=hoff4-ch012`,
+        type: "institutional",
+      },
+      {
+        label: "📘 Williams Obstetrics 전자책",
+        url: `${ACCESS_OBGYN_BASE}/book.aspx?bookid=2977`,
+        type: "institutional",
+      },
+    ],
+  },
+  {
+    id: "pid_toa",
+    pattern: /골반염|골반\s*염증|난관난소농양|tubo.?ovarian|pelvic inflammatory|pid\b|toa\b|cervical motion tenderness|자궁경부\s*운동\s*압통/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Pelvic inflammatory disease",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/vaginitis-cervicitis-and-pelvic-inflammatory-disease/pelvic-inflammatory-disease-pid",
+        type: "open",
+      },
+      {
+        label: "🔓 MSD Manual: PID 치료 표",
+        url: "https://www.msdmanuals.com/professional/multimedia/table/regimens-for-treatment-of-pelvic-inflammatory-disease",
+        type: "open",
+      },
+      {
+        label: "📗 Williams Gynecology: Benign Adnexal Mass",
+        url: `${ACCESS_OBGYN_BASE}/content.aspx?bookId=2658&sectionId=241008530`,
+        type: "institutional",
+      },
+    ],
+  },
+  {
+    id: "ectopic_pregnancy",
+    pattern: /자궁외임신|이소성\s*임신|ectopic pregnancy|adnexal mass|beta.?hcg|β.?hcg|임신.*복통.*질출혈/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Ectopic pregnancy",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/early-pregnancy-disorders/ectopic-pregnancy",
+        type: "open",
+      },
+      {
+        label: "📘 Williams Obstetrics 전자책",
+        url: `${ACCESS_OBGYN_BASE}/book.aspx?bookid=2977`,
+        type: "institutional",
+      },
+    ],
+  },
+  {
+    id: "uterine_inversion",
+    pattern: /자궁내번|uterine inversion|태반만출.*질출혈|자궁저부.*만져지지|fundus.*cervix/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Uterine inversion",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/intrapartum-complications/uterine-inversion",
+        type: "open",
+      },
+      {
+        label: "🎞 MSD Manual: Uterine inversion 처치 영상",
+        url: "https://www.msdmanuals.com/professional/multimedia/video/how-to-manage-uterine-inversion",
+        type: "open",
+      },
+      {
+        label: "📘 Williams Obstetrics 전자책",
+        url: `${ACCESS_OBGYN_BASE}/book.aspx?bookid=2977`,
+        type: "institutional",
+      },
+    ],
+  },
+  {
+    id: "postpartum_hemorrhage",
+    pattern: /산후출혈|분만.*출혈|postpartum hemorrhage|postpartum haemorrhage|uterine atony|자궁무력|retained placenta/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Postpartum hemorrhage",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/intrapartum-complications/postpartum-hemorrhage",
+        type: "open",
+      },
+      {
+        label: "📘 Williams Obstetrics 전자책",
+        url: `${ACCESS_OBGYN_BASE}/book.aspx?bookid=2977`,
+        type: "institutional",
+      },
+    ],
+  },
+  {
+    id: "uterine_rupture",
+    pattern: /자궁파열|uterine rupture|vbac|previous cesarean|previous c.?section|제왕절개.*과거력/i,
+    links: [
+      {
+        label: "🔓 MSD Manual: Uterine rupture",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/intrapartum-complications/uterine-rupture",
+        type: "open",
+      },
+      {
+        label: "🔓 MSD Manual: Cesarean delivery",
+        url: "https://www.msdmanuals.com/professional/gynecology-and-obstetrics/labor-and-delivery/cesarean-delivery",
+        type: "open",
+      },
+    ],
+  },
+  // ── 혈액종양: MSD Manual 공개 질환 페이지 직접 연결 (URL 검증 완료) ──
+  {
+    id: "heme_mds",
+    pattern: /골수형성이상|myelodysplastic|\bmds\b/i,
+    links: [{ label: "🔓 MSD: Myelodysplastic Syndromes (MDS)", url: "https://www.msdmanuals.com/professional/oncology/leukemias/myelodysplastic-syndromes-mds", type: "open" }],
+  },
+  {
+    id: "heme_aml",
+    pattern: /급성\s*골수(성)?\s*백혈병|acute myeloid|\baml\b/i,
+    links: [{ label: "🔓 MSD: Acute Myeloid Leukemia (AML)", url: "https://www.msdmanuals.com/professional/oncology/leukemias/acute-myeloid-leukemia-aml", type: "open" }],
+  },
+  {
+    id: "heme_all",
+    pattern: /급성\s*림프(모|구)?구?성?\s*백혈병|acute lymphoblastic|acute lymphocytic leukemia/i,
+    links: [{ label: "🔓 MSD: Acute Lymphoblastic Leukemia (ALL)", url: "https://www.msdmanuals.com/professional/oncology/leukemias/acute-lymphoblastic-leukemia-all", type: "open" }],
+  },
+  {
+    id: "heme_cml",
+    pattern: /만성\s*골수(성)?\s*백혈병|chronic myeloid|\bcml\b/i,
+    links: [{ label: "🔓 MSD: Chronic Myeloid Leukemia (CML)", url: "https://www.msdmanuals.com/professional/oncology/leukemias/chronic-myeloid-leukemia-cml", type: "open" }],
+  },
+  {
+    id: "heme_cll",
+    pattern: /만성\s*림프구(성)?\s*백혈병|chronic lymphocytic|\bcll\b/i,
+    links: [{ label: "🔓 MSD: Chronic Lymphocytic Leukemia (CLL)", url: "https://www.msdmanuals.com/professional/oncology/leukemias/chronic-lymphocytic-leukemia-cll", type: "open" }],
+  },
+  {
+    id: "heme_hodgkin",
+    pattern: /호지킨|hodgkin/i,
+    links: [{ label: "🔓 MSD: Hodgkin Lymphoma", url: "https://www.msdmanuals.com/professional/oncology/lymphomas/hodgkin-lymphoma", type: "open" }],
+  },
+  {
+    id: "heme_nhl",
+    pattern: /비호지킨|non.?hodgkin/i,
+    links: [{ label: "🔓 MSD: Non-Hodgkin Lymphomas", url: "https://www.msdmanuals.com/professional/oncology/lymphomas/non-hodgkin-lymphomas", type: "open" }],
+  },
+  {
+    id: "heme_myeloma",
+    pattern: /다발(성)?\s*골수종|multiple myeloma/i,
+    links: [{ label: "🔓 MSD: Multiple Myeloma", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/plasma-cell-disorders/multiple-myeloma", type: "open" }],
+  },
+  {
+    id: "heme_itp",
+    pattern: /면역\s*혈소판\s*감소|특발성\s*혈소판|immune thrombocytopenia|\bitp\b/i,
+    links: [{ label: "🔓 MSD: Immune Thrombocytopenia (ITP)", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/thrombocytopenia-and-platelet-dysfunction/immune-thrombocytopenia-itp", type: "open" }],
+  },
+  {
+    id: "heme_ttp",
+    pattern: /혈전\s*혈소판\s*감소성?\s*자반|thrombotic thrombocytopenic|\bttp\b/i,
+    links: [{ label: "🔓 MSD: Thrombotic Thrombocytopenic Purpura (TTP)", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/thrombocytopenia-and-platelet-dysfunction/thrombotic-thrombocytopenic-purpura-ttp", type: "open" }],
+  },
+  {
+    id: "heme_dic",
+    pattern: /파종성?\s*혈관내\s*응고|disseminated intravascular|\bdic\b/i,
+    links: [{ label: "🔓 MSD: Disseminated Intravascular Coagulation (DIC)", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/coagulation-disorders/disseminated-intravascular-coagulation-dic", type: "open" }],
+  },
+  {
+    id: "heme_vwd",
+    pattern: /폰\s*빌레브란트|von willebrand|\bvwd\b/i,
+    links: [{ label: "🔓 MSD: Von Willebrand Disease", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/thrombocytopenia-and-platelet-dysfunction/von-willebrand-disease", type: "open" }],
+  },
+  {
+    id: "heme_hemophilia",
+    pattern: /혈우병|hemophilia|haemophilia/i,
+    links: [{ label: "🔓 MSD: Hemophilia", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/coagulation-disorders/hemophilia", type: "open" }],
+  },
+  {
+    id: "heme_aplastic",
+    pattern: /재생\s*불량성?\s*빈혈|aplastic anemia|aplastic anaemia/i,
+    links: [{ label: "🔓 MSD: Aplastic Anemia", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/anemias-caused-by-deficient-erythropoiesis/aplastic-anemia", type: "open" }],
+  },
+  {
+    id: "heme_ida",
+    pattern: /철\s*결핍성?\s*빈혈|iron deficiency an[ae]mia/i,
+    links: [{ label: "🔓 MSD: Iron Deficiency Anemia", url: "https://www.msdmanuals.com/professional/hematology-and-oncology/anemias-caused-by-deficient-erythropoiesis/iron-deficiency-anemia", type: "open" }],
+  },
+];
+
+function dedupeReferenceLinks(links = []) {
+  const seen = new Set();
+  return links.filter((link) => {
+    if (!link?.url || seen.has(link.url)) return false;
+    seen.add(link.url);
+    return true;
+  });
+}
+
+function directReferenceLinksForTopic(topic, question, labels = {}, conceptTags = []) {
+  const haystack = directReferenceHaystack(question, labels, conceptTags, topic);
+  return dedupeReferenceLinks(
+    DIRECT_REFERENCE_RULES
+      .filter((rule) => rule.pattern.test(haystack))
+      .flatMap((rule) => rule.links || [])
+  );
+}
+
+// 약어·한글 개념 → 교과서(영문 MSD/해리슨) 검색용 표준 질환명.
+// key는 소문자 부분일치로 매칭(예: "골수형성이상/증식" ⊃ "골수형성이상").
+const CONCEPT_CANONICAL = [
+  ["myelodysplastic", "myelodysplastic syndrome"],
+  ["골수형성이상", "myelodysplastic syndrome"],
+  ["mds", "myelodysplastic syndrome"],
+  ["chronic myelomonocytic", "chronic myelomonocytic leukemia"],
+  ["cmml", "chronic myelomonocytic leukemia"],
+  ["acute myeloid", "acute myeloid leukemia"],
+  ["aml", "acute myeloid leukemia"],
+  ["acute lymphoblastic", "acute lymphoblastic leukemia"],
+  ["acute lymphocytic", "acute lymphoblastic leukemia"],
+  ["chronic myeloid", "chronic myeloid leukemia"],
+  ["cml", "chronic myeloid leukemia"],
+  ["chronic lymphocytic", "chronic lymphocytic leukemia"],
+  ["cll", "chronic lymphocytic leukemia"],
+  ["myeloproliferative", "myeloproliferative neoplasm"],
+  ["multiple myeloma", "multiple myeloma"],
+  ["다발골수종", "multiple myeloma"],
+  ["hodgkin", "hodgkin lymphoma"],
+  ["non-hodgkin", "non-hodgkin lymphoma"],
+  ["lymphoma", "lymphoma"],
+  ["림프종", "lymphoma"],
+  ["neuroblastoma", "neuroblastoma"],
+  ["신경모세포종", "neuroblastoma"],
+  ["wilms", "wilms tumor"],
+  ["윌름", "wilms tumor"],
+  ["von willebrand", "von willebrand disease"],
+  ["vwd", "von willebrand disease"],
+  ["hemophilia", "hemophilia"],
+  ["haemophilia", "hemophilia"],
+  ["혈우병", "hemophilia"],
+  ["immune thrombocytopenia", "immune thrombocytopenia"],
+  ["itp", "immune thrombocytopenia"],
+  ["thrombotic thrombocytopenic", "thrombotic thrombocytopenic purpura"],
+  ["ttp", "thrombotic thrombocytopenic purpura"],
+  ["disseminated intravascular", "disseminated intravascular coagulation"],
+  ["aplastic", "aplastic anemia"],
+  ["재생불량", "aplastic anemia"],
+  ["iron deficiency", "iron deficiency anemia"],
+  ["철결핍", "iron deficiency anemia"],
+  ["hemolytic anemia", "hemolytic anemia"],
+  ["thalassemia", "thalassemia"],
+  ["lymphadenopathy", "lymphadenopathy"],
+  ["림프절", "lymphadenopathy"],
+];
+
+// 유전자·변이패널·점수·수치 같은 비질환 태그는 검색어에서 제외한다.
+function isNonDiseaseConceptToken(token) {
+  const t = String(token || "").trim();
+  if (!t) return true;
+  if (/^[A-Z0-9]{2,}(_[A-Z0-9]+)+$/.test(t)) return true; // ALLCAPS_WITH_UNDERSCORES = 유전자패널
+  return /\b(tet2|sf3b1|dnmt3a|flt3|npm1|jak2|bcr|abl1?|kras|nras|idh[12]|ipss|r[_ ]?ipss|cytogenetics?|karyotype|blast|mutation|variant|threshold|score|점수|기준|평가|예후|유전자|변이|수치|under\d+)\b/i.test(t);
+}
+
+function canonicalDiseaseName(candidates) {
+  // candidates는 우선순위 순서(구체적인 concept_tag가 앞). 앞 후보에서 먼저 잡힌 표준명을 쓴다.
+  for (const cand of candidates.filter(Boolean)) {
+    const s = String(cand).replace(/_/g, " ").toLowerCase();
+    for (const [key, name] of CONCEPT_CANONICAL) {
+      if (s.includes(key)) return name;
+    }
+  }
+  return "";
+}
+
+function buildSearchTopic(question, labels = {}, conceptTags = []) {
+  const tags = (conceptTags || []).map(String);
+  // 1) 표준 질환명이 잡히면 그것만 쓴다 (영문 교과서 검색 정확도↑, MDS→myelodysplastic syndrome).
+  const canon = canonicalDiseaseName([
+    ...tags,
+    labels.subtopic,
+    labels.topic,
+    labels.major_category,
+    question?.stem,
+  ]);
+  if (canon) return canon;
+  // 2) 질환처럼 보이는 첫 concept_tag (유전자/점수 태그 제외, 밑줄 정리).
+  const diseaseTag = tags.find((t) => !isNonDiseaseConceptToken(t));
+  if (diseaseTag) return diseaseTag.replace(/_/g, " ").trim();
+  // 3) 라벨에서 군더더기(유전자/예후/평가 등) 제거 후 사용.
+  const label = String(labels.topic || labels.subtopic || labels.major_category || "").trim();
+  if (label && !isNonDiseaseConceptToken(label)) return label.replace(/_/g, " ");
+  // 4) 최후: 지문 앞부분(짧게).
+  return String(question?.stem || "").slice(0, 50);
+}
+
+const TEXTBOOK_ACCESS_ENTRIES = [
+  {
+    id: "harrison",
+    displayName: "Harrison's Principles of Internal Medicine",
+    // 내과·신경과 커버, 소아/외과/산부인과/정신과 등은 구조적으로 미커버(별도 검토에서 오매칭 확인)
+    eligibleKeywords: ["내과", "신경과"],
+    excludedKeywords: ["소아", "산부", "외과", "정신", "이비인후", "예방", "법의학", "피부", "비뇨", "안과", "응급"],
+    note: "직접 문서가 매칭되는 경우 공개 근거를 먼저 열고, 나머지는 해리슨 검색/목차에서 확인하세요.",
+    buildLinks(topic, context = {}) {
+      const q = encodeURIComponent(topic);
+      const directLinks = directReferenceLinksForTopic(topic, context.question, context.labels, context.conceptTags);
+      return dedupeReferenceLinks([
+        ...directLinks,
+        { label: "📖 해리슨 검색 (교내 직접접속)", url: `${ACCESSMEDICINE_BASE}/searchresults.aspx?q=${q}`, type: "institutional" },
+        { label: "📕 해리슨 목차", url: `${ACCESSMEDICINE_BASE}/book.aspx?bookid=3541`, type: "institutional" },
+        {
+          label: "🏛 부산대 도서관 검색 fallback",
+          url: buildPnuDiscoveryLink("Harrison's principles of internal medicine", "resourceType=book&resourceType=book%20series"),
+          type: "fallback",
+        },
+        { label: "🔎 MSD Manual 검색 fallback", url: buildMsdSearchLink(topic), type: "fallback" },
+      ]);
+    },
+  },
+  {
+    id: "williams_obstetrics",
+    displayName: "Williams Obstetrics",
+    eligibleKeywords: ["산부인과"],
+    excludedKeywords: [],
+    note: "직접 연결 가능한 MSD/Williams 링크를 먼저 열고, 기관 인증이 막히면 부산대 도서관 fallback을 사용하세요.",
+    buildLinks(topic, context = {}) {
+      const q = encodeURIComponent(topic);
+      const directLinks = directReferenceLinksForTopic(topic, context.question, context.labels, context.conceptTags);
+      return dedupeReferenceLinks([
+        ...directLinks,
+        {
+          label: "📘 Williams Obstetrics 전자책",
+          url: `${ACCESS_OBGYN_BASE}/book.aspx?bookid=2977`,
+          type: "institutional",
+        },
+        {
+          label: "🔎 Williams 내부 검색",
+          url: `${ACCESS_OBGYN_BASE}/searchresults.aspx?q=${q}`,
+          type: "institutional",
+        },
+        {
+          label: "🏛 부산대 도서관 검색 fallback",
+          url: buildPnuDiscoveryLink("Williams obstetrics", "resourceType=book&resourceType=book%20series&resourceType=audio%20book&resourceType=streaming%20audio&resourceType=streaming%20video"),
+          type: "fallback",
+        },
+        { label: "🔎 MSD Manual 검색 fallback", url: buildMsdSearchLink(topic), type: "fallback" },
+      ]);
+    },
+  },
+  {
+    id: "pediatrics_pnu",
+    displayName: "소아과 참고교재 (부산대 도서관 확인)",
+    eligibleKeywords: ["소아"],
+    excludedKeywords: [],
+    note: "정확한 서명은 부산대 도서관·ClinicalKey에서 직접 확인하세요(자동 매칭 아님).",
+    buildLinks(topic, context = {}) {
+      const directLinks = directReferenceLinksForTopic(topic, context.question, context.labels, context.conceptTags);
+      return dedupeReferenceLinks([
+        ...directLinks,
+        {
+          label: "🏛 부산대 도서관 자료",
+          url: "https://lib.pusan.ac.kr/search/i-discovery/106295901?index=1&type=pubIq",
+          type: "institutional",
+        },
+        {
+          label: "📕 ClinicalKey 교재",
+          url: "https://www.clinicalkey.com/#!/browse/book/3-s2.0-C2020103101X",
+          type: "institutional",
+        },
+        { label: "🔎 MSD Manual 검색 fallback", url: buildMsdSearchLink(topic), type: "fallback" },
+      ]);
+    },
+  },
+  {
+    id: "hematology_oncology",
+    displayName: "MSD Manual · 혈액종양",
+    eligibleKeywords: ["혈액", "종양"],
+    excludedKeywords: [],
+    note: "질환에 맞는 공개 MSD Manual 페이지로 바로 연결됩니다. 해당 페이지가 없으면 검색·부산대 도서관으로 이동하세요.",
+    buildLinks(topic, context = {}) {
+      const directLinks = directReferenceLinksForTopic(topic, context.question, context.labels, context.conceptTags);
+      return dedupeReferenceLinks([
+        ...directLinks,
+        { label: "🔎 MSD Manual 검색", url: buildMsdSearchLink(topic), type: "fallback" },
+        { label: "🏛 부산대 도서관 검색", url: buildPnuDiscoveryLink(topic), type: "fallback" },
+      ]);
+    },
+  },
+];
+
+function findEligibleTextbookEntry(question, labels = {}) {
+  const courseName = String(labels.course_name || question?.labels?.course_name || "").trim();
+  if (!courseName) return null;
+  return TEXTBOOK_ACCESS_ENTRIES.find((entry) => {
+    if ((entry.excludedKeywords || []).some((kw) => courseName.includes(kw))) return false;
+    return entry.eligibleKeywords.some((kw) => courseName.includes(kw));
+  }) || null;
+}
+
+function renderTextbookEvidenceLinks(question, labels = {}, conceptTags = []) {
+  const entry = findEligibleTextbookEntry(question, labels);
+  if (!entry) return "";
+  const topic = buildSearchTopic(question, labels, conceptTags);
+  const links = entry.buildLinks(topic, { question, labels, conceptTags });
+  return `
+    <div class="rag-evidence-box textbook-links-box">
+      <div class="rag-evidence-header">
+        <span>${escapeHtml(entry.displayName)} 근거 원문 바로 열기</span>
+        <small>${escapeHtml(topic)}</small>
+      </div>
+      <div class="harrison-link-row">
+        ${links.map((link) => `<a class="reference-link-${escapeHtml(link.type || "default")}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`).join("")}
+      </div>
+      <p class="harrison-link-note">${escapeHtml(entry.note)}</p>
+    </div>
+  `;
+}
+
+// concept_tags 기반으로 부착된 1차 문헌·가이드라인 인용 렌더 (PubMed, DOI 링크).
+function renderQuestionCitations(question) {
+  const evidence = Array.isArray(question?.evidence) ? question.evidence : [];
+  const status = question?.evidence_status || "";
+  // 학생 화면에는 사람이 승인(verified)한 근거만 노출한다. draft/needs_review는 교수 근거검토 화면에서만.
+  if (status !== "verified" || !evidence.length) {
+    return "";
+  }
+  const typeLabel = { guideline: "가이드라인", review: "리뷰", rct: "RCT", meta: "메타분석" };
+  return `
+    <div class="rag-evidence-box citation-box">
+      <div class="rag-evidence-header">
+        <span>논문 근거 (PubMed)</span>
+        <small>검토 완료</small>
+      </div>
+      <div class="citation-list">
+        ${evidence.map((c) => {
+          const href = c.url || (c.doi ? `https://doi.org/${c.doi}` : c.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/` : "#");
+          const meta = [c.journal, c.year].filter(Boolean).join(" · ");
+          return `
+          <a class="citation-card" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+            <span class="citation-type">${escapeHtml(typeLabel[c.type] || c.type || "근거")}</span>
+            <strong>${escapeHtml(c.title || "제목 미상")}</strong>
+            <small>${escapeHtml(meta)}${c.doi ? ` · DOI ${escapeHtml(c.doi)}` : ""}</small>
+          </a>`;
+        }).join("")}
+      </div>
+      <p class="citation-attribution">출처: PubMed · 개념 태그 기반 검색 · 사람 검토 후 확정</p>
+    </div>`;
 }
 
 function practiceRagQuery(question, labels = {}, conceptTags = []) {
@@ -1876,6 +2682,9 @@ const curriculumCoursePatternMap = {
   growth_development_aging: [
     /성장|발달|노화|소아|신생아|영아|청소년|소아청소년|growth|aging|pediatric/i,
   ],
+  clinical_intro: [
+    /임상의학입문|급성\s*복증|acute\s*abdomen|탈장|hernia|기본진료|기본임상|clinical\s*intro/i,
+  ],
   gastroenterology_nutrition: [
     /소화기|위장|식도|위암|대장|소장|간질환|간경|간염|담도|담관|담석|췌장|췌염|장폐색|장간막|크론|궤양성대장|영양|유미|복부|췌십이지장|ercp|biliary|pancrea|gastro/i,
   ],
@@ -1895,7 +2704,7 @@ const curriculumCoursePatternMap = {
     /인간.?사회.?의료.?2|인간.?사회.?의료Ⅱ|인간.?사회.?의료ii|법규|의료법|정책|직업환경|의료관리|보험급여|보건행정|검역법|국민건강보험/i,
   ],
   psychiatry: [
-    /정신|우울|조현|불안|양극성|중독|치매|섬망|면담|psychi/i,
+    /정신|우울|조현|불안|양극성|중독|치매|섬망|급식|섭식|식이장애|eating\s*disorder|면담|psychi/i,
   ],
   disease_pharmacology: [
     /약물|약리|부작용|금기|독성|중독|치료원칙|질병의이해|pharm|drug|toxicity/i,
@@ -1915,6 +2724,7 @@ const curriculumCourseExactPatterns = {
   immunology_dermatology: [/^면역및피부질환$/i, /^면역피부질환$/i],
   reproductive_medicine: [/^생식계의학$/i, /^산부인과$/i],
   growth_development_aging: [/^성장발달노화$/i],
+  clinical_intro: [/^임상의학입문$/i, /^기본진료수행$/i, /^기본임상술기$/i, /^clinicalintro$/i],
   gastroenterology_nutrition: [/^소화기및영양학$/i, /^소화기학및영양학$/i],
   cardiology: [/^순환기학$/i],
   neuro_special_senses: [/^신경및특수감각기학$/i],
@@ -2001,6 +2811,59 @@ function questionLabelText(question = {}, summary = {}) {
   ].filter(Boolean).join(" ");
 }
 
+function questionRoutingText(question = {}, summary = {}) {
+  const choices = question.choices && typeof question.choices === "object"
+    ? Object.values(question.choices).join(" ")
+    : "";
+  return [
+    questionLabelText(question, summary),
+    question.stem,
+    question.raw_text,
+    question.explanation,
+    choices,
+    courseTextParts(summary).join(" "),
+  ].filter(Boolean).join(" ");
+}
+
+const curriculumCourseRouteOverrides = [
+  {
+    from: "pulmonology",
+    to: "clinical_intro",
+    pattern: /급성\s*복증|acute\s*abdomen/i,
+  },
+  {
+    from: "renal_urology",
+    to: "psychiatry",
+    pattern: /급식|섭식\s*장애|식이\s*장애|eating\s*disorder/i,
+  },
+  {
+    from: "renal_urology",
+    to: "clinical_intro",
+    pattern: /탈장|hernia/i,
+  },
+  {
+    from: "gastroenterology_nutrition",
+    to: "psychiatry",
+    pattern: /섬망|delirium/i,
+  },
+  {
+    from: "gastroenterology_nutrition",
+    to: "cardiology",
+    pattern: /복부\s*대동맥류(?:\s*파열)?|abdominal\s*aortic\s*aneurysm|aaa\s*rupture/i,
+  },
+];
+
+function applyCourseRouteOverrides(courseKey, question = {}, summary = {}) {
+  if (!courseKey) return courseKey;
+  const text = questionRoutingText(question, summary);
+  const override = curriculumCourseRouteOverrides.find((rule) => (
+    rule.from === courseKey
+      && departmentCategories.some((category) => category.key === rule.to)
+      && rule.pattern.test(text)
+  ));
+  return override?.to || courseKey;
+}
+
 function questionCourseMatchScore(question = {}, summary = {}, courseKey) {
   if (!courseKey) return 0;
   const directSummaryMatch = courseSummaryDirectlyMatches(summary, courseKey);
@@ -2035,7 +2898,7 @@ function bestCourseKeyForQuestion(question = {}, summary = {}) {
     ? summary.course_id
     : null;
   if (directCourseKey && !isBroadCompositeExamSummary(summary)) {
-    return directCourseKey;
+    return applyCourseRouteOverrides(directCourseKey, question, summary);
   }
 
   let best = { key: null, score: 0 };
@@ -2045,7 +2908,7 @@ function bestCourseKeyForQuestion(question = {}, summary = {}) {
       best = { key: category.key, score };
     }
   });
-  return best.score >= 20 ? best.key : null;
+  return best.score >= 20 ? applyCourseRouteOverrides(best.key, question, summary) : null;
 }
 
 function questionMatchesCourse(question = {}, summary = {}, courseKey) {
@@ -2286,12 +3149,16 @@ function renderStudentLibraryIndex(index) {
   }
 
   const firstOpenId = index.majors[0]?.id || "";
+  // 인덱스가 새로 그려지면 이전 선택은 유효하지 않은 topic id를 가리킬 수 있으니 정리.
+  selectedLibraryTopicIds = new Set(
+    Array.from(selectedLibraryTopicIds).filter((id) => studentLibraryTopicLookup[id])
+  );
   studentCourseBuilder.innerHTML = `
     <div class="library-course-head">
       <div>
-        <span>Label-based practice</span>
-        <h3>${escapeHtml(index.courseTitle)} 단원별 문항</h3>
-        <p>라벨링된 기출 문항을 대분류와 세부 주제 기준으로 골라 풉니다. 다른 과목도 같은 라벨 구조가 들어오면 그대로 확장됩니다.</p>
+        <span>문항 세트 구성</span>
+        <h3>${escapeHtml(index.courseTitle)}</h3>
+        <p>단원을 선택하면 오른쪽에서 문항 수와 예상 풀이 시간을 바로 확인할 수 있습니다.</p>
       </div>
       <div class="library-course-stats">
         <article><strong>${escapeHtml(index.questions.length)}</strong><span>풀이 가능 문항</span></article>
@@ -2299,70 +3166,82 @@ function renderStudentLibraryIndex(index) {
         <article><strong>${escapeHtml(index.sourceCount)}</strong><span>시험지/자료</span></article>
       </div>
     </div>
-    <div class="library-course-actions">
-      <button
-        type="button"
-        class="library-primary-action"
-        data-library-practice-start
-        data-library-filter-id="__course__"
-        data-library-practice-scope="course"
-      >
-        ${escapeHtml(index.courseTitle)} 전체 문항 풀기
-      </button>
-      <small>각 문항에는 연도·시험지·교수자 라벨을 같이 표시합니다.</small>
-    </div>
-    <div class="library-unit-list">
-      ${index.majors.map((major, majorIndex) => `
-        <article class="library-unit-card ${major.id === firstOpenId ? "is-open" : ""}">
-          <button
-            type="button"
-            class="library-unit-toggle"
-            data-library-major-toggle="${escapeHtml(major.id)}"
-          >
-            <span>${String(majorIndex + 1).padStart(2, "0")}</span>
-            <div>
-              <strong>${escapeHtml(major.title)}</strong>
-              ${renderLibraryGroupMeta(major)}
-            </div>
-            <b>Q ${escapeHtml(major.questions.length)}</b>
-            <i aria-hidden="true">⌄</i>
-          </button>
-          <div class="library-topic-list">
+    <div class="migration-builder-grid">
+      <section class="migration-builder-main" aria-label="단원 선택">
+        <div class="library-session-toolbar">
+          <input
+            type="search"
+            class="library-search"
+            placeholder="단원 또는 개념 검색"
+            aria-label="세부 주제 검색"
+          />
+          <div class="library-toolbar-actions">
+            <button type="button" class="library-select-all" data-library-select-all>전체 선택</button>
             <button
               type="button"
-              class="library-topic-row major-practice-row"
+              class="library-course-all"
               data-library-practice-start
-              data-library-filter-id="${escapeHtml(major.id)}"
-              data-library-practice-scope="major"
+              data-library-filter-id="__course__"
+              data-library-practice-scope="course"
             >
-              <div>
-                <strong>${escapeHtml(major.title)} 전체</strong>
-                <small>이 대분류 안의 모든 라벨 문항</small>
-              </div>
-              <b>Q ${escapeHtml(major.questions.length)}</b>
-              <em>풀기</em>
+              전체 문항 바로 풀기
             </button>
-            ${major.topics.map((topic) => `
-              <button
-                type="button"
-                class="library-topic-row"
-                data-library-practice-start
-                data-library-filter-id="${escapeHtml(topic.id)}"
-                data-library-practice-scope="topic"
-              >
-                <div>
-                  <strong>${escapeHtml(topic.title)}</strong>
-                  ${renderLibraryGroupMeta(topic)}
-                </div>
-                <b>Q ${escapeHtml(topic.questions.length)}</b>
-                <em>풀기</em>
-              </button>
-            `).join("")}
           </div>
-        </article>
-      `).join("")}
+        </div>
+        <div class="library-unit-list">
+          ${index.majors.map((major, majorIndex) => `
+            <article class="library-unit-card ${major.id === firstOpenId ? "is-open" : ""}" data-library-major-card="${escapeHtml(major.id)}">
+              <div class="library-unit-toggle">
+                <label class="library-check" title="${escapeHtml(major.title)} 전체 담기">
+                  <input type="checkbox" data-library-major-check="${escapeHtml(major.id)}" />
+                  <span class="library-index-num">${String(majorIndex + 1).padStart(2, "0")}</span>
+                </label>
+                <button type="button" class="library-unit-title" data-library-major-select="${escapeHtml(major.id)}">
+                  <strong>${escapeHtml(major.title)}</strong>
+                </button>
+                <b class="library-unit-count">${escapeHtml(major.questions.length)}문항</b>
+                <button type="button" class="library-unit-expand" data-library-major-toggle="${escapeHtml(major.id)}" aria-label="세부 주제 펼치기">
+                  <i aria-hidden="true">⌄</i>
+                </button>
+              </div>
+              <div class="library-topic-list">
+                ${major.topics.map((topic) => `
+                  <label class="library-topic-row" data-library-topic-item="${escapeHtml(topic.id)}">
+                    <input type="checkbox" data-library-topic-check="${escapeHtml(topic.id)}" />
+                    <span class="library-topic-name"><strong>${escapeHtml(topic.title)}</strong></span>
+                    <b class="library-topic-count">${escapeHtml(topic.questions.length)}</b>
+                  </label>
+                `).join("")}
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+      <aside class="library-session-bar migration-selection-panel is-empty" data-library-session-bar aria-label="선택한 문항 요약">
+        <div class="migration-selection-head">
+          <div>
+            <span>이번 학습 세트</span>
+            <strong><b data-library-selected-count>0</b>문항 선택</strong>
+          </div>
+          <div class="migration-time-estimate">
+            <span>예상 시간</span>
+            <b data-library-estimated-time>0분</b>
+          </div>
+        </div>
+        <div class="migration-selection-empty" data-library-selection-empty>
+          <span aria-hidden="true">＋</span>
+          <strong>풀 단원을 선택하세요</strong>
+          <p>왼쪽 목록에서 한 개 이상의 단원을 담으면 문항 미리보기가 표시됩니다.</p>
+        </div>
+        <div class="migration-selection-preview" data-library-selection-preview hidden></div>
+        <p class="migration-more-count" data-library-more-count hidden></p>
+        <button type="button" class="library-primary-action" data-library-start-selection disabled>
+          선택 문항 풀기
+        </button>
+      </aside>
     </div>
   `;
+  syncLibrarySelectionUI();
 }
 
 async function renderStudentLibraryCourseBuilder(courseKey = selectedLibraryCourseKey) {
@@ -2461,6 +3340,160 @@ async function startStudentLibraryPractice(filterId, scope = "topic") {
   activatePracticePayload(
     payload,
     `${studentLibraryIndex.courseTitle} · ${selection.title} ${questions.length}문항 세트를 열었습니다.`
+  );
+}
+
+// ── 세션 빌더(AMBOSS풍): 여러 세부주제를 담아 한 세션으로 시작 ──────────────
+function selectedLibraryQuestions() {
+  const seen = new Set();
+  const questions = [];
+  selectedLibraryTopicIds.forEach((topicId) => {
+    const topic = studentLibraryTopicLookup[topicId];
+    if (!topic) return;
+    (topic.questions || []).forEach((question) => {
+      const key = question.question_id
+        || `${question._source_exam_id || ""}:${question.question_number || ""}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      questions.push(question);
+    });
+  });
+  return questions;
+}
+
+function syncLibrarySelectionUI() {
+  if (!studentCourseBuilder) return;
+  studentCourseBuilder.querySelectorAll("[data-library-topic-check]").forEach((box) => {
+    box.checked = selectedLibraryTopicIds.has(box.dataset.libraryTopicCheck);
+  });
+  studentCourseBuilder.querySelectorAll("[data-library-major-check]").forEach((box) => {
+    const major = studentLibraryMajorLookup[box.dataset.libraryMajorCheck];
+    const topicIds = (major?.topics || []).map((topic) => topic.id);
+    const chosen = topicIds.filter((id) => selectedLibraryTopicIds.has(id)).length;
+    box.checked = topicIds.length > 0 && chosen === topicIds.length;
+    box.indeterminate = chosen > 0 && chosen < topicIds.length;
+    box.closest(".library-unit-card")?.classList.toggle("is-selected", chosen > 0);
+  });
+  const questions = selectedLibraryQuestions();
+  const bar = studentCourseBuilder.querySelector("[data-library-session-bar]");
+  const countEl = studentCourseBuilder.querySelector("[data-library-selected-count]");
+  const estimatedEl = studentCourseBuilder.querySelector("[data-library-estimated-time]");
+  const emptyEl = studentCourseBuilder.querySelector("[data-library-selection-empty]");
+  const previewEl = studentCourseBuilder.querySelector("[data-library-selection-preview]");
+  const moreEl = studentCourseBuilder.querySelector("[data-library-more-count]");
+  const selectAllBtn = studentCourseBuilder.querySelector("[data-library-select-all]");
+  const startBtn = studentCourseBuilder.querySelector("[data-library-start-selection]");
+  if (countEl) countEl.textContent = String(questions.length);
+  if (estimatedEl) estimatedEl.textContent = questions.length
+    ? `${Math.max(1, Math.ceil(questions.length * 1.25))}분`
+    : "0분";
+  if (bar) {
+    bar.hidden = false;
+    bar.classList.toggle("is-empty", questions.length === 0);
+  }
+  if (emptyEl) emptyEl.hidden = questions.length > 0;
+  if (previewEl) {
+    previewEl.hidden = questions.length === 0;
+    previewEl.innerHTML = questions.slice(0, 5).map((question, index) => {
+      const stem = String(question.stem || "문항 지문 미추출").replace(/\s+/g, " ").trim();
+      const preview = `${stem.slice(0, 54)}${stem.length > 54 ? "..." : ""}`;
+      return `
+        <div class="migration-preview-row">
+          <span>${String(index + 1).padStart(2, "0")}</span>
+          <p>${escapeHtml(preview)}</p>
+        </div>
+      `;
+    }).join("");
+  }
+  if (moreEl) {
+    const remaining = Math.max(0, questions.length - 5);
+    moreEl.hidden = remaining === 0;
+    moreEl.textContent = remaining ? `외 ${remaining}문항` : "";
+  }
+  if (selectAllBtn) {
+    const allIds = Object.keys(studentLibraryTopicLookup);
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedLibraryTopicIds.has(id));
+    selectAllBtn.textContent = allSelected ? "전체 해제" : "전체 선택";
+  }
+  if (startBtn) {
+    startBtn.disabled = questions.length === 0;
+    startBtn.textContent = questions.length ? `${questions.length}문항으로 시작` : "단원을 먼저 선택하세요";
+  }
+}
+
+function setLibraryTopicSelected(topicId, selected) {
+  if (!studentLibraryTopicLookup[topicId]) return;
+  if (selected) selectedLibraryTopicIds.add(topicId);
+  else selectedLibraryTopicIds.delete(topicId);
+}
+
+function setLibraryMajorSelected(majorId, selected) {
+  const major = studentLibraryMajorLookup[majorId];
+  if (!major) return;
+  (major.topics || []).forEach((topic) => setLibraryTopicSelected(topic.id, selected));
+}
+
+function isLibraryMajorFullySelected(majorId) {
+  const major = studentLibraryMajorLookup[majorId];
+  const topicIds = (major?.topics || []).map((topic) => topic.id);
+  return topicIds.length > 0 && topicIds.every((id) => selectedLibraryTopicIds.has(id));
+}
+
+function toggleLibrarySelectAll() {
+  const allIds = Object.keys(studentLibraryTopicLookup);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selectedLibraryTopicIds.has(id));
+  if (allSelected) selectedLibraryTopicIds.clear();
+  else allIds.forEach((id) => selectedLibraryTopicIds.add(id));
+  syncLibrarySelectionUI();
+}
+
+function filterLibraryTopics(query) {
+  if (!studentCourseBuilder) return;
+  const q = (query || "").trim().toLowerCase();
+  studentCourseBuilder.querySelectorAll(".library-unit-card").forEach((card) => {
+    const majorTitle = card.querySelector(".library-unit-title")?.textContent.toLowerCase() || "";
+    const majorMatch = !q || majorTitle.includes(q);
+    let visibleTopics = 0;
+    card.querySelectorAll("[data-library-topic-item]").forEach((row) => {
+      const name = row.textContent.toLowerCase();
+      const match = !q || majorMatch || name.includes(q);
+      row.hidden = !match;
+      if (match) visibleTopics += 1;
+    });
+    card.hidden = Boolean(q) && visibleTopics === 0 && !majorMatch;
+    if (q && !card.hidden) card.classList.add("is-open");
+  });
+}
+
+async function startStudentLibrarySelection() {
+  if (!studentLibraryIndex) return;
+  const questions = selectedLibraryQuestions().map((question) => ({ ...question }));
+  if (!questions.length) return;
+  finalizePracticeQuestionTime();
+  const majorTitles = compactUniqueList(
+    Array.from(selectedLibraryTopicIds)
+      .map((id) => studentLibraryTopicLookup[id]?.parentTitle)
+      .filter(Boolean),
+    3
+  );
+  const title = majorTitles.length <= 1
+    ? (majorTitles[0] || "선택")
+    : `${majorTitles[0]} 외 ${majorTitles.length - 1}개 대분류`;
+  const payload = {
+    exam_id: `library_${studentLibraryIndex.courseKey}_selection_${selectedLibraryTopicIds.size}`,
+    summary: {
+      course_id: studentLibraryIndex.courseKey,
+      course_name: studentLibraryIndex.courseTitle,
+      round_label: `${title} 세션`,
+      question_count: questions.length,
+      source_file: "라벨 기반 선택 세션",
+    },
+    questions,
+  };
+  showPage("student-practice", { scrollTop: false });
+  activatePracticePayload(
+    payload,
+    `${studentLibraryIndex.courseTitle} · ${questions.length}문항 세션을 열었습니다.`
   );
 }
 
@@ -2598,6 +3631,605 @@ function getPracticeTimeForQuestion(questionKey) {
   return saved;
 }
 
+function currentPracticeExamIdForAttempt(question) {
+  return String(
+    question?._source_exam_id
+      || question?._source_summary?.exam_id
+      || currentPracticeExam?.exam_id
+      || currentPracticeExam?.summary?.exam_id
+      || ""
+  );
+}
+
+function currentPracticeSourceMeta(question) {
+  const summary = question?._source_summary || currentPracticeExam?.summary || {};
+  return {
+    ...summary,
+    exam_id: currentPracticeExamIdForAttempt(question),
+    source_file: summary.source_file || question?.source_exam || question?.source_file || "",
+  };
+}
+
+function buildPracticeAttemptEvent(question, questionKey, selectedKeys) {
+  const sourceMeta = currentPracticeSourceMeta(question);
+  const labels = question?.labels || {};
+  const choiceTexts = Object.fromEntries(
+    practiceChoiceEntries(question).map(([choiceKey, choiceText]) => [String(choiceKey), String(choiceText || "")])
+  );
+  return {
+    event_id: `attempt_${Date.now()}_${questionKey}`,
+    session_id: currentPracticeSessionId,
+    user_id: "local_student",
+    role: "student",
+    exam_id: sourceMeta.exam_id,
+    course_id: sourceMeta.course_id || question?._curriculum_course_key || labels.course_id || "",
+    course_name: sourceMeta.course_name || question?._curriculum_course_title || labels.course_name_labeled || labels.course_name || "",
+    source_file: sourceMeta.source_file || "",
+    question_id: questionKey,
+    question_number: question?.question_number,
+    stem_preview: String(question?.stem || "").trim().slice(0, 180),
+    question_type: practiceQuestionTypeLabel(question),
+    choice_texts: choiceTexts,
+    selected_choice_numbers: practiceNormalizeAnswerSelection(selectedKeys),
+    answer_keys: practiceAnswerKeys(question),
+    is_correct: practiceSelectionIsCorrect(question, selectedKeys),
+    time_ms: getPracticeTimeForQuestion(questionKey) * 1000,
+    answered_at: new Date().toISOString(),
+    is_bookmarked: currentPracticeBookmarks.has(questionKey),
+    flag_type: currentPracticeFlags[questionKey] || null,
+    labels,
+    source_meta: sourceMeta,
+  };
+}
+
+async function submitPracticeAttempt(attemptEvent) {
+  if (!attemptEvent?.question_id) return;
+  const response = await fetch("/api/practice/attempts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(attemptEvent),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.detail || "풀이 기록 저장 실패");
+  }
+}
+
+function formatPercent(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(number % 1 === 0 ? 0 : 1)}%` : "0%";
+}
+
+function renderStudentPracticeAnalytics(payload) {
+  if (!studentReviewAnalytics) return;
+  const summary = payload?.summary || {};
+  const weaknessRows = payload?.weakness || [];
+  const ontologyWeaknessRows = payload?.ontology_weakness || [];
+  const recentAttempts = payload?.recent_attempts || [];
+  if (!summary.attempt_count) {
+    studentReviewAnalytics.innerHTML = `
+      <div class="student-analytics-empty">
+        <strong>아직 저장된 풀이 기록이 없습니다.</strong>
+        <p>문제를 하나 풀고 정답을 확인하면 이곳에 정답률, 풀이 시간, 취약 라벨이 자동으로 쌓입니다.</p>
+        <button type="button" class="secondary-button" data-page-link="student-practice">문제 풀러 가기</button>
+      </div>
+    `;
+    return;
+  }
+
+  const weaknessHtml = weaknessRows.slice(0, 8).map((row) => `
+    <tr>
+      <td>${escapeHtml(row.label_path || "미분류")}</td>
+      <td>${escapeHtml(row.attempt_count || 0)}</td>
+      <td><strong>${escapeHtml(formatPercent(row.correct_rate_pct || 0))}</strong></td>
+      <td>${escapeHtml(formatDuration(row.avg_time_sec || 0))}</td>
+    </tr>
+  `).join("");
+
+  const recentHtml = recentAttempts.slice(0, 5).map((event) => `
+    <li>
+      <span>${event.is_correct ? "정답" : "오답"}</span>
+      <strong>Q${escapeHtml(event.question_number || event.question_id || "-")}</strong>
+      <em>${escapeHtml(attemptLabelSummary(event))}</em>
+    </li>
+  `).join("");
+
+  const ontologyWeaknessHtml = ontologyWeaknessRows.slice(0, 10).map((row) => {
+    const topMisconception = row.misconceptions?.[0];
+    const signal = topMisconception
+      ? `오개념 ${topMisconception.misconception_id} · ${topMisconception.count}회`
+      : "오개념 표본 없음";
+    return `
+      <tr>
+        <td>${escapeHtml(practiceLabelText(row.disease_concept_id) || "개념 미지정")}</td>
+        <td>${escapeHtml(practiceLabelText(row.axis_type) || "축 미지정")}</td>
+        <td>${escapeHtml(row.sample_size || 0)}</td>
+        <td><strong>${escapeHtml(formatPercent(row.correct_rate_pct || 0))}</strong></td>
+        <td>${escapeHtml(signal)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  studentReviewAnalytics.innerHTML = `
+    <div class="student-analytics-summary">
+      <article>
+        <span>풀이 문항</span>
+        <strong>${escapeHtml(summary.attempt_count || 0)}</strong>
+        <p>저장된 풀이 이벤트 기준</p>
+      </article>
+      <article>
+        <span>누적 정답률</span>
+        <strong>${escapeHtml(formatPercent(summary.correct_rate_pct || 0))}</strong>
+        <p>${escapeHtml(summary.correct_count || 0)}문항 정답</p>
+      </article>
+      <article>
+        <span>학습한 날</span>
+        <strong>${escapeHtml(payload?.heatmap?.active_days || 0)}일</strong>
+        <p>최근 약 17주 기준</p>
+      </article>
+      <article>
+        <span>평균 풀이 시간</span>
+        <strong>${escapeHtml(formatDuration(summary.avg_time_sec || 0))}</strong>
+        <p>문항별 기록 시간</p>
+      </article>
+    </div>
+    ${renderPracticeHeatmap(payload?.heatmap)}
+    <div class="student-analytics-grid">
+      <section class="student-analytics-table-card">
+        <div>
+          <span class="section-label">Weakness Map</span>
+          <h3>취약 라벨</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>분류</th>
+              <th>풀이</th>
+              <th>정답률</th>
+              <th>평균</th>
+            </tr>
+          </thead>
+          <tbody>${weaknessHtml || '<tr><td colspan="4">아직 라벨 기반 기록이 없습니다.</td></tr>'}</tbody>
+        </table>
+      </section>
+      <section class="student-analytics-recent-card">
+        <div>
+          <span class="section-label">Recent</span>
+          <h3>최근 풀이</h3>
+        </div>
+        <ul>${recentHtml || "<li><em>최근 풀이가 없습니다.</em></li>"}</ul>
+      </section>
+    </div>
+    <section class="student-analytics-table-card">
+      <div>
+        <span class="section-label">Ontology Learning Map</span>
+        <h3>질환 × 임상 축 취약점</h3>
+        <p>문항 설계도가 연결된 풀이만 집계합니다. 표본이 적을 때는 숙련도 판정이 아니라 복습 우선순위 신호로 보세요.</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>질환 개념</th>
+            <th>평가 축</th>
+            <th>표본</th>
+            <th>정답률</th>
+            <th>오답 신호</th>
+          </tr>
+        </thead>
+        <tbody>${ontologyWeaknessHtml || '<tr><td colspan="5">QuestionBlueprint가 연결된 풀이 기록이 아직 없습니다.</td></tr>'}</tbody>
+      </table>
+    </section>
+    ${renderQuestionHistory(payload?.question_history)}
+  `;
+}
+
+function heatmapLevel(attempts, maxAttempts) {
+  if (!attempts) return 0;
+  if (maxAttempts <= 1) return 4;
+  const ratio = attempts / maxAttempts;
+  if (ratio <= 0.25) return 1;
+  if (ratio <= 0.5) return 2;
+  if (ratio <= 0.75) return 3;
+  return 4;
+}
+
+function renderPracticeHeatmap(heatmap) {
+  const cells = heatmap?.cells || [];
+  if (!cells.length) return "";
+  const maxAttempts = heatmap.max_attempts || 0;
+  // 일요일 시작 정렬을 위해 첫 셀의 요일만큼 앞을 빈칸으로 채움
+  const firstDow = new Date(`${cells[0].date}T00:00:00`).getDay();
+  const padded = Array.from({ length: firstDow }, () => null).concat(cells);
+  const cellsHtml = padded.map((cell) => {
+    if (!cell) return `<span class="heatmap-cell empty" aria-hidden="true"></span>`;
+    const level = heatmapLevel(cell.attempts, maxAttempts);
+    const title = cell.attempts
+      ? `${cell.date} · ${cell.attempts}문항 (정답 ${cell.correct})`
+      : `${cell.date} · 학습 없음`;
+    return `<span class="heatmap-cell level-${level}" title="${escapeHtml(title)}"></span>`;
+  }).join("");
+  return `
+    <section class="student-heatmap-card">
+      <div class="student-heatmap-head">
+        <div>
+          <span class="section-label">Study Heatmap</span>
+          <h3>학습 히트맵</h3>
+        </div>
+        <div class="heatmap-legend">
+          <span>적음</span>
+          <span class="heatmap-cell level-0"></span>
+          <span class="heatmap-cell level-1"></span>
+          <span class="heatmap-cell level-2"></span>
+          <span class="heatmap-cell level-3"></span>
+          <span class="heatmap-cell level-4"></span>
+          <span>많음</span>
+        </div>
+      </div>
+      <div class="heatmap-grid">${cellsHtml}</div>
+    </section>
+  `;
+}
+
+function renderQuestionHistory(history) {
+  const rows = history || [];
+  if (!rows.length) return "";
+  const rowsHtml = rows.map((row) => {
+    const dots = (row.results || []).slice(-8).map((correct) =>
+      `<span class="attempt-dot ${correct ? "correct" : "wrong"}" title="${correct ? "정답" : "오답"}"></span>`
+    ).join("");
+    const trend = row.last_correct === null ? "" : row.last_correct ? "최근 정답" : "최근 오답";
+    return `
+      <tr>
+        <td><strong>Q${escapeHtml(row.question_number || row.question_id || "-")}</strong></td>
+        <td>${escapeHtml(row.label_summary || "미분류")}</td>
+        <td>${escapeHtml(row.attempt_count || 0)}회</td>
+        <td>${escapeHtml(formatPercent(row.correct_rate_pct || 0))}</td>
+        <td><div class="attempt-dots">${dots}</div></td>
+        <td class="${row.last_correct ? "trend-correct" : "trend-wrong"}">${escapeHtml(trend)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <section class="student-history-card">
+      <div>
+        <span class="section-label">Question Log</span>
+        <h3>문항별 풀이 기록</h3>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>문항</th>
+            <th>분류</th>
+            <th>풀이</th>
+            <th>정답률</th>
+            <th>정오답 이력</th>
+            <th>추세</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </section>
+  `;
+}
+
+function attemptLabelSummary(event) {
+  const labels = event?.labels || {};
+  return [
+    event?.course_name || labels.course_name_labeled,
+    labels.major_category,
+    labels.topic || labels.subtopic,
+  ].filter(Boolean).join(" · ") || event?.source_file || "라벨 미분류";
+}
+
+function ratingStars(value) {
+  const full = Math.round(Number(value) || 0);
+  return "★★★★★".slice(0, full) + "☆☆☆☆☆".slice(0, 5 - full);
+}
+
+async function loadFacultyFeedback() {
+  const body = document.querySelector("#facultyFeedbackBody");
+  if (!body) return;
+  body.innerHTML = `<p class="faculty-feedback-loading">학생 피드백을 불러오는 중입니다.</p>`;
+  try {
+    const response = await fetch("/api/feedback/summary");
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "피드백 로드 실패");
+    const count = payload.count || 0;
+    if (!count) {
+      body.innerHTML = `
+        <div class="faculty-feedback-empty">
+          <strong>아직 수집된 학생 피드백이 없습니다.</strong>
+          <p>학생 화면 우측 하단의 "피드백 보내기"로 들어온 평점과 의견이 이곳에 모입니다.</p>
+        </div>`;
+      return;
+    }
+    const recent = payload.recent || [];
+    const commentsHtml = recent
+      .filter((item) => (item.comment || "").trim())
+      .slice(0, 8)
+      .map((item) => `
+        <li>
+          <div class="feedback-item-head">
+            <span class="feedback-item-stars">${ratingStars(item.rating)}</span>
+            <time>${escapeHtml((item.submitted_at || "").replace("T", " "))}</time>
+          </div>
+          <p>${escapeHtml(item.comment)}</p>
+        </li>
+      `)
+      .join("");
+    body.innerHTML = `
+      <div class="faculty-feedback-stats">
+        <article>
+          <span>받은 피드백</span>
+          <strong>${escapeHtml(count)}건</strong>
+        </article>
+        <article>
+          <span>평균 만족도</span>
+          <strong>${escapeHtml(payload.avg_rating || 0)} <em>${ratingStars(payload.avg_rating)}</em></strong>
+        </article>
+      </div>
+      ${commentsHtml
+        ? `<ul class="faculty-feedback-list">${commentsHtml}</ul>`
+        : `<p class="faculty-feedback-empty">평점은 들어왔지만 자유 의견은 아직 없습니다.</p>`}
+    `;
+  } catch (error) {
+    body.innerHTML = `<p class="faculty-feedback-empty">피드백을 불러오지 못했습니다: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderDistractorQuestion(q) {
+  const maxCount = Math.max(1, ...q.choices.map((c) => c.count));
+  const barsHtml = q.choices
+    .map((c) => {
+      const width = Math.round((c.count / maxCount) * 100);
+      const cls = c.is_answer ? "answer" : (c.choice === q.top_distractor?.choice ? "top-wrong" : "wrong");
+      return `
+        <div class="distractor-bar-row">
+          <span class="distractor-choice-key">${escapeHtml(c.choice)}</span>
+          <div class="distractor-bar-track">
+            <div class="distractor-bar ${cls}" style="width:${width}%"></div>
+            <span class="distractor-bar-text">${escapeHtml(c.text || "선지 텍스트 없음")}</span>
+          </div>
+          <span class="distractor-bar-pct">${escapeHtml(c.pct)}%${c.is_answer ? " · 정답" : ""}</span>
+        </div>
+      `;
+    })
+    .join("");
+  // "공통" 오개념이라 부르려면 응답자가 충분해야 한다(1~2명 100%는 신호 아님).
+  const stuckNote = q.top_distractor && q.attempt_count >= 4 && q.distractor_concentration_pct >= 40
+    ? `<p class="distractor-flag">⚠ ${escapeHtml(q.attempt_count)}명 중 ${escapeHtml(q.distractor_concentration_pct)}%가 "${escapeHtml((q.top_distractor.text || q.top_distractor.choice).slice(0, 40))}"에 몰림 — 공통 오개념 가능성</p>`
+    : "";
+  const fewNote = q.attempt_count < 4
+    ? `<p class="distractor-fewnote">응답 ${escapeHtml(q.attempt_count)}명 — 표본이 쌓이면 더 정확해집니다.</p>`
+    : "";
+  return `
+    <article class="distractor-question">
+      <div class="distractor-q-head">
+        <strong>Q${escapeHtml(q.question_number || q.question_id || "-")}</strong>
+        <span class="distractor-q-label">${escapeHtml(q.label_summary || "미분류")}</span>
+        <span class="distractor-q-stats">정답률 ${escapeHtml(q.correct_rate_pct)}% · ${escapeHtml(q.attempt_count)}명 · 평균 ${escapeHtml(formatDuration(q.avg_time_sec))}</span>
+      </div>
+      ${q.stem_preview ? `<p class="distractor-stem">${escapeHtml(q.stem_preview)}</p>` : ""}
+      <div class="distractor-bars">${barsHtml}</div>
+      ${stuckNote}
+      ${fewNote}
+    </article>
+  `;
+}
+
+async function loadDistractorAnalysis() {
+  const body = document.querySelector("#distractorBody");
+  if (!body) return;
+  body.innerHTML = `<p class="distractor-loading">오답 분포를 불러오는 중입니다.</p>`;
+  try {
+    const response = await fetch("/api/practice/analytics/distractors");
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "오답 분석 로드 실패");
+    const questions = payload.questions || [];
+    if (!questions.length) {
+      body.innerHTML = `
+        <div class="distractor-empty">
+          <strong>아직 분석할 풀이 기록이 없습니다.</strong>
+          <p>학생들이 문제를 풀면 문항별로 어떤 선지에 몰렸는지 자동으로 집계됩니다.</p>
+        </div>`;
+      return;
+    }
+    body.innerHTML = questions.slice(0, 12).map(renderDistractorQuestion).join("");
+  } catch (error) {
+    body.innerHTML = `<p class="distractor-empty">오답 분석을 불러오지 못했습니다: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function loadStudentPracticeAnalytics() {
+  if (!studentReviewAnalytics) return;
+  studentReviewAnalytics.innerHTML = `
+    <div class="student-analytics-empty">
+      <strong>풀이 기록을 불러오는 중입니다.</strong>
+      <p>저장된 정답률과 취약 라벨을 정리하고 있습니다.</p>
+    </div>
+  `;
+  try {
+    const response = await fetch("/api/practice/analytics/student?user_id=local_student");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "학습 리포트 로드 실패");
+    }
+    renderStudentPracticeAnalytics(payload);
+  } catch (error) {
+    studentReviewAnalytics.innerHTML = `
+      <div class="student-analytics-empty error">
+        <strong>학습 리포트를 불러오지 못했습니다.</strong>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function facultyLabelSummary(row) {
+  const labels = row?.labels || {};
+  return [
+    labels.course_name_labeled || labels.course_name,
+    labels.major_category,
+    labels.topic || labels.subtopic,
+    labels.assessment_domain,
+  ].filter(Boolean).join(" · ") || "라벨 미분류";
+}
+
+function renderFacultyChoiceDistribution(row) {
+  const choices = Array.isArray(row?.choices) ? row.choices : [];
+  const attemptedChoices = choices.filter((choice) => Number(choice.selected_count || 0) > 0 || choice.is_correct);
+  if (!attemptedChoices.length) {
+    return `<p class="faculty-choice-empty">아직 선택지별 풀이 분포가 없습니다.</p>`;
+  }
+  return `
+    <div class="faculty-choice-distribution">
+      ${attemptedChoices.map((choice) => `
+        <span class="${choice.is_correct ? "correct" : "incorrect"}">
+          ${escapeHtml(choice.choice)}번
+          <b>${escapeHtml(formatPercent(choice.selected_pct || 0))}</b>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFacultyPracticeAnalytics(payload) {
+  if (!facultyReportAnalytics) return;
+  const rows = (payload?.item_reports || [])
+    .filter((row) => Number(row.attempt_count || 0) > 0)
+    .sort((left, right) => {
+      const leftWrong = left.top_wrong_choice?.selected_pct || 0;
+      const rightWrong = right.top_wrong_choice?.selected_pct || 0;
+      return (left.correct_rate_pct - right.correct_rate_pct) || (rightWrong - leftWrong);
+    });
+
+  if (!rows.length) {
+    facultyReportAnalytics.innerHTML = `
+      <div class="student-analytics-empty">
+        <strong>아직 교수 리포트에 표시할 풀이 기록이 없습니다.</strong>
+        <p>학생이 문제를 풀고 정답을 확인하면 문항별 정답률, 평균 풀이 시간, 오답 선택지 분포가 자동으로 쌓입니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  facultyReportAnalytics.innerHTML = rows.slice(0, 12).map((row) => {
+    const topWrong = row.top_wrong_choice;
+    const statusClass = Number(row.correct_rate_pct || 0) < 50 ? "incorrect" : "review-needed";
+    const topWrongCopy = topWrong && Number(topWrong.selected_count || 0) > 0
+      ? `${topWrong.choice}번 오답 ${formatPercent(topWrong.selected_pct || 0)}`
+      : "공통 오답 없음";
+    return `
+      <article class="faculty-item-report">
+        <span class="question-status ${statusClass}">${escapeHtml(formatPercent(row.correct_rate_pct || 0))}</span>
+        <div>
+          <strong>Q${escapeHtml(row.question_number || row.question_id || "-")}</strong>
+          <p>${escapeHtml(facultyLabelSummary(row))}</p>
+        </div>
+        <p>${escapeHtml(row.stem_preview || "지문 요약 없음")}</p>
+        <dl>
+          <div><dt>풀이</dt><dd>${escapeHtml(row.attempt_count || 0)}</dd></div>
+          <div><dt>정답</dt><dd>${escapeHtml(row.correct_count || 0)}</dd></div>
+          <div><dt>평균 시간</dt><dd>${escapeHtml(formatDuration(row.avg_time_sec || 0))}</dd></div>
+          <div><dt>최다 오답</dt><dd>${escapeHtml(topWrongCopy)}</dd></div>
+        </dl>
+        ${renderFacultyChoiceDistribution(row)}
+      </article>
+    `;
+  }).join("");
+}
+
+async function loadFacultyPracticeAnalytics() {
+  if (!facultyReportAnalytics) return;
+  facultyReportAnalytics.innerHTML = `
+    <div class="student-analytics-empty">
+      <strong>문항별 리포트를 불러오는 중입니다.</strong>
+      <p>학생 풀이 기록에서 정답률과 오답 선택지 분포를 계산하고 있습니다.</p>
+    </div>
+  `;
+  try {
+    const response = await fetch("/api/practice/analytics/faculty");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "교수 리포트 로드 실패");
+    }
+    renderFacultyPracticeAnalytics(payload);
+  } catch (error) {
+    facultyReportAnalytics.innerHTML = `
+      <div class="student-analytics-empty error">
+        <strong>교수 리포트를 불러오지 못했습니다.</strong>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+const weaknessTargetingBtn = document.querySelector("#weaknessTargetingBtn");
+const weaknessTargetingResult = document.querySelector("#weaknessTargetingResult");
+
+async function runWeaknessTargeting() {
+  if (!weaknessTargetingResult) return;
+  weaknessTargetingResult.innerHTML = `
+    <div class="student-analytics-empty">
+      <strong>약점 영역을 분석하고 기출 부모를 찾는 중입니다.</strong>
+      <p>정답률이 낮은 영역 → 같은 라벨의 기출 → 변형 생성 프롬프트를 준비합니다.</p>
+    </div>`;
+  try {
+    const response = await fetch("/api/practice/weakness-targeting", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_areas: 3, parents_per_area: 2, n_each: 1 }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "약점 보강 출제 준비 실패");
+    if (!payload.weak_area_count) {
+      weaknessTargetingResult.innerHTML = `
+        <div class="student-analytics-empty">
+          <strong>아직 보강 출제할 약점이 없습니다.</strong>
+          <p>학생 풀이 기록이 쌓이면 정답률이 낮은 영역에 대한 보강 출제를 준비합니다.</p>
+        </div>`;
+      return;
+    }
+    const areas = payload.plan.map((area) => {
+      const packets = area.packets.map((pk) => `
+        <li>
+          <strong>${escapeHtml(pk.parent_question_id || "")}</strong>
+          <span class="muted"> ${escapeHtml(pk.stem_preview || "")}…</span>
+          <em> → 변형 ${escapeHtml(String(pk.expected_variants))}개 (${escapeHtml((pk.variant_types || []).join(", "))})</em>
+        </li>`).join("");
+      return `
+        <article class="weakness-area-card">
+          <header><strong>${escapeHtml(area.label_path)}</strong>
+          <span class="badge light">정답률 ${escapeHtml(String(area.correct_rate_pct))}% · ${escapeHtml(String(area.attempt_count))}회</span></header>
+          <ul>${packets || "<li class='muted'>해당 라벨의 기출 부모를 찾지 못했습니다.</li>"}</ul>
+        </article>`;
+    }).join("");
+    weaknessTargetingResult.innerHTML = `
+      <p class="weakness-summary">약점 ${escapeHtml(String(payload.weak_area_count))}개 · 기출 부모 ${escapeHtml(String(payload.total_packets))}건 · 변형 생성 예정 <strong>${escapeHtml(String(payload.total_expected_variants))}개</strong> → 검토 큐(승인 후 의학교육실 HWP 제출)</p>
+      ${areas}`;
+  } catch (error) {
+    weaknessTargetingResult.innerHTML = `
+      <div class="student-analytics-empty error">
+        <strong>약점 보강 출제 준비에 실패했습니다.</strong>
+        <p>${escapeHtml(error.message)}</p>
+      </div>`;
+  }
+}
+
+if (weaknessTargetingBtn) {
+  weaknessTargetingBtn.addEventListener("click", async () => {
+    weaknessTargetingBtn.disabled = true;
+    const original = weaknessTargetingBtn.textContent;
+    weaknessTargetingBtn.textContent = "준비 중";
+    try {
+      await runWeaknessTargeting();
+    } finally {
+      weaknessTargetingBtn.disabled = false;
+      weaknessTargetingBtn.textContent = original;
+    }
+  });
+}
+
 function updateLivePracticeTime() {
   const node = document.querySelector("[data-practice-elapsed]");
   if (!node || !currentPracticeActiveQuestionKey) return;
@@ -2688,21 +4320,256 @@ function computePracticeSessionStats(questions) {
   };
 }
 
+function practiceSessionQuestionState(question, index) {
+  const key = practiceQuestionKey(question, index);
+  const selection = practiceNormalizeAnswerSelection(currentPracticeAnswers[key]);
+  const answered = selection.length > 0;
+  const correct = answered && practiceSelectionIsCorrect(question, selection);
+  return {
+    key,
+    selection,
+    answered,
+    correct,
+    wrong: answered && !correct,
+    bookmarked: currentPracticeBookmarks.has(key),
+    flagged: currentPracticeFlags[key] || "",
+    time: getPracticeTimeForQuestion(key),
+  };
+}
+
+function practiceSessionIsComplete(questions) {
+  return Boolean(questions?.length)
+    && questions.every((question, index) => practiceSessionQuestionState(question, index).answered);
+}
+
 function renderPracticeSessionSnapshot(questions) {
   const stats = computePracticeSessionStats(questions);
+  const remaining = Math.max(0, stats.total - stats.answered);
   return `
     <section class="practice-session-snapshot" aria-label="세션 요약">
       <article><span>정답률</span><strong>${escapeHtml(stats.accuracy)}%</strong><small>${escapeHtml(stats.correct)} / ${escapeHtml(stats.answered || 0)} 풀이</small></article>
       <article><span>평균 시간</span><strong>${escapeHtml(formatDuration(stats.avgTime))}</strong><small>문항당 기록</small></article>
       <article><span>북마크</span><strong>${escapeHtml(stats.bookmarked)}</strong><small>다시 볼 문항</small></article>
-      <article><span>보강 후보</span><strong>${escapeHtml(stats.flagged)}</strong><small>신고/검토 표시</small></article>
+      <article><span>남은 문항</span><strong>${escapeHtml(remaining)}</strong><small>세트 완료까지</small></article>
     </section>
-    ${stats.weakSummary.length ? `
-      <div class="practice-weak-strip">
-        <span>취약 라벨</span>
-        ${stats.weakSummary.map((item) => `<b>${escapeHtml(item)}</b>`).join("")}
+  `;
+}
+
+function buildPracticeAnkiCandidatesForQuestion(question, index) {
+  if (!question) return [];
+  const answer = practicePrimaryAnswer(question);
+  const labels = question.labels || {};
+  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
+  const explanationInfo = practiceExplanationInfo(question, answer, labels, conceptTags);
+  const ragAnkiState = getPracticeRagAnkiState(question, labels, conceptTags);
+  return buildPracticeAnkiCandidates({
+    answer,
+    conceptTags,
+    explanationInfo,
+    labels,
+    question,
+    ragAnkiState,
+  }).map((card, cardIndex) => ({
+    ...card,
+    cardId: `${practiceQuestionKey(question, index)}_${card.cardId || cardIndex}`,
+    questionIndex: index,
+    questionNumber: question.question_number || index + 1,
+  }));
+}
+
+function practiceAnkiCardsForIndexes(indexes) {
+  const questions = currentPracticeExam?.questions || [];
+  const seen = new Set();
+  return indexes
+    .map((index) => Number(index))
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < questions.length)
+    .flatMap((index) => buildPracticeAnkiCandidatesForQuestion(questions[index], index))
+    .filter((card) => {
+      const text = String(card.ankiText || card.plainText || "").trim();
+      const key = `${card.cardId}_${text}`;
+      if (!text || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function practiceAnkiImportText(cards) {
+  const rows = cards.map((card) => {
+    const text = String(card.ankiText || card.plainText || "")
+      .replace(/\t/g, " ")
+      .replace(/\r?\n/g, "<br>")
+      .trim();
+    const tags = compactUniqueList([
+      "paccine",
+      "practice",
+      currentPracticeExam?.summary?.course_id,
+      currentPracticeExam?.summary?.course_name,
+      `q${card.questionNumber || card.questionIndex + 1}`,
+      ...(Array.isArray(card.tags) ? card.tags : []),
+    ], 10)
+      .map((tag) => String(tag || "").replace(/\s+/g, "_"))
+      .filter(Boolean)
+      .join(" ");
+    return `${text}\t${tags}`;
+  });
+  return [
+    "#separator:tab",
+    "#html:true",
+    "#notetype:Cloze",
+    "#deck:P:accine::Practice",
+    "#columns:Text\tTags",
+    ...rows,
+    "",
+  ].join("\n");
+}
+
+function safeDownloadFilename(value) {
+  return String(value || "paccine")
+    .normalize("NFKC")
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 80);
+}
+
+function downloadTextFile(filename, text, type = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function practiceIndexesByResult(kind, questions = currentPracticeExam?.questions || []) {
+  return questions
+    .map((question, index) => ({ index, state: practiceSessionQuestionState(question, index) }))
+    .filter(({ state }) => {
+      if (kind === "wrong") return state.wrong;
+      if (kind === "bookmarked") return state.bookmarked;
+      if (kind === "unanswered") return !state.answered;
+      return true;
+    })
+    .map(({ index }) => index);
+}
+
+function selectedPracticeCompletionIndexes() {
+  return Array.from(document.querySelectorAll("[data-session-anki-select]:checked"))
+    .map((input) => Number(input.value))
+    .filter((index) => Number.isInteger(index));
+}
+
+function downloadPracticeAnkiCards(indexes, label = "selected") {
+  const cards = practiceAnkiCardsForIndexes(indexes);
+  if (!cards.length) {
+    setStatus("선택한 문항에서 다운로드할 Anki 카드가 없습니다.");
+    return;
+  }
+  const examName = safeDownloadFilename(examTitle(currentPracticeExam?.summary || {}) || "practice");
+  const date = new Date().toISOString().slice(0, 10);
+  downloadTextFile(
+    `paccine_${examName}_${safeDownloadFilename(label)}_anki_${date}.txt`,
+    practiceAnkiImportText(cards)
+  );
+  setStatus(`${cards.length}개 Anki 카드 텍스트를 다운로드했습니다.`, "muted");
+}
+
+function renderPracticeCompletionReport(questions) {
+  const stats = computePracticeSessionStats(questions);
+  const wrongIndexes = practiceIndexesByResult("wrong", questions);
+  const bookmarkedIndexes = practiceIndexesByResult("bookmarked", questions);
+  const unansweredIndexes = practiceIndexesByResult("unanswered", questions);
+  const rows = questions.map((question, index) => {
+    const state = practiceSessionQuestionState(question, index);
+    const selectedLabel = practiceSelectionLabel(state.selection) || "-";
+    const answerLabel = practiceAnswerLabel(question);
+    const stem = String(question.stem || "문항 지문 미추출").trim();
+    const statusText = state.correct ? "정답" : state.answered ? "오답" : "미응답";
+    const statusClass = state.correct ? "correct" : state.answered ? "wrong" : "unanswered";
+    return `
+      <article class="completion-question-row ${statusClass}">
+        <label class="completion-check">
+          <input type="checkbox" data-session-anki-select value="${escapeHtml(index)}" checked />
+          <span></span>
+        </label>
+        <span class="completion-status-dot" aria-hidden="true"></span>
+        <button type="button" class="completion-question-main" data-practice-jump="${escapeHtml(index)}">
+          <strong><b>Q${escapeHtml(question.question_number || index + 1)}</b>${escapeHtml(stem.slice(0, 88))}${stem.length > 88 ? "..." : ""}</strong>
+          <small>${escapeHtml(statusText)}</small>
+        </button>
+        <div class="completion-question-meta">
+          <span>${escapeHtml(selectedLabel)} 선택</span>
+          <span>${escapeHtml(answerLabel)} 정답</span>
+          <span>${escapeHtml(formatDuration(state.time))}</span>
+        </div>
+        <button
+          type="button"
+          class="completion-bookmark ${state.bookmarked ? "is-active" : ""}"
+          data-session-bookmark-index="${escapeHtml(index)}"
+        >
+          ${state.bookmarked ? "북마크됨" : "북마크"}
+        </button>
+      </article>
+    `;
+  }).join("");
+
+  const nextTitle = wrongIndexes.length
+    ? `${wrongIndexes.length}개 오답부터 다시 확인하세요`
+    : bookmarkedIndexes.length
+      ? `${bookmarkedIndexes.length}개 북마크를 이어서 확인하세요`
+      : "이번 세트를 모두 마쳤습니다";
+  const nextDescription = wrongIndexes.length
+    ? "오답 문항만 모아 다시 풀거나, 관련 Anki 카드를 한 번에 내려받을 수 있습니다."
+    : "필요한 문항을 북마크하거나 Anki 카드로 내보내 다음 복습 세트에 활용하세요.";
+
+  return `
+    <section class="practice-completion-report migration-completion-report" aria-label="세트 완료 리포트">
+      <div class="completion-report-head">
+        <div class="completion-result-copy">
+          <span>학습 세션 완료</span>
+          <h3>${escapeHtml(stats.correct)}문항을 맞혔습니다</h3>
+          <p>문항별 결과와 풀이 시간을 확인하고, 필요한 문항만 골라 다음 복습으로 이어가세요.</p>
+        </div>
+        <div class="completion-score-ring" style="--score: ${escapeHtml(Number(stats.accuracy) || 0)}" aria-label="정답률 ${escapeHtml(stats.accuracy)}퍼센트">
+          <div><strong>${escapeHtml(stats.accuracy)}%</strong><span>정답률</span></div>
+        </div>
       </div>
-    ` : ""}
+      <div class="completion-report-layout">
+        <div class="completion-report-main">
+          <div class="completion-score-grid">
+            <article><span>정답</span><strong>${escapeHtml(stats.correct)} / ${escapeHtml(stats.total)}</strong></article>
+            <article><span>총 풀이 시간</span><strong>${escapeHtml(formatDuration(stats.totalTime))}</strong></article>
+            <article><span>문항당 평균</span><strong>${escapeHtml(formatDuration(stats.avgTime))}</strong></article>
+            <article><span>북마크</span><strong>${escapeHtml(bookmarkedIndexes.length)}</strong></article>
+          </div>
+          <div class="completion-list-title">
+            <div><span>문항별 결과</span><strong>${escapeHtml(stats.total)}문항</strong></div>
+            <small>체크된 문항만 Anki 카드로 내보냅니다.</small>
+          </div>
+          <div class="completion-question-list">
+            ${rows}
+          </div>
+        </div>
+        <aside class="completion-review-rail" aria-label="다음 학습 추천">
+          <span>다음 학습</span>
+          <h4>${escapeHtml(nextTitle)}</h4>
+          <p>${escapeHtml(nextDescription)}</p>
+          <dl>
+            <div><dt>오답</dt><dd>${escapeHtml(wrongIndexes.length)}</dd></div>
+            <div><dt>미응답</dt><dd>${escapeHtml(unansweredIndexes.length)}</dd></div>
+            <div><dt>북마크</dt><dd>${escapeHtml(bookmarkedIndexes.length)}</dd></div>
+          </dl>
+          <div class="completion-actions">
+            <button type="button" data-session-result-action="review-wrong" ${wrongIndexes.length ? "" : "disabled"}>오답 다시 풀기</button>
+            <button type="button" class="secondary-button" data-session-result-action="review-bookmarked" ${bookmarkedIndexes.length ? "" : "disabled"}>북마크 복습</button>
+            <button type="button" class="secondary-button" data-session-anki-download="selected">선택 문항 Anki</button>
+            <button type="button" class="text-button" data-session-anki-download="wrong" ${wrongIndexes.length ? "" : "disabled"}>오답 Anki 내려받기</button>
+          </div>
+        </aside>
+      </div>
+    </section>
   `;
 }
 
@@ -2773,13 +4640,13 @@ function renderPracticeSessionSidebar(questions) {
   const summary = currentPracticeExam?.summary || {};
   const stats = computePracticeSessionStats(questions);
   return `
-    <aside class="amboss-session-sidebar">
-      <div class="amboss-session-summary">
+    <aside class="axioma-session-sidebar">
+      <div class="axioma-session-summary">
         <span>문항 탐색</span>
         <strong>${escapeHtml(examTitle(summary) || "문항 세트")}</strong>
         <p>${escapeHtml(stats.viewed)} / ${escapeHtml(questions.length)} 열람 · ${escapeHtml(stats.answered)}개 풀이</p>
       </div>
-      <div class="amboss-question-list" aria-label="문항 선택 목록">
+      <div class="axioma-question-list" aria-label="문항 선택 목록">
         ${questions.map((item, index) => {
           const key = item.question_id || String(item.question_number || index);
           const selected = currentPracticeAnswers[key];
@@ -2788,24 +4655,33 @@ function renderPracticeSessionSidebar(questions) {
           const isWrong = hasSelected && !practiceSelectionIsCorrect(item, selected);
           const viewed = currentPracticeViewed.has(key);
           const active = index === currentPracticeIndex;
-          const labels = item.labels || {};
+          const correctRate = practiceQuestionCorrectRateLabel(item);
+          const difficulty = practiceQuestionDifficultyLabel(item);
+          const mediaCount = (item.media_refs || []).filter((media) => media?.url).length;
+          const bookmarked = currentPracticeBookmarks.has(key);
           return `
             <button
               type="button"
               class="${active ? "active" : ""} ${viewed ? "viewed" : ""} ${hasSelected ? "answered" : ""}"
               data-practice-jump="${escapeHtml(index)}"
             >
-              <span class="amboss-status ${isCorrect ? "correct" : isWrong ? "wrong" : viewed ? "viewed" : ""}">
+              <span class="axioma-status ${isCorrect ? "correct" : isWrong ? "wrong" : viewed ? "viewed" : ""}">
                 ${isCorrect ? "✓" : isWrong ? "×" : viewed ? "•" : ""}
               </span>
-              <em>${escapeHtml(index + 1)}</em>
-              <strong>${escapeHtml(item.stem || "문항 지문 미추출").slice(0, 36)}</strong>
-              <small>${escapeHtml(practiceLabelText(labels.question_type || labels.cognitive_level) || "과정시험")}</small>
+              <em>${escapeHtml(item.question_number || index + 1)}</em>
+              <span class="axioma-question-copy">
+                <strong>${escapeHtml(item.stem || "문항 지문 미추출").slice(0, 40)}</strong>
+                ${mediaCount ? `<small><i>제시자료 ${escapeHtml(mediaCount)}개</i></small>` : ""}
+              </span>
+              <span class="axioma-question-metrics">
+                ${bookmarked ? `<b class="is-bookmark" title="북마크됨">북마크</b>` : ""}
+                ${correctRate ? `<b>${escapeHtml(correctRate)}</b>` : difficulty ? `<b>${escapeHtml(difficulty)}</b>` : ""}
+              </span>
             </button>
           `;
         }).join("")}
       </div>
-      <div class="amboss-session-footer">
+      <div class="axioma-session-footer">
         <div><strong>${escapeHtml(stats.accuracy)}%</strong><span>정답률</span></div>
         <div><strong>${escapeHtml(formatDuration(stats.avgTime))}</strong><span>평균 시간</span></div>
         <button type="button" data-practice-reset>세트 선택</button>
@@ -2814,22 +4690,126 @@ function renderPracticeSessionSidebar(questions) {
   `;
 }
 
+function practiceQuestionDifficultyLabel(question) {
+  const labels = question?.labels || {};
+  const raw = labels.difficulty_labeled || labels.difficulty || question?.difficulty || "";
+  const normalized = String(raw || "").trim().toLowerCase();
+  const map = {
+    easy: "쉬움",
+    low: "쉬움",
+    basic: "기본",
+    normal: "보통",
+    medium: "보통",
+    moderate: "보통",
+    hard: "어려움",
+    high: "어려움",
+    advanced: "심화",
+  };
+  if (map[normalized]) return map[normalized];
+  return practiceLabelText(raw);
+}
+
+function normalizePercentLabel(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const numeric = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(numeric)) return "";
+  const percent = numeric > 0 && numeric <= 1 ? numeric * 100 : numeric;
+  return `${Math.round(percent)}%`;
+}
+
+function practiceQuestionCorrectRateLabel(question) {
+  const labels = question?.labels || {};
+  const analytics = question?.analytics || question?.stats || {};
+  const value = labels.correct_rate_pct
+    ?? labels.correct_rate
+    ?? labels.item_correct_rate_pct
+    ?? labels.item_correct_rate
+    ?? question?.correct_rate_pct
+    ?? question?.correct_rate
+    ?? analytics.correct_rate_pct
+    ?? analytics.correct_rate;
+  const label = normalizePercentLabel(value);
+  return label ? `정답률 ${label}` : "";
+}
+
+function practiceQuestionSidebarMeta(question) {
+  const labels = question?.labels || {};
+  const topic = questionMajorTopicLabel(question);
+  const type = practiceLabelText(labels.question_type_labeled || labels.question_type || labels.cognitive_level);
+  const professor = practiceLabelText(labels.professor || labels.faculty || labels.instructor);
+  return compactUniqueList([topic, type, professor], 2).join(" · ");
+}
+
+function practiceMediaTypeLabel(item) {
+  const raw = String(item?.modality || item?.media_type || item?.type || "").toLowerCase();
+  if (raw.includes("ct")) return "CT";
+  if (raw.includes("mri")) return "MRI";
+  if (raw.includes("xray") || raw.includes("x-ray") || raw.includes("radiograph") || raw.includes("cxr")) return "X-ray";
+  if (raw.includes("ultrasound") || raw.includes("sono") || raw === "us") return "초음파";
+  if (raw.includes("path") || raw.includes("slide")) return "병리";
+  if (raw.includes("ecg") || raw.includes("ekg")) return "심전도";
+  if (raw.includes("eeg")) return "뇌파";
+  if (raw.includes("pbs") || raw.includes("smear")) return "말초혈액";
+  if (raw.includes("photo")) return "사진";
+  return "제시자료";
+}
+
+function practiceMediaDisplayCaption(item, index) {
+  const raw = String(item?.caption || item?.description || item?.finding || "").trim();
+  const looksLikeFilename = /\.(png|jpe?g|webp|bmp|gif|svg)$/i.test(raw) || /^PAGE\d+_IMG\d+/i.test(raw);
+  if (raw && !looksLikeFilename && raw.length <= 72) return raw;
+  return `제시자료 ${index + 1}`;
+}
+
+function practiceMediaProvenanceTitle(item) {
+  const filename = item?.filename || item?.media_id || item?.storage_id || "";
+  const confidence = normalizePercentLabel(item?.match_confidence);
+  return compactUniqueList([filename, confidence ? `출처 매칭 ${confidence}` : ""], 2).join(" · ");
+}
+
+function renderPracticeLabValues(labValues) {
+  const rows = (labValues || []).filter((row) => row && (row.item || row.name));
+  if (!rows.length) return "";
+  return `
+    <div class="practice-lab-box">
+      <div class="practice-lab-title">검사 결과</div>
+      <table class="practice-lab-table">
+        <tbody>
+          ${rows.map((row) => {
+            const item = String(row.item || row.name || "").trim();
+            const ref = String(row.ref || "").trim();
+            return `<tr><td class="lab-item">${escapeHtml(item)}</td><td class="lab-ref">${ref ? `참고치 ${escapeHtml(ref)}` : ""}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderPracticeMedia(mediaRefs) {
   const media = (mediaRefs || []).filter((item) => item.url);
   if (!media.length) return "";
   return `
     <div class="practice-media-grid">
-      ${media.map((item) => `
+      ${media.map((item, index) => {
+        const typeLabel = practiceMediaTypeLabel(item);
+        const displayCaption = practiceMediaDisplayCaption(item, index);
+        const lightboxCaption = compactUniqueList([displayCaption, typeLabel], 2).join(" · ");
+        return `
         <figure class="practice-media-card">
           <img
             src="${escapeHtml(item.url)}"
-            alt="${escapeHtml(item.caption || item.media_id || "문항 제시자료")}"
+            alt="${escapeHtml(displayCaption || "제시자료")}"
             data-lightbox-src="${escapeHtml(item.url)}"
-            data-lightbox-caption="${escapeHtml(item.caption || item.media_id || "문항 제시자료")}"
+            data-lightbox-caption="${escapeHtml(lightboxCaption || "제시자료")}"
           />
-          <figcaption>${escapeHtml(item.modality || item.filename || "제시자료")} · 출처 매칭 ${escapeHtml(item.match_confidence ?? "-")}</figcaption>
+          <figcaption>
+            <strong>${escapeHtml(displayCaption)}</strong>
+            ${typeLabel ? `<span>${escapeHtml(typeLabel)}</span>` : ""}
+          </figcaption>
         </figure>
-      `).join("")}
+      `;
+      }).join("")}
     </div>
   `;
 }
@@ -2980,9 +4960,8 @@ function renderPracticeTabPanel(context) {
   }
 
   return `
-    ${renderPracticeQuestionUnderstanding(question, labels)}
-    <section class="amboss-key-info">
-      <span class="amboss-avatar">P</span>
+    <section class="axioma-key-info">
+      <span class="axioma-avatar">P</span>
       <div>
         <small>${escapeHtml(helperStatus)}</small>
         <p>${escapeHtml(keyInfo)}</p>
@@ -2994,20 +4973,20 @@ function renderPracticeTabPanel(context) {
 
 function capturePracticeScrollState({ includeQuestionPane = false } = {}) {
   return {
-    sidebarScrollTop: document.querySelector(".amboss-question-list")?.scrollTop ?? null,
-    questionPaneScrollTop: includeQuestionPane ? document.querySelector(".amboss-question-pane")?.scrollTop ?? null : null,
+    sidebarScrollTop: document.querySelector(".axioma-question-list")?.scrollTop ?? null,
+    questionPaneScrollTop: includeQuestionPane ? document.querySelector(".axioma-question-pane")?.scrollTop ?? null : null,
   };
 }
 
 function restorePracticeScrollState(scrollState, { restoreSidebar = true, restoreQuestionPane = false } = {}) {
   if (!scrollState) return;
   window.requestAnimationFrame(() => {
-    const sidebar = document.querySelector(".amboss-question-list");
+    const sidebar = document.querySelector(".axioma-question-list");
     if (restoreSidebar && sidebar && scrollState.sidebarScrollTop !== null) {
       sidebar.scrollTop = scrollState.sidebarScrollTop;
     }
 
-    const questionPane = document.querySelector(".amboss-question-pane");
+    const questionPane = document.querySelector(".axioma-question-pane");
     if (restoreQuestionPane && questionPane && scrollState.questionPaneScrollTop !== null) {
       questionPane.scrollTop = scrollState.questionPaneScrollTop;
     }
@@ -3023,7 +5002,7 @@ function renderStudentPracticeQuestion(options = {}) {
   const scrollState = capturePracticeScrollState({
     includeQuestionPane: preserveQuestionScroll,
   });
-  studentPracticeStage.className = "practice-layout amboss-layout";
+  studentPracticeStage.className = "practice-layout axioma-layout";
   const questions = currentPracticeExam?.questions || [];
   const question = questions[currentPracticeIndex];
   if (!question) {
@@ -3076,7 +5055,6 @@ function renderStudentPracticeQuestion(options = {}) {
   const hasVisibleMedia = (question.media_refs || []).some((item) => item.url);
   const explanationInfo = practiceExplanationInfo(question, answer, labels, conceptTags);
   const isBookmarked = currentPracticeBookmarks.has(questionKey);
-  const flagType = currentPracticeFlags[questionKey] || "";
   const elapsedLabel = formatDuration(getPracticeTimeForQuestion(questionKey));
   const timerButtonLabel = hasConfirmedAnswer
     ? "기록 완료"
@@ -3084,7 +5062,6 @@ function renderStudentPracticeQuestion(options = {}) {
   const timerStatusLabel = hasConfirmedAnswer
     ? "기록 완료"
     : currentPracticeTimerPaused ? "일시정지" : "기록 중";
-  const questionMetaChips = practiceQuestionMetaChips(question);
   const helperStatus = hasConfirmedAnswer
     ? revealAnswer
       ? selectedIsCorrect ? "정답입니다." : `오답입니다. 정답은 ${answerLabel}번입니다.`
@@ -3094,19 +5071,21 @@ function renderStudentPracticeQuestion(options = {}) {
     : "풀이 후 정답과 근거를 확인할 수 있습니다.";
   const answerPanel = hasConfirmedAnswer
     ? `
-      <section class="uworld-explanation-card ${revealAnswer && selectedIsCorrect ? "correct" : revealAnswer ? "incorrect" : ""}">
+      <section class="axioma-explanation-card ${revealAnswer && selectedIsCorrect ? "correct" : revealAnswer ? "incorrect" : ""}">
         <span>${revealAnswer ? selectedIsCorrect ? "정답" : "오답" : "선택 저장"}</span>
         <strong>${revealAnswer ? selectedIsCorrect ? `${escapeHtml(answerLabel)}번` : `정답 ${escapeHtml(answerLabel)}번` : `${escapeHtml(selectedAnswer)}번 선택됨`}</strong>
         ${revealAnswer
           ? `
             ${explanationInfo.text ? `<p>${escapeHtml(explanationInfo.text)}</p>` : ""}
+            ${renderQuestionCitations(question)}
+            ${renderTextbookEvidenceLinks(question, labels, conceptTags)}
           `
           : "<p>시험 모드에서는 세션 종료 후 해설을 확인하도록 설계할 수 있습니다.</p>"
         }
       </section>
     `
     : `
-      <section class="uworld-explanation-card pending">
+      <section class="axioma-explanation-card pending">
         <span>학습 패널</span>
         <strong>풀이 후 근거를 확인합니다.</strong>
         <p>정답, 해설, 출제 포인트, 복습 카드 초안을 한 화면에 모읍니다.</p>
@@ -3144,7 +5123,7 @@ function renderStudentPracticeQuestion(options = {}) {
           || answerKeys.includes(normalizedKey)
         );
       return `
-        <button type="button" class="amboss-choice ${className}" data-practice-choice="${escapeHtml(normalizedKey)}">
+        <button type="button" class="axioma-choice ${className}" data-practice-choice="${escapeHtml(normalizedKey)}">
           <span>${escapeHtml(normalizedKey)}</span>
           <strong>${escapeHtml(text)}</strong>
           <em>${isCorrect ? "정답" : isWrong && isSelected ? "내 선택" : isPendingSelected ? "선택됨" : revealAnswer ? "오답" : ""}</em>
@@ -3172,32 +5151,34 @@ function renderStudentPracticeQuestion(options = {}) {
     : "";
 
   studentPracticeStage.innerHTML = `
-    <section class="amboss-practice-shell ${currentPracticeSidebarCollapsed ? "sidebar-collapsed" : ""}">
-      <header class="amboss-topbar">
+    <section class="axioma-practice-shell ${currentPracticeSidebarCollapsed ? "sidebar-collapsed" : ""}">
+      <header class="axioma-topbar">
         <button
           type="button"
-          class="amboss-menu-button"
+          class="axioma-menu-button"
           data-practice-sidebar-toggle
           aria-expanded="${currentPracticeSidebarCollapsed ? "false" : "true"}"
           aria-label="${currentPracticeSidebarCollapsed ? "문항 목록 열기" : "문항 목록 닫기"}"
         >
           ${currentPracticeSidebarCollapsed ? "문항 열기" : "문항 닫기"}
         </button>
-        <div class="amboss-search">P:accine Library 검색 <kbd>⌘K</kbd></div>
-        <div class="amboss-user">
+        <div class="axioma-search">
+          <span>${escapeHtml(currentPracticeExam?.summary?.course_name || currentPracticeExam?.exam?.title || "P:accine Library")}</span>
+          <kbd>${escapeHtml(answeredCount)}/${escapeHtml(questions.length)} 풀이</kbd>
+        </div>
+        <div class="axioma-user">
           <span>Y</span>
           <div><strong>Yunseong</strong><small>PNU Medicine</small></div>
         </div>
       </header>
-      <button type="button" class="amboss-sidebar-rail" data-practice-sidebar-toggle>문항 목록 열기</button>
+      <button type="button" class="axioma-sidebar-rail" data-practice-sidebar-toggle>문항 목록 열기</button>
 
-      <div class="amboss-session-body">
+      <div class="axioma-session-body">
         ${renderPracticeSessionSidebar(questions)}
-        <main class="amboss-question-pane">
-          <div class="amboss-reader-toolbar">
+        <main class="axioma-question-pane">
+          <div class="axioma-reader-toolbar">
             <div class="reader-title-group">
-              <span>Q${escapeHtml(question.question_number || currentPracticeIndex + 1)} · ${escapeHtml(practiceQuestionTypeLabel(question))}</span>
-              ${questionMetaChips ? `<div class="question-toolbar-meta">${questionMetaChips}</div>` : ""}
+              <span>문항 ${escapeHtml(currentPracticeIndex + 1)}</span>
             </div>
             <strong>
               ${escapeHtml(viewedCount)} 열람 · ${escapeHtml(answeredCount)} 풀이 · ${escapeHtml(correctCount)} 정답 ·
@@ -3220,19 +5201,19 @@ function renderStudentPracticeQuestion(options = {}) {
             </div>
           </div>
 
-          <article class="amboss-vignette-card">
-            <div class="question-source-row">${sourceTags}</div>
-            <p class="amboss-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
+          <article class="axioma-vignette-card">
+            <p class="axioma-stem">${escapeHtml(question.stem || "문항 지문 미추출")}</p>
+            ${renderPracticeLabValues(question.lab_values)}
             ${stimulusText && !stimulusIsPlaceholder ? `<blockquote class="practice-stimulus">${escapeHtml(stimulusText)}</blockquote>` : ""}
             ${stimulusIsPlaceholder && !hasVisibleMedia ? '<div class="practice-media-missing">원본 문항의 제시 이미지가 아직 문항과 연결되지 않았습니다.</div>' : ""}
             ${renderPracticeMedia(question.media_refs || [])}
           </article>
 
-          <div class="amboss-choice-list">${choiceRows}</div>
+          <div class="axioma-choice-list">${choiceRows}</div>
           ${multiAnswerConfirmPanel}
 
           ${revealAnswer ? `
-            <nav class="amboss-info-tabs" aria-label="문항 학습 도구">
+            <nav class="axioma-info-tabs" aria-label="문항 학습 도구">
               ${renderPracticeToolTabs(currentPracticeTab)}
             </nav>
 
@@ -3251,24 +5232,16 @@ function renderStudentPracticeQuestion(options = {}) {
             })}
           ` : ""}
 
-          <section class="amboss-study-footer">
-            ${renderPracticeSessionSnapshot(questions)}
-            <div class="practice-question-controls">
-              <span>파트 라벨</span>
-              <strong>${escapeHtml(practiceLabelText(conceptTags[0] || labels.cognitive_level) || "개념 매핑 필요")}</strong>
-              <p>추후 시험지, 기초/임상 파트, 교수자 태그 기준으로 랜덤 세트를 구성하는 기준값입니다.</p>
-              <div class="flag-action-row" aria-label="문항 검토 표시">
-                <button type="button" class="secondary-button ${flagType === "typo" ? "is-active" : ""}" data-practice-flag="typo">오탈자</button>
-                <button type="button" class="secondary-button ${flagType === "image_missing" ? "is-active" : ""}" data-practice-flag="image_missing">이미지 누락</button>
-                <button type="button" class="secondary-button ${flagType === "explanation" ? "is-active" : ""}" data-practice-flag="explanation">해설 보강</button>
-                <button type="button" class="secondary-button ${flagType === "clear" ? "is-active" : ""}" data-practice-flag="clear">표시 해제</button>
-              </div>
-            </div>
+          <section class="axioma-study-footer">
+            ${practiceSessionIsComplete(questions)
+              ? renderPracticeCompletionReport(questions)
+              : renderPracticeSessionSnapshot(questions)
+            }
           </section>
         </main>
       </div>
 
-      <footer class="amboss-bottom-nav">
+      <footer class="axioma-bottom-nav">
         <button type="button" class="secondary-button" data-practice-reset>세트 선택</button>
         <button type="button" class="secondary-button" data-practice-nav="prev" ${currentPracticeIndex <= 0 ? "disabled" : ""}>‹ 이전 문항</button>
         <button type="button" data-practice-nav="next" ${currentPracticeIndex >= questions.length - 1 ? "disabled" : ""}>다음 문항 ›</button>
@@ -3284,19 +5257,7 @@ function renderStudentPracticeQuestion(options = {}) {
 function currentPracticeAnkiCards() {
   const question = currentPracticeExam?.questions?.[currentPracticeIndex];
   if (!question) return [];
-  const answer = practicePrimaryAnswer(question);
-  const labels = question.labels || {};
-  const conceptTags = Array.isArray(labels.concept_tags) ? labels.concept_tags : [];
-  const explanationInfo = practiceExplanationInfo(question, answer, labels, conceptTags);
-  const ragAnkiState = getPracticeRagAnkiState(question, labels, conceptTags);
-  return buildPracticeAnkiCandidates({
-    answer,
-    conceptTags,
-    explanationInfo,
-    labels,
-    question,
-    ragAnkiState,
-  });
+  return buildPracticeAnkiCandidatesForQuestion(question, currentPracticeIndex);
 }
 
 function selectedPracticeAnkiText() {
@@ -3373,17 +5334,11 @@ function commitPracticeAnswer(question, questionKey, selectionValue) {
     : selectedKeys[0];
   delete currentPracticePendingAnswers[questionKey];
   currentPracticeExpandedChoices[questionKey] = selectedKeys[0];
-  currentPracticeAnswerEvents[questionKey] = {
-    session_id: currentPracticeSessionId,
-    question_id: questionKey,
-    answered_at: new Date().toISOString(),
-    choice_selected: selectedKeys.join(","),
-    choices_selected: selectedKeys,
-    is_correct: practiceSelectionIsCorrect(question, selectedKeys),
-    time_spent_sec: getPracticeTimeForQuestion(questionKey),
-    is_bookmarked: currentPracticeBookmarks.has(questionKey),
-    flag_type: currentPracticeFlags[questionKey] || null,
-  };
+  const attemptEvent = buildPracticeAttemptEvent(question, questionKey, selectedKeys);
+  currentPracticeAnswerEvents[questionKey] = attemptEvent;
+  submitPracticeAttempt(attemptEvent).catch((error) => {
+    console.warn("practice attempt sync failed", error);
+  });
   savePracticeState();
   return true;
 }
@@ -3402,9 +5357,27 @@ async function startStudentPractice() {
       throw new Error(payload.detail || "문항 세트 로드 실패");
     }
     const summary = payload.summary || {};
+    const shuffle = Boolean(studentPracticeShuffle?.checked);
+    const allQuestions = payload.questions || [];
+    let questions = shuffle ? shuffleArray(allQuestions) : [...allQuestions];
+    const countRaw = studentPracticeCount?.value || "all";
+    let limited = false;
+    if (countRaw !== "all") {
+      const limit = Number(countRaw);
+      if (Number.isFinite(limit) && limit > 0 && questions.length > limit) {
+        // 부분 세트를 뽑을 땐 항상 무작위로 골라야 편향이 없다(랜덤 미체크여도 표본은 랜덤 추출).
+        questions = (shuffle ? questions : shuffleArray(questions)).slice(0, limit);
+        limited = true;
+      }
+    }
+    const modifiedPayload = { ...payload, questions };
+    const parts = [];
+    if (limited) parts.push(`${allQuestions.length}문항 중 ${questions.length}문항을 뽑았습니다.`);
+    if (shuffle) parts.push("순서는 랜덤입니다.");
+    const statusSuffix = parts.length ? ` ${parts.join(" ")}` : "";
     activatePracticePayload(
-      payload,
-      `${examTitle(summary)} 세트를 열었습니다. ${payload.questions?.length || 0}문항을 풀 수 있습니다.`
+      modifiedPayload,
+      `${examTitle(summary)} 세트를 열었습니다. ${questions?.length || 0}문항을 풀 수 있습니다.${statusSuffix}`
     );
   } catch (error) {
     if (studentPracticeStatus) {
@@ -3526,37 +5499,138 @@ function updateSelectedMediaInput() {
   } catch (error) {
     // Selection persistence is a convenience feature; generation still works without it.
   }
+  syncSimpleImageSelection();
+}
+
+// ── 간단 생성 모드: 기존 이미지 썸네일 피커 (미디어 뱅크와 selectedMediaIds 공유) ──
+function updateSimpleImageCount() {
+  const el = document.querySelector("#simpleImageCount");
+  if (el) el.textContent = `기존 이미지 ${selectedMediaIds.size}개 선택`;
+}
+
+function syncSimpleImageSelection() {
+  document.querySelectorAll("#simpleImagePicker [data-simple-media-id]").forEach((btn) => {
+    btn.classList.toggle("is-selected", selectedMediaIds.has(btn.dataset.simpleMediaId));
+  });
+  updateSimpleImageCount();
+}
+
+function renderSimpleImagePicker() {
+  const grid = document.querySelector("#simpleImagePicker");
+  if (!grid) return;
+  if (!mediaAssets.length) {
+    grid.className = "simple-image-grid empty";
+    grid.textContent = "저장된 이미지가 없습니다. 위 '직접 업로드'로 새 이미지를 넣거나, 오른쪽 제시자료에서 먼저 저장하세요.";
+    updateSimpleImageCount();
+    return;
+  }
+  const query = (document.querySelector("#simpleImageSearch")?.value || "").trim().toLowerCase();
+  const assets = mediaAssets.filter((asset) => !query || mediaMaterialText(asset).includes(query));
+  if (!assets.length) {
+    grid.className = "simple-image-grid empty";
+    grid.textContent = "검색 결과가 없습니다.";
+    return;
+  }
+  grid.className = "simple-image-grid";
+  grid.innerHTML = assets
+    .map((asset) => {
+      const selected = selectedMediaIds.has(asset.asset_id) ? " is-selected" : "";
+      const cap = asset.caption || asset.diagnosis || asset.original_name || asset.modality || "이미지";
+      const tag = [asset.modality || asset.asset_type, asset.diagnosis].filter(Boolean).join(" · ");
+      return `
+        <button type="button" class="simple-image-thumb${selected}" data-simple-media-id="${escapeHtml(asset.asset_id)}" title="${escapeHtml(cap)}">
+          <img src="${escapeHtml(asset.url)}" alt="${escapeHtml(cap)}" loading="lazy" />
+          ${tag ? `<span class="simple-image-cap">${escapeHtml(tag)}</span>` : ""}
+          <span class="simple-image-check" aria-hidden="true">✓</span>
+        </button>`;
+    })
+    .join("");
+  updateSimpleImageCount();
+}
+
+let archiveAllSets = [];
+let archiveStatusMode = "all";
+let archiveSelectedSetId = "";
+
+function archiveStatusMeta(status) {
+  const raw = String(status || "draft");
+  if (raw.includes("approved")) return { label: "승인 완료", cls: "approved" };
+  if (raw.includes("pending") || raw.includes("review")) return { label: "검토 대기", cls: "pending" };
+  return { label: "초안", cls: "draft" };
+}
+
+function archiveMatchesStatus(set) {
+  if (archiveStatusMode === "all") return true;
+  const cls = archiveStatusMeta(set.review_status).cls;
+  return archiveStatusMode === cls;
 }
 
 function renderArchiveSets(sets) {
+  archiveAllSets = sets || [];
+  renderFilteredArchiveSets();
+}
+
+function renderFilteredArchiveSets() {
   if (!archiveList) return;
-  if (!sets.length) {
+  const query = (document.querySelector("#archiveSearch")?.value || "").trim().toLowerCase();
+  const filtered = archiveAllSets.filter((set) => {
+    if (!archiveMatchesStatus(set)) return false;
+    if (!query) return true;
+    const hay = `${set.source_name || ""} ${set.subject || ""} ${set.unit || ""} ${set.set_id || ""}`.toLowerCase();
+    return hay.includes(query);
+  });
+  if (!archiveAllSets.length) {
     archiveList.className = "archive-empty";
     archiveList.textContent = "아직 아카이브된 문항 세트가 없습니다.";
     return;
   }
+  if (!filtered.length) {
+    archiveList.className = "archive-empty";
+    archiveList.textContent = "조건에 맞는 문항 세트가 없습니다.";
+    return;
+  }
   archiveList.className = "archive-list";
-  archiveList.innerHTML = sets
-    .map((set) => `
-      <article class="archive-row">
-        <div>
-          <strong>${escapeHtml(set.source_name || set.set_id)}</strong>
-          <p>${escapeHtml(set.subject || "-")} · ${escapeHtml(set.unit || "-")} · ${escapeHtml(set.review_status || "draft")}</p>
+  archiveList.innerHTML = filtered
+    .map((set) => {
+      const status = archiveStatusMeta(set.review_status);
+      return `
+      <article class="archive-card">
+        <div class="archive-card-head">
+          <div class="archive-card-title">
+            <strong>${escapeHtml(set.source_name || set.set_id)}</strong>
+            <span>${escapeHtml(set.subject || "-")} · ${escapeHtml(set.unit || "-")}</span>
+          </div>
+          <span class="archive-status-badge ${status.cls}">${escapeHtml(status.label)}</span>
         </div>
-        <dl>
-          <div><dt>문항</dt><dd>${escapeHtml(set.question_count || 0)}</dd></div>
-          <div><dt>이미지</dt><dd>${escapeHtml(set.image_question_count || 0)}</dd></div>
-          <div><dt>확인</dt><dd>${escapeHtml(set.needs_review_count || 0)}</dd></div>
-          <div><dt>승인</dt><dd>${escapeHtml(set.approved_count || 0)}</dd></div>
-        </dl>
+        <div class="archive-stats">
+          <span><b>${escapeHtml(set.question_count || 0)}</b>문항</span>
+          <span><b>${escapeHtml(set.image_question_count || 0)}</b>이미지</span>
+          <span><b>${escapeHtml(set.needs_review_count || 0)}</b>확인 필요</span>
+          <span><b>${escapeHtml(set.approved_count || 0)}</b>승인</span>
+        </div>
         <div class="archive-actions">
           <button type="button" class="secondary-button" data-open-set="${escapeHtml(set.set_id)}">문항 열기</button>
-          <button type="button" class="secondary-button" data-export-cbt-hwp="${escapeHtml(set.set_id)}">CBT HWP 양식</button>
-          <button type="button" class="secondary-button" data-export-anki="${escapeHtml(set.set_id)}">Anki Export</button>
+          <button type="button" class="primary-button" data-export-cbt-docx="${escapeHtml(set.set_id)}">의학교육실 HWP(.docx)</button>
+          <button type="button" class="secondary-button" data-export-cbt-hwp="${escapeHtml(set.set_id)}">CBT HWP</button>
+          <button type="button" class="secondary-button" data-export-anki="${escapeHtml(set.set_id)}">Anki</button>
         </div>
       </article>
-    `)
+    `;
+    })
     .join("");
+}
+
+function initArchiveControls() {
+  const search = document.querySelector("#archiveSearch");
+  search?.addEventListener("input", renderFilteredArchiveSets);
+  const chips = Array.from(document.querySelectorAll("#archiveStatusFilter .archive-status-chip"));
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.toggle("active", c === chip));
+      archiveStatusMode = chip.dataset.archiveStatus || "all";
+      renderFilteredArchiveSets();
+    });
+  });
 }
 
 function renderCategoryGrid(container, mode) {
@@ -3865,12 +5939,28 @@ function renderPromptReady(data) {
       <h3>프롬프트 생성 완료</h3>
         <span class="review">생성 대기</span>
     </header>
-    <p>모델 호출 없이 검토용 프롬프트와 추출 텍스트를 준비했습니다.</p>
+    <p>생성 엔진 호출 없이 검토용 설계 자료와 추출 텍스트를 준비했습니다.</p>
     <ul class="choices">
       <li>프롬프트: ${escapeHtml(data.paths?.prompt)}</li>
       <li>추출 텍스트: ${escapeHtml(data.paths?.extracted_text)}</li>
       <li>출력 패킷: ${escapeHtml(data.paths?.output)}</li>
     </ul>
+  `;
+}
+
+function renderItemQuality(item) {
+  const quality = item?.item_quality || {};
+  const flaws = Array.isArray(quality.flaws) ? quality.flaws : [];
+  const hardFailures = Array.isArray(quality.hard_rule_failures) ? quality.hard_rule_failures : [];
+  const cognitive = item?.cognitive_level || "";
+  if (!flaws.length && !hardFailures.length && !cognitive) return "";
+  return `
+    <div class="quality-grid" aria-label="자동 품질 검사 결과">
+      <span><b>${escapeHtml(flaws.length)}</b>형식 결함</span>
+      <span><b>${escapeHtml(hardFailures.length)}</b>NBME 재검토</span>
+      ${cognitive ? `<span><b>${escapeHtml(cognitive)}</b>인지수준</span>` : ""}
+    </div>
+    ${flaws.length ? `<p class="warning-banner">자동 QC: ${escapeHtml(flaws.join(", "))}</p>` : ""}
   `;
 }
 
@@ -3898,6 +5988,7 @@ function renderQuestions(data) {
               ${item.needs_review ? "확인 필요" : "초안 양호"}
             </span>
           </header>
+          ${renderItemQuality(item)}
           ${renderQuestionStem(item)}
           ${renderQuestionTable(item.data_table)}
           <ul class="choices">${choices}</ul>
@@ -3976,6 +6067,14 @@ function renderReviewQuestionSet(packet) {
       const reviewStatus = item.review_status || "draft";
       const isImageBased = (item.question_type || setQuestionType) === "image_based";
       const missingImage = isImageBased && !(item.image_refs || []).length;
+      const blueprint = item.question_blueprint || {};
+      const blueprintTarget = blueprint.target || {};
+      const blueprintLabel = blueprintTarget.axis_type
+        ? `${practiceLabelText(blueprintTarget.axis_type)} · 축 ${blueprintTarget.axis_ids?.length || 0}개`
+        : "평가 축 미지정";
+      const blueprintWarning = blueprint.status === "blocked"
+        ? ` · ${blueprint.block_reasons?.join(", ") || "설계도 확인 필요"}`
+        : "";
       return `
         <article class="review-editor" data-question-id="${escapeHtml(item.question_id || `question_${index + 1}`)}">
           <header>
@@ -3987,6 +6086,8 @@ function renderReviewQuestionSet(packet) {
           </header>
 
           ${missingImage ? `<p class="warning-banner">이미지/자료해석형 문항인데 연결된 제시자료가 없습니다. 문항 생성 화면의 제시자료 영역에서 이미지를 선택하거나 문항 유형을 조정해주세요.</p>` : ""}
+          ${blueprint.blueprint_id ? `<p class="policy-copy"><strong>문항 설계도:</strong> ${escapeHtml(blueprintLabel)}${escapeHtml(blueprintWarning)} · 의료 승인 전 초안</p>` : ""}
+          ${renderItemQuality(item)}
           ${renderQuestionImages(item.image_refs || [])}
           ${renderQuestionTable(item.data_table)}
 
@@ -4077,6 +6178,102 @@ async function loadQuestionSetWithOptions(setId, options = {}) {
   }
 }
 
+// ── 근거 검토 (Evidence Review) ────────────────────────────────────
+let evidenceReviewStatus = "draft";
+
+async function loadEvidenceReview() {
+  const listEl = document.querySelector("#evidenceReviewList");
+  if (!listEl) return;
+  listEl.textContent = "불러오는 중…";
+  try {
+    const response = await fetch(`/api/evidence/review?status=${encodeURIComponent(evidenceReviewStatus)}&limit=80`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "근거 목록 로드 실패");
+    document.querySelectorAll("#evidenceStatusTabs [data-count]").forEach((el) => {
+      el.textContent = data.counts?.[el.dataset.count] ?? 0;
+    });
+    renderEvidenceReviewList(data.items || [], data.total || 0);
+  } catch (error) {
+    listEl.className = "evidence-review-list";
+    listEl.innerHTML = `<p class="inline-error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderEvidenceReviewList(items, total) {
+  const listEl = document.querySelector("#evidenceReviewList");
+  if (!listEl) return;
+  if (!items.length) {
+    listEl.className = "evidence-review-list empty";
+    listEl.textContent = evidenceReviewStatus === "draft"
+      ? "검토 대기 중인 근거가 없습니다."
+      : "해당 상태의 문항이 없습니다.";
+    return;
+  }
+  const typeLabel = { guideline: "가이드라인", review: "리뷰", rct: "RCT", meta: "메타분석" };
+  listEl.className = "evidence-review-list";
+  listEl.innerHTML = `${total > items.length ? `<p class="evidence-review-count">${items.length} / ${total}건 표시 (상위 80건)</p>` : ""}` +
+    items.map((it) => {
+      const ev = (it.evidence || [])[0];
+      const tags = (it.concept_tags || []).slice(0, 4).map((t) => `<span class="ev-tag">${escapeHtml(String(t).replace(/_/g, " "))}</span>`).join("");
+      const evHtml = ev
+        ? `<a class="ev-cite" href="${escapeHtml(ev.url || "#")}" target="_blank" rel="noopener">
+             <span class="ev-cite-type">${escapeHtml(typeLabel[ev.type] || ev.type || "근거")}</span>
+             <strong>${escapeHtml(ev.title || "")}</strong>
+             <small>${escapeHtml([ev.journal, ev.year].filter(Boolean).join(" · "))}${ev.matched_concept ? ` · 검색어: ${escapeHtml(ev.matched_concept)}` : ""}</small>
+           </a>`
+        : `<p class="ev-none">자동 매칭 실패${it.evidence_note ? ` — ${escapeHtml(it.evidence_note)}` : ""}</p>`;
+      const actions = ev
+        ? `<button type="button" class="ev-approve" data-ev-action="approve" data-ev-exam="${escapeHtml(it.exam_id)}" data-ev-qid="${escapeHtml(it.question_id)}">승인</button>
+           <button type="button" class="ev-reject" data-ev-action="reject" data-ev-exam="${escapeHtml(it.exam_id)}" data-ev-qid="${escapeHtml(it.question_id)}">반려</button>`
+        : `<button type="button" class="ev-reject" data-ev-action="reject" data-ev-exam="${escapeHtml(it.exam_id)}" data-ev-qid="${escapeHtml(it.question_id)}">근거 없음으로 확정</button>`;
+      return `
+        <article class="evidence-review-item" data-ev-row="${escapeHtml(it.question_id)}">
+          <div class="ev-item-head">
+            <span class="ev-src">${escapeHtml(it.source_name || it.exam_id)} · ${escapeHtml(String(it.question_number || ""))}번</span>
+            <span class="ev-status ${escapeHtml(it.evidence_status)}">${escapeHtml(it.evidence_status)}</span>
+          </div>
+          <p class="ev-stem">${escapeHtml(it.stem)}…</p>
+          <div class="ev-tags">${tags}</div>
+          ${evHtml}
+          <div class="ev-actions">${actions}</div>
+        </article>`;
+    }).join("");
+}
+
+document.querySelector("#evidenceStatusTabs")?.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-evidence-status]");
+  if (!btn) return;
+  document.querySelectorAll("#evidenceStatusTabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  evidenceReviewStatus = btn.dataset.evidenceStatus;
+  loadEvidenceReview();
+});
+
+document.querySelector("#evidenceReloadButton")?.addEventListener("click", () => loadEvidenceReview());
+
+document.querySelector("#evidenceReviewList")?.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-ev-action]");
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const response = await fetch("/api/evidence/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        exam_id: btn.dataset.evExam,
+        question_id: btn.dataset.evQid,
+        action: btn.dataset.evAction,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "업데이트 실패");
+    document.querySelector(`[data-ev-row="${window.CSS.escape(btn.dataset.evQid)}"]`)?.remove();
+    loadEvidenceReview();
+  } catch (error) {
+    btn.disabled = false;
+    btn.textContent = "실패 · 다시";
+  }
+});
+
 async function loadLatestQuestionSetForReview() {
   if (!results || currentQuestionSet) return;
   if (latestReviewLoadPromise) return latestReviewLoadPromise;
@@ -4166,45 +6363,6 @@ async function checkHealth() {
   }
 }
 
-function renderProviderOptions(catalog) {
-  if (!providerSelect || !modelSelect) return;
-  modelCatalog = catalog;
-  providerSelect.innerHTML = "";
-  for (const provider of catalog.providers || []) {
-    const option = document.createElement("option");
-    option.value = provider.id;
-    option.textContent = provider.available ? provider.label : `${provider.label} (미연결)`;
-    providerSelect.appendChild(option);
-  }
-  providerSelect.value = "auto";
-  renderModelOptions();
-}
-
-function renderModelOptions() {
-  if (!modelCatalog || !providerSelect || !modelSelect) return;
-  const selectedProvider = providerSelect.value;
-  const provider = (modelCatalog.providers || []).find((item) => item.id === selectedProvider);
-  const models = provider?.models || [{ id: "auto", label: "자동", note: "" }];
-  modelSelect.innerHTML = "";
-  for (const model of models) {
-    const option = document.createElement("option");
-    option.value = model.id;
-    option.textContent = model.note ? `${model.label} · ${model.note}` : model.label;
-    modelSelect.appendChild(option);
-  }
-}
-
-async function loadModels() {
-  if (!modelSelect) return;
-  try {
-    const response = await fetch("/api/models");
-    if (!response.ok) throw new Error("model catalog failed");
-    renderProviderOptions(await response.json());
-  } catch (error) {
-    modelSelect.innerHTML = '<option value="auto">자동</option>';
-  }
-}
-
 async function loadMediaAssets() {
   try {
     const response = await fetch("/api/media");
@@ -4213,6 +6371,7 @@ async function loadMediaAssets() {
     mediaAssets = payload.assets || [];
     if (metricMedia) metricMedia.textContent = mediaAssets.length;
     renderMediaAssets(mediaAssets);
+    renderSimpleImagePicker();
   } catch (error) {
     if (mediaBank) {
       mediaBank.className = "media-bank-empty";
@@ -4287,9 +6446,9 @@ mediaTypeFilters.forEach((input) => {
   });
 });
 
-bindChange(providerSelect, renderModelOptions);
 bindChange(includeImagesToggle, handleImageToggleChange);
 bindChange(questionTypeSelect, syncImagePolicyWithQuestionType);
+bindChange(questionTypeSelect, syncTargetAxisWithQuestionType);
 
 pageLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
@@ -4304,7 +6463,11 @@ pageLinks.forEach((link) => {
 roleButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const role = button.dataset.roleToggle;
-    showPage(role === "student" ? "student-dashboard" : "faculty-dashboard");
+    if (role === "student") {
+      window.location.assign("/student-v2/home.html");
+      return;
+    }
+    showPage("faculty-dashboard");
   });
 });
 
@@ -4319,18 +6482,62 @@ document.addEventListener("click", (event) => {
 });
 
 studentCourseBuilder?.addEventListener("click", (event) => {
+  // 챕터 펼치기/접기 (셰브런 전용)
   const majorToggle = event.target.closest("[data-library-major-toggle]");
   if (majorToggle) {
     majorToggle.closest(".library-unit-card")?.classList.toggle("is-open");
     return;
   }
 
+  // 대분류 헤더 클릭 = 그 대분류 전체 담기(+펼치기)
+  const majorSelect = event.target.closest("[data-library-major-select]");
+  if (majorSelect) {
+    const majorId = majorSelect.dataset.libraryMajorSelect;
+    const nextSelected = !isLibraryMajorFullySelected(majorId);
+    setLibraryMajorSelected(majorId, nextSelected);
+    if (nextSelected) majorSelect.closest(".library-unit-card")?.classList.add("is-open");
+    syncLibrarySelectionUI();
+    return;
+  }
+
+  // 전체 선택/해제
+  if (event.target.closest("[data-library-select-all]")) {
+    toggleLibrarySelectAll();
+    return;
+  }
+
+  // 선택 문항으로 세션 시작
+  if (event.target.closest("[data-library-start-selection]")) {
+    startStudentLibrarySelection();
+    return;
+  }
+
+  // 과목 전체 풀기(즉시)
   const startButton = event.target.closest("[data-library-practice-start]");
   if (!startButton) return;
   startStudentLibraryPractice(
     startButton.dataset.libraryFilterId,
     startButton.dataset.libraryPracticeScope
   );
+});
+
+studentCourseBuilder?.addEventListener("change", (event) => {
+  const topicBox = event.target.closest("[data-library-topic-check]");
+  if (topicBox) {
+    setLibraryTopicSelected(topicBox.dataset.libraryTopicCheck, topicBox.checked);
+    syncLibrarySelectionUI();
+    return;
+  }
+  const majorBox = event.target.closest("[data-library-major-check]");
+  if (majorBox) {
+    setLibraryMajorSelected(majorBox.dataset.libraryMajorCheck, majorBox.checked);
+    syncLibrarySelectionUI();
+  }
+});
+
+studentCourseBuilder?.addEventListener("input", (event) => {
+  const search = event.target.closest(".library-search");
+  if (search) filterLibraryTopics(search.value);
 });
 
 if (medlegalCaseList) {
@@ -4510,6 +6717,40 @@ if (archiveList) {
       return;
     }
 
+    const cbtDocxButton = event.target.closest("[data-export-cbt-docx]");
+    if (cbtDocxButton) {
+      cbtDocxButton.disabled = true;
+      const originalText = cbtDocxButton.textContent;
+      cbtDocxButton.textContent = "생성 중";
+      try {
+        const response = await fetch(
+          `/api/question-sets/${encodeURIComponent(cbtDocxButton.dataset.exportCbtDocx)}/export/cbt-docx`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              include_unapproved: false,
+              include_explanations: true,
+            }),
+          }
+        );
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || "의학교육실 HWP(.docx) 양식 생성 실패");
+        }
+        window.location.href = payload.download_url;
+      } catch (error) {
+        archiveList.insertAdjacentHTML(
+          "afterbegin",
+          `<p class="inline-error">의학교육실 HWP(.docx) 양식 생성 실패: ${escapeHtml(error.message)}</p>`
+        );
+      } finally {
+        cbtDocxButton.disabled = false;
+        cbtDocxButton.textContent = originalText;
+      }
+      return;
+    }
+
     const exportButton = event.target.closest("[data-export-anki]");
     if (exportButton) {
       exportButton.disabled = true;
@@ -4630,6 +6871,22 @@ studentPracticeStage?.addEventListener("click", (event) => {
     return;
   }
 
+  const indexedBookmarkButton = event.target.closest("[data-session-bookmark-index]");
+  if (indexedBookmarkButton) {
+    const index = Number(indexedBookmarkButton.dataset.sessionBookmarkIndex);
+    const question = currentPracticeExam?.questions?.[index];
+    if (!question || !Number.isInteger(index)) return;
+    const questionKey = practiceQuestionKey(question, index);
+    if (currentPracticeBookmarks.has(questionKey)) {
+      currentPracticeBookmarks.delete(questionKey);
+    } else {
+      currentPracticeBookmarks.add(questionKey);
+    }
+    savePracticeState();
+    renderStudentPracticeQuestion({ preserveQuestionScroll: true });
+    return;
+  }
+
   const flagButton = event.target.closest("[data-practice-flag]");
   if (flagButton) {
     const question = currentPracticeExam?.questions?.[currentPracticeIndex];
@@ -4649,6 +6906,36 @@ studentPracticeStage?.addEventListener("click", (event) => {
   const ankiDialogButton = event.target.closest("[data-anki-dialog-open]");
   if (ankiDialogButton) {
     openPracticeAnkiDialog();
+    return;
+  }
+
+  const sessionAnkiButton = event.target.closest("[data-session-anki-download]");
+  if (sessionAnkiButton) {
+    const action = sessionAnkiButton.dataset.sessionAnkiDownload || "selected";
+    const questions = currentPracticeExam?.questions || [];
+    let indexes = selectedPracticeCompletionIndexes();
+    if (action === "wrong") indexes = practiceIndexesByResult("wrong", questions);
+    if (action === "bookmarked") indexes = practiceIndexesByResult("bookmarked", questions);
+    if (action === "all") indexes = questions.map((_, index) => index);
+    downloadPracticeAnkiCards(indexes, action);
+    return;
+  }
+
+  const sessionResultButton = event.target.closest("[data-session-result-action]");
+  if (sessionResultButton) {
+    const action = sessionResultButton.dataset.sessionResultAction;
+    const indexes = action === "review-bookmarked"
+      ? practiceIndexesByResult("bookmarked")
+      : practiceIndexesByResult("wrong");
+    if (!indexes.length) {
+      setStatus("복습할 문항이 없습니다.");
+      return;
+    }
+    finalizePracticeQuestionTime();
+    savePracticeState();
+    currentPracticeIndex = indexes[0];
+    currentPracticeTab = "key";
+    renderStudentPracticeQuestion();
     return;
   }
 
@@ -4850,41 +7137,6 @@ if (courseExamForm) {
   });
 }
 
-copyNotebookLmPrompt?.addEventListener("click", async () => {
-  const text = notebookLmPrompt?.textContent || "";
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus("NotebookLM 프롬프트 복사 완료", "muted");
-  } catch (error) {
-    setStatus("프롬프트 복사 실패");
-  }
-});
-
-if (notebookLmImportForm) {
-  notebookLmImportForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await importNotebookLmQuestions();
-  });
-}
-
-if (notebookLmImportResult) {
-  notebookLmImportResult.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-open-set]");
-    if (!button) return;
-    button.disabled = true;
-    try {
-      await loadQuestionSet(button.dataset.openSet);
-    } catch (error) {
-      notebookLmImportResult.insertAdjacentHTML(
-        "beforeend",
-        `<p class="inline-error">문항 세트 로드 실패: ${escapeHtml(error.message)}</p>`
-      );
-    } finally {
-      button.disabled = false;
-    }
-  });
-}
-
 if (form) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -4894,7 +7146,7 @@ form.addEventListener("submit", async (event) => {
   setStatus("업로드 중");
   if (results) {
     results.className = "results-empty";
-    results.textContent = "파일을 서버로 보내고 있습니다. 큰 PDF/HWP나 Claude Code 생성은 몇 분 걸릴 수 있습니다.";
+    results.textContent = "파일을 서버로 보내고 있습니다. 큰 PDF/HWP 문항 생성은 몇 분 걸릴 수 있습니다.";
   }
 
   try {
@@ -4924,11 +7176,11 @@ form.addEventListener("submit", async (event) => {
 
     setStatus(data.status === "generated" ? "생성 완료" : "프롬프트 준비");
     finishProgress();
-    setProgressMessage(
+    setProgressMessage((
       data.status === "generated"
         ? "문항 초안 생성이 완료됐습니다. 이제 문항 검토 화면에서 문제, 해설, 참고문헌을 확인하면 됩니다."
-        : "API/Claude 생성 대신 프롬프트 패킷이 준비됐습니다. 실제 문항 생성을 원하면 제공자를 Claude Code 계정 또는 API로 선택해주세요."
-    );
+        : "현재 생성 엔진을 사용할 수 없어 검토용 설계 자료만 준비됐습니다. 연결 상태를 확인한 뒤 다시 시도해주세요."
+    ) + ontologyGenerationSummary(data));
     if (metricQuestions) metricQuestions.textContent = data.question_count || 0;
     setReviewCount((data.sample || []).filter((item) => item.needs_review).length);
     if (metricMedia) metricMedia.textContent = mediaAssets.length;
@@ -4960,13 +7212,863 @@ form.addEventListener("submit", async (event) => {
 });
 }
 
+// ── 간단 생성 모드 배선: 기존 이미지 피커 토글 · 검색 · 직접 업로드 라벨 · 생성 제출 ──
+document.querySelector("#simpleImagePicker")?.addEventListener("click", (event) => {
+  const thumb = event.target.closest("[data-simple-media-id]");
+  if (!thumb) return;
+  const id = thumb.dataset.simpleMediaId;
+  if (selectedMediaIds.has(id)) selectedMediaIds.delete(id);
+  else selectedMediaIds.add(id);
+  updateSelectedMediaInput();
+  // 미디어 뱅크 체크박스도 동기화
+  const bankBox = document.querySelector(`#mediaBank input[type="checkbox"][value="${CSS.escape(id)}"]`);
+  if (bankBox) bankBox.checked = selectedMediaIds.has(id);
+});
+
+document.querySelector("#simpleImageSearch")?.addEventListener("input", () => {
+  renderSimpleImagePicker();
+});
+
+document.querySelector("#simpleImageFiles")?.addEventListener("change", (event) => {
+  const label = document.querySelector("#simpleImageFilesLabel");
+  const count = event.target.files?.length || 0;
+  if (label) label.textContent = count ? `${count}장 선택됨` : "새 이미지 선택 (여러 장 가능)";
+});
+
+const simpleGenerateForm = document.querySelector("#simpleGenerateForm");
+const simpleGenerateButton = document.querySelector("#simpleGenerateButton");
+if (simpleGenerateForm) {
+  simpleGenerateForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const topicInput = document.querySelector("#simpleTopic");
+    const topic = (topicInput?.value || "").trim();
+    if (!topic) {
+      topicInput?.focus();
+      return;
+    }
+    if (simpleGenerateButton) simpleGenerateButton.disabled = true;
+    setStatus("생성 준비 중");
+    if (results) {
+      results.className = "results-empty";
+      results.textContent = "주제로 문항을 생성하고 있습니다. 생성에는 몇 분 걸릴 수 있습니다.";
+    }
+    try {
+      const payload = new FormData();
+      payload.set("topic", topic);
+      payload.set("subject", "General");
+      payload.set("unit", topic.slice(0, 40));
+      payload.set("num_questions", document.querySelector("#simpleNumQuestions")?.value || "5");
+      payload.set("generation_profile", "fast");
+      payload.set("difficulty", document.querySelector("#simpleDifficulty")?.value || "보통");
+      const hasImages = selectedMediaIds.size > 0 || (document.querySelector("#simpleImageFiles")?.files?.length || 0) > 0;
+      payload.set("question_type", hasImages ? "image_based" : "clinical_case");
+      payload.set("image_policy", hasImages ? "clinical_visuals" : "none");
+      payload.set("selected_media_ids", Array.from(selectedMediaIds).join(","));
+      Array.from(document.querySelector("#simpleImageFiles")?.files || []).forEach((file) => {
+        payload.append("image_files", file);
+      });
+      startProgressTimer(payload);
+      if (results?.scrollIntoView) results.scrollIntoView({ behavior: "smooth", block: "start" });
+      const response = await fetch("/api/generate", { method: "POST", body: payload });
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : { detail: await response.text() };
+      if (!response.ok) throw new Error(data.detail || "생성 실패");
+      setStatus(data.status === "generated" ? "생성 완료" : "프롬프트 준비");
+      finishProgress();
+      setProgressMessage((
+        data.status === "generated"
+          ? "문항 초안 생성이 완료됐습니다. 검토 화면에서 문제·해설·참고문헌을 확인하세요."
+          : "현재 생성 엔진을 사용할 수 없어 검토용 설계 자료만 준비됐습니다. 연결 상태를 확인한 뒤 다시 시도해주세요."
+      ) + ontologyGenerationSummary(data));
+      if (metricQuestions) metricQuestions.textContent = data.question_count || 0;
+      setReviewCount((data.sample || []).filter((item) => item.needs_review).length);
+      if (data.status === "prompt_ready") {
+        showPage("faculty-review", { scrollTop: false });
+        renderPromptReady(data);
+      } else if (data.set_id) {
+        await loadQuestionSet(data.set_id);
+      } else {
+        showPage("faculty-review", { scrollTop: false });
+        renderQuestions(data);
+      }
+      await loadArchiveSets();
+    } catch (error) {
+      setStatus("오류");
+      finishProgress("error");
+      setProgressMessage("생성 중 문제가 발생했습니다. 생성 개수를 2~3개로 줄여 다시 시도해보세요.");
+      if (results) {
+        results.className = "results-empty";
+        results.textContent = `처리 실패: ${error.message}`;
+      }
+    } finally {
+      clearProgressTimer();
+      if (simpleGenerateButton) simpleGenerateButton.disabled = false;
+    }
+  });
+}
+
+function cpxData() {
+  return window.CPX_OSCE_DATA || {
+    STATION_SECONDS: 720,
+    cases: [],
+    studyGuides: {},
+    diagnosticNotes: {},
+    referenceLinks: {},
+    caseReferenceMap: {},
+    coachReply: {},
+    treatmentPlanReply: {},
+    studyFlowReply: {},
+    diagnosisReply: {},
+  };
+}
+
+function cpxEscape(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function cpxLoadState() {
+  try {
+    const saved = JSON.parse(window.localStorage?.getItem(CPX_OSCE_STORAGE_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      cpxOsceState = {
+        ...cpxOsceState,
+        ...saved,
+        checked: saved.checked && typeof saved.checked === "object" ? saved.checked : {},
+        notes: saved.notes && typeof saved.notes === "object" ? saved.notes : {},
+        coachMessages: saved.coachMessages && typeof saved.coachMessages === "object" ? saved.coachMessages : {},
+      };
+    }
+  } catch (error) {
+    cpxOsceState = { ...cpxOsceState };
+  }
+}
+
+function cpxSaveState() {
+  try {
+    window.localStorage?.setItem(CPX_OSCE_STORAGE_KEY, JSON.stringify(cpxOsceState));
+  } catch (error) {
+    console.warn("CPX/OSCE 상태 저장 실패:", error);
+  }
+}
+
+function cpxCases() {
+  return Array.isArray(cpxData().cases) ? cpxData().cases : [];
+}
+
+function cpxCurrentCase() {
+  const cases = cpxCases();
+  return cases.find((item) => item.id === cpxOsceState.selectedCaseId) || cases[0] || null;
+}
+
+function cpxCaseKindLabel(caseItem) {
+  return caseItem?.category === "OSCE" ? "OSCE 술기" : "CPX 케이스";
+}
+
+function cpxCaseCategory(caseItem) {
+  return caseItem?.category || cpxCaseKindLabel(caseItem);
+}
+
+function cpxCaseTitle(caseItem) {
+  if (!caseItem) return "실전 스테이션";
+  if (caseItem.title) return caseItem.title;
+  const presentation = caseItem.presentation || cpxCaseKindLabel(caseItem);
+  const diagnosis = caseItem.diagnosis ? ` · ${caseItem.diagnosis}` : "";
+  return `${presentation}${diagnosis}`;
+}
+
+function cpxCaseSections(caseItem) {
+  return Array.isArray(caseItem?.sections) ? caseItem.sections : [];
+}
+
+function cpxChecklistKey(caseId, sectionId, index) {
+  return `${caseId}::${sectionId}::${index}`;
+}
+
+function cpxIsChecked(caseId, sectionId, index) {
+  return Boolean(cpxOsceState.checked[cpxChecklistKey(caseId, sectionId, index)]);
+}
+
+function cpxScore(caseItem) {
+  const sections = cpxCaseSections(caseItem);
+  let total = 0;
+  let done = 0;
+  let criticalTotal = 0;
+  const missedCritical = [];
+  const bySection = sections.map((section) => {
+    const items = Array.isArray(section.items) ? section.items : [];
+    let sectionDone = 0;
+    items.forEach((item, index) => {
+      total += 1;
+      const checked = cpxIsChecked(caseItem.id, section.id, index);
+      if (checked) {
+        done += 1;
+        sectionDone += 1;
+      }
+      if (item.critical) {
+        criticalTotal += 1;
+        if (!checked) missedCritical.push({ sectionTitle: section.title, text: item.text });
+      }
+    });
+    return {
+      id: section.id,
+      title: section.title,
+      done: sectionDone,
+      total: items.length,
+      percent: items.length ? Math.round((sectionDone / items.length) * 100) : 0,
+    };
+  });
+  return {
+    total,
+    done,
+    percent: total ? Math.round((done / total) * 100) : 0,
+    criticalTotal,
+    missedCritical,
+    bySection,
+  };
+}
+
+function cpxFilteredCases() {
+  const query = cpxOsceState.query.trim().toLowerCase();
+  return cpxCases().filter((caseItem) => {
+    const kindLabel = cpxCaseKindLabel(caseItem);
+    const categoryMatch = cpxOsceState.category === "전체" || cpxCaseCategory(caseItem) === cpxOsceState.category || kindLabel === cpxOsceState.category;
+    const haystack = [
+      cpxCaseTitle(caseItem),
+      caseItem.presentation,
+      caseItem.diagnosis,
+      caseItem.category,
+      kindLabel,
+      ...(caseItem.mustNotMiss || []),
+    ].join(" ").toLowerCase();
+    return categoryMatch && (!query || haystack.includes(query));
+  });
+}
+
+function cpxCategories() {
+  const labels = new Set(["전체", "CPX 케이스", "OSCE 술기"]);
+  cpxCases().forEach((caseItem) => {
+    const category = cpxCaseCategory(caseItem);
+    if (category !== "OSCE") labels.add(category);
+  });
+  return Array.from(labels);
+}
+
+function initCpxOsceModule() {
+  if (!cpxOsceModule) return;
+  cpxLoadState();
+  if (!CPX_OSCE_TABS.has(cpxOsceState.activeTab)) {
+    cpxOsceState.activeTab = "study";
+  }
+  const firstCase = cpxCases()[0];
+  if (!cpxOsceState.selectedCaseId && firstCase) {
+    cpxOsceState.selectedCaseId = firstCase.id;
+  }
+  if (!cpxOsceState.timerCaseId && firstCase) {
+    cpxOsceState.timerCaseId = cpxOsceState.selectedCaseId;
+  }
+  cpxSyncTimerInterval();
+}
+
+function formatStationTime(seconds) {
+  const safe = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
+function cpxTimerSeconds(caseItem) {
+  const base = Number(cpxData().STATION_SECONDS) || 720;
+  if (!caseItem) return base;
+  if (cpxOsceState.timerCaseId !== caseItem.id) return base;
+  return Math.max(0, Number(cpxOsceState.timerRemaining) || base);
+}
+
+function cpxSyncTimerInterval() {
+  if (cpxOsceTimerInterval) {
+    window.clearInterval(cpxOsceTimerInterval);
+    cpxOsceTimerInterval = null;
+  }
+  if (!cpxOsceState.timerRunning) return;
+  cpxOsceTimerInterval = window.setInterval(() => {
+    cpxOsceState.timerRemaining = Math.max(0, (Number(cpxOsceState.timerRemaining) || 0) - 1);
+    if (cpxOsceState.timerRemaining <= 0) {
+      cpxOsceState.timerRunning = false;
+      window.clearInterval(cpxOsceTimerInterval);
+      cpxOsceTimerInterval = null;
+    }
+    const timerValue = document.querySelector("#cpxTimerValue");
+    const timerShell = document.querySelector("#cpxStationTimer");
+    if (timerValue) timerValue.textContent = formatStationTime(cpxOsceState.timerRemaining);
+    timerShell?.classList.toggle("is-running", cpxOsceState.timerRunning);
+    cpxSaveState();
+  }, 1000);
+}
+
+function renderCpxOsceModule() {
+  if (!cpxOsceModule) return;
+  const data = cpxData();
+  if (!data.cases?.length) {
+    cpxOsceModule.innerHTML = `<div class="results-empty">CPX/OSCE 케이스 데이터를 불러오지 못했습니다.</div>`;
+    return;
+  }
+  const current = cpxCurrentCase();
+  const categories = cpxCategories();
+  cpxOsceModule.innerHTML = `
+    <div class="cpx-shell">
+      <aside class="cpx-case-panel">
+        <div class="cpx-panel-head">
+          <div>
+            <p class="section-label">CPX/OSCE Station</p>
+            <h2>케이스 선택</h2>
+          </div>
+          <button type="button" class="secondary-button" data-cpx-action="random-case">랜덤</button>
+        </div>
+        <div class="cpx-filter-stack">
+          <input type="search" id="cpxCaseSearch" value="${cpxEscape(cpxOsceState.query)}" placeholder="증상, 진단, 술기 검색" />
+          <select id="cpxCategoryFilter" aria-label="CPX/OSCE 카테고리 필터">
+            ${categories.map((label) => `<option value="${cpxEscape(label)}" ${label === cpxOsceState.category ? "selected" : ""}>${cpxEscape(label)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="cpx-case-list" role="list">
+          ${renderCpxCaseList()}
+        </div>
+      </aside>
+      <section class="cpx-workspace">
+        ${current ? renderCpxStation(current) : `<div class="results-empty">선택 가능한 케이스가 없습니다.</div>`}
+      </section>
+    </div>
+  `;
+}
+
+function renderCpxCaseList() {
+  const filtered = cpxFilteredCases();
+  if (!filtered.length) {
+    return `<div class="results-empty compact">검색 조건에 맞는 케이스가 없습니다.</div>`;
+  }
+  return filtered.map((caseItem) => {
+    const score = cpxScore(caseItem);
+    const selected = caseItem.id === cpxOsceState.selectedCaseId;
+    return `
+      <button type="button" class="cpx-case-card ${selected ? "is-active" : ""}" data-cpx-case-id="${cpxEscape(caseItem.id)}">
+        <span class="cpx-case-card-top">
+          <b>${cpxEscape(cpxCaseTitle(caseItem))}</b>
+          <small>${cpxEscape(cpxCaseKindLabel(caseItem))}</small>
+        </span>
+        <span>${cpxEscape(caseItem.presentation || caseItem.diagnosis || "")}</span>
+        <span class="cpx-mini-progress"><i style="width:${score.percent}%"></i></span>
+        <span class="cpx-card-foot">
+          <small>${score.done}/${score.total} 완료</small>
+          <small>${score.missedCritical.length} 필수 누락</small>
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderCpxStation(caseItem) {
+  const score = cpxScore(caseItem);
+  const timerSeconds = cpxTimerSeconds(caseItem);
+  const missedCount = score.missedCritical.length;
+  const tabItems = [
+    ["study", "공부대본"],
+    ["diagnosis", "진단노트"],
+    ["checklist", "체크리스트"],
+    ["patient", "환자답변"],
+    ["summary", "정리"],
+    ["coach", "실전 코치"],
+  ];
+  const activeTab = tabItems.some(([id]) => id === cpxOsceState.activeTab) ? cpxOsceState.activeTab : "study";
+  return `
+    <header class="cpx-station-head">
+      <div>
+        <p class="section-label">${cpxEscape(cpxCaseKindLabel(caseItem))}</p>
+        <h2>${cpxEscape(cpxCaseTitle(caseItem))}</h2>
+        <p>${cpxEscape(caseItem.presentation || caseItem.diagnosis || "실전 스테이션")}</p>
+        <div class="cpx-chip-row">
+          <span>${cpxEscape(caseItem.diagnosis || "진단/술기")}</span>
+          <span>${score.percent}% 진행</span>
+          <span class="${missedCount ? "danger-text" : "success-text"}">필수 누락 ${missedCount}</span>
+        </div>
+      </div>
+      <div class="cpx-station-actions">
+        <div class="cpx-timer ${cpxOsceState.timerRunning && cpxOsceState.timerCaseId === caseItem.id ? "is-running" : ""}" id="cpxStationTimer">
+          <span>12분 스테이션</span>
+          <strong id="cpxTimerValue">${formatStationTime(timerSeconds)}</strong>
+        </div>
+        <div class="cpx-action-row">
+          <button type="button" class="secondary-button" data-cpx-action="toggle-timer">${cpxOsceState.timerRunning && cpxOsceState.timerCaseId === caseItem.id ? "일시정지" : "시작"}</button>
+          <button type="button" class="secondary-button" data-cpx-action="reset-timer">초기화</button>
+          <button type="button" class="secondary-button" data-cpx-action="print">인쇄</button>
+          <button type="button" data-cpx-action="export">내보내기</button>
+        </div>
+      </div>
+    </header>
+    <nav class="cpx-tabs" aria-label="CPX/OSCE 학습 탭">
+      ${tabItems.map(([id, label]) => `<button type="button" class="${activeTab === id ? "is-active" : ""}" data-cpx-tab="${id}">${label}</button>`).join("")}
+    </nav>
+    <div class="cpx-tab-body">
+      ${renderCpxActiveTab(caseItem)}
+    </div>
+  `;
+}
+
+function renderCpxActiveTab(caseItem) {
+  if (cpxOsceState.activeTab === "diagnosis") return renderCpxDiagnosticNote(caseItem);
+  if (cpxOsceState.activeTab === "checklist") return renderCpxChecklist(caseItem);
+  if (cpxOsceState.activeTab === "patient") return renderCpxPatientCards(caseItem);
+  if (cpxOsceState.activeTab === "summary") return renderCpxSummary(caseItem);
+  if (cpxOsceState.activeTab === "coach") return renderCpxCoach(caseItem);
+  return renderCpxStudyGuide(caseItem);
+}
+
+function cpxStudyGuide(caseItem) {
+  return cpxData().studyGuides?.[caseItem.id] || {};
+}
+
+function cpxDiagnosticNote(caseItem) {
+  return cpxData().diagnosticNotes?.[caseItem.id] || {};
+}
+
+function renderCpxStudyGuide(caseItem) {
+  const guide = cpxStudyGuide(caseItem);
+  const blocks = [
+    ["첫 문장", guide.opening || guide.firstSentence],
+    ["문진 순서", guide.history || guide.historyFlow],
+    ["진찰/검사 선언", guide.exam || guide.examDeclaration],
+    ["설명/치료계획", guide.explain || guide.plan || guide.explanation || guide.treatment],
+    ["마무리 문장", guide.closing || guide.finish],
+  ].filter(([, value]) => value);
+  if (!blocks.length) {
+    return `<div class="cpx-empty">이 케이스의 공부대본이 아직 정리되지 않았습니다.</div>`;
+  }
+  return `
+    <div class="cpx-script-grid">
+      ${blocks.map(([title, value]) => `
+        <article class="cpx-script-card">
+          <span>${cpxEscape(title)}</span>
+          <p>${cpxFormatText(value)}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderCpxDiagnosticNote(caseItem) {
+  const note = cpxDiagnosticNote(caseItem);
+  const blocks = [
+    ["정의", note.definition],
+    ["진단 기준/핵심 단서", note.criteria || note.clues],
+    ["확인 검사", note.tests || note.confirmation],
+    ["감별 함정", note.pitfalls || note.differential],
+  ].filter(([, value]) => value);
+  const refs = cpxReferenceList(caseItem);
+  return `
+    <div class="cpx-note-grid">
+      ${blocks.length ? blocks.map(([title, value]) => `
+        <article class="cpx-note-card">
+          <span>${cpxEscape(title)}</span>
+          <p>${cpxFormatText(value)}</p>
+        </article>
+      `).join("") : `<div class="cpx-empty">진단노트가 아직 정리되지 않았습니다.</div>`}
+      <article class="cpx-note-card cpx-reference-card">
+        <span>근거 연결</span>
+        ${refs.length ? refs.map((ref) => `<a href="${cpxEscape(ref.url)}" target="_blank" rel="noreferrer">${cpxEscape(ref.title)}</a>`).join("") : `<p>공식 자료 연결이 준비 중입니다.</p>`}
+      </article>
+    </div>
+  `;
+}
+
+function renderCpxChecklist(caseItem) {
+  const sections = cpxCaseSections(caseItem);
+  const selectedSection = sections.find((section) => section.id === cpxOsceState.checklistSectionId) || sections[0];
+  if (!selectedSection) return `<div class="cpx-empty">체크리스트가 없습니다.</div>`;
+  const items = Array.isArray(selectedSection.items) ? selectedSection.items : [];
+  const score = cpxScore(caseItem);
+  return `
+    <div class="cpx-check-layout">
+      <aside class="cpx-section-tabs">
+        ${sections.map((section) => {
+          const sectionScore = score.bySection.find((item) => item.id === section.id);
+          return `<button type="button" class="${selectedSection.id === section.id ? "is-active" : ""}" data-cpx-section="${cpxEscape(section.id)}">
+            <strong>${cpxEscape(section.title)}</strong>
+            <small>${sectionScore?.done || 0}/${sectionScore?.total || 0}</small>
+          </button>`;
+        }).join("")}
+      </aside>
+      <div class="cpx-checklist">
+        ${items.map((item, index) => {
+          const checked = cpxIsChecked(caseItem.id, selectedSection.id, index);
+          return `
+            <label class="cpx-check-row ${checked ? "is-done" : ""} ${item.critical ? "is-critical" : ""}">
+              <input type="checkbox" ${checked ? "checked" : ""} data-cpx-check="${cpxEscape(selectedSection.id)}" data-cpx-index="${index}" />
+              <span>${cpxEscape(item.text)}</span>
+              ${item.critical ? "<em>필수</em>" : ""}
+            </label>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderCpxPatientCards(caseItem) {
+  const script = Array.isArray(caseItem.script) ? caseItem.script : [];
+  if (!script.length) {
+    return `<div class="cpx-empty">환자 역할 답변이 준비되지 않았습니다.</div>`;
+  }
+  return `
+    <div class="cpx-patient-grid">
+      ${script.map((line) => `
+        <article class="cpx-patient-card">
+          <span>${cpxEscape(Array.isArray(line) ? line[0] : line.q || line.question || "질문")}</span>
+          <p>${cpxEscape(Array.isArray(line) ? line[1] : line.a || line.answer || "")}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderCpxSummary(caseItem) {
+  const score = cpxScore(caseItem);
+  const noteValue = cpxOsceState.notes[caseItem.id] || "";
+  return `
+    <div class="cpx-summary-grid">
+      <section class="cpx-score-card">
+        <div class="cpx-score-ring" style="--score:${score.percent}%"><strong>${score.percent}%</strong></div>
+        <div>
+          <h3>영역별 점수</h3>
+          <p>${score.done}/${score.total}개 완료 · 필수 누락 ${score.missedCritical.length}개</p>
+        </div>
+      </section>
+      <section class="cpx-progress-list">
+        ${score.bySection.map((section) => `
+          <div>
+            <span>${cpxEscape(section.title)}</span>
+            <b>${section.percent}%</b>
+            <i><em style="width:${section.percent}%"></em></i>
+          </div>
+        `).join("")}
+      </section>
+      <section class="cpx-missing-card">
+        <h3>필수 누락 항목</h3>
+        ${score.missedCritical.length ? `<ul>${score.missedCritical.map((item) => `<li><strong>${cpxEscape(item.sectionTitle)}</strong> ${cpxEscape(item.text)}</li>`).join("")}</ul>` : `<p class="success-text">필수 항목을 모두 확인했습니다.</p>`}
+      </section>
+      <section class="cpx-note-save-card">
+        <h3>케이스 메모</h3>
+        <textarea id="cpxCaseNote" rows="6" placeholder="내가 놓친 문장, 다음 연습 때 볼 포인트를 적어두세요.">${cpxEscape(noteValue)}</textarea>
+      </section>
+    </div>
+  `;
+}
+
+function renderCpxCoach(caseItem) {
+  const messages = cpxOsceState.coachMessages[caseItem.id] || [];
+  const quickPrompts = cpxCaseKindLabel(caseItem) === "OSCE 술기"
+    ? ["공부 흐름", "술기 순서", "누락", "마무리"]
+    : ["공부 흐름", "진단 기준", "첫 문장", "치료계획", "누락", "마무리"];
+  return `
+    <div class="cpx-coach">
+      <div class="cpx-coach-prompts">
+        ${quickPrompts.map((prompt) => `<button type="button" class="secondary-button" data-cpx-coach-prompt="${cpxEscape(prompt)}">${cpxEscape(prompt)}</button>`).join("")}
+      </div>
+      <div class="cpx-coach-log" aria-live="polite">
+        ${messages.length ? messages.map((message) => `
+          <article class="${message.role === "user" ? "is-user" : "is-coach"}">
+            <span>${message.role === "user" ? "나" : "실전 코치"}</span>
+            <p>${cpxFormatText(message.text)}</p>
+          </article>
+        `).join("") : `<div class="cpx-empty">궁금한 흐름을 누르면 실전 코치가 케이스에 맞춰 짧게 답합니다.</div>`}
+      </div>
+      <div class="cpx-coach-input">
+        <input type="text" id="cpxCoachDraft" value="${cpxEscape(cpxOsceState.coachDraft)}" placeholder="예: 보호자에게 치료계획을 어떻게 말하지?" />
+        <button type="button" data-cpx-action="send-coach">질문</button>
+      </div>
+    </div>
+  `;
+}
+
+function cpxFormatText(value) {
+  if (Array.isArray(value)) {
+    return `<ul>${value.map((item) => `<li>${cpxEscape(item)}</li>`).join("")}</ul>`;
+  }
+  return cpxEscape(value).replace(/\n/g, "<br />");
+}
+
+function cpxReferenceList(caseItem) {
+  const data = cpxData();
+  const keys = data.caseReferenceMap?.[caseItem.id] || [];
+  return keys
+    .map((key) => ({ key, ...(data.referenceLinks?.[key] || {}) }))
+    .filter((reference) => {
+      if (!reference.title && !reference.url) return false;
+      const searchable = `${reference.key} ${reference.title || ""} ${reference.url || ""}`;
+      return !/amboss|uptodate|allen/i.test(searchable);
+    });
+}
+
+function cpxMissingTexts(caseItem) {
+  return cpxScore(caseItem).missedCritical.map((item) => item.text);
+}
+
+function cpxCoachContext(caseItem, userQuestion) {
+  return {
+    caseId: caseItem.id,
+    presentation: caseItem.presentation,
+    diagnosis: caseItem.diagnosis,
+    mustNotMiss: caseItem.mustNotMiss || [],
+    studyGuide: cpxStudyGuide(caseItem),
+    diagnosticNote: cpxDiagnosticNote(caseItem),
+    missingItems: cpxMissingTexts(caseItem),
+    userQuestion,
+  };
+}
+
+function cpxLocalCoachReply(caseItem, prompt) {
+  const data = cpxData();
+  const lower = prompt.toLowerCase();
+  const guide = cpxStudyGuide(caseItem);
+  const note = cpxDiagnosticNote(caseItem);
+  const missing = cpxMissingTexts(caseItem);
+  if (lower.includes("asd") || caseItem.id === "development-delay-asd" || /자폐|발달/.test(prompt)) {
+    return data.treatmentPlanReply?.asd || "청력검사와 발달평가를 확인하고, 조기개입·언어치료·부모교육·추적관찰 계획을 설명합니다.";
+  }
+  if (/치료|계획|설명/.test(prompt)) {
+    return cpxFormatCoachPlain(guide.explain || guide.plan || guide.explanation || guide.treatment || data.treatmentPlanReply?.default);
+  }
+  if (/진단|기준|단서/.test(prompt)) {
+    return cpxFormatCoachPlain(note.criteria || note.clues || note.definition || data.diagnosisReply?.default);
+  }
+  if (/첫|시작|opening/.test(lower)) {
+    return cpxFormatCoachPlain(guide.opening || guide.firstSentence || "안녕하세요. 오늘 불편하신 점을 확인하고 필요한 질문과 진찰을 진행하겠습니다.");
+  }
+  if (/흐름|순서|공부|술기/.test(prompt)) {
+    return cpxFormatCoachPlain(guide.history || guide.historyFlow || guide.steps || data.studyFlowReply?.default);
+  }
+  if (/누락|빠뜨|필수/.test(prompt)) {
+    return missing.length ? `지금은 ${missing.slice(0, 5).join(", ")} 항목이 남아 있습니다. 먼저 필수 항목부터 말하고 넘어가세요.` : "필수 누락 항목은 없습니다. 마지막에 이해 여부와 추가 질문을 확인하면 좋습니다.";
+  }
+  if (/마무리|끝/.test(prompt)) {
+    return cpxFormatCoachPlain(guide.closing || guide.finish || "오늘 설명드린 내용을 확인하고, 악화되거나 위험 신호가 있으면 바로 내원하시도록 안내합니다.");
+  }
+  cpxCoachContext(caseItem, prompt);
+  return "이 케이스에서는 주소증을 한 문장으로 정리한 뒤, 필수 누락 항목과 진단 기준을 먼저 확인하세요.";
+}
+
+function cpxFormatCoachPlain(value) {
+  if (Array.isArray(value)) return value.slice(0, 5).join(" → ");
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function cpxSendCoachMessage(prompt) {
+  const caseItem = cpxCurrentCase();
+  if (!caseItem || !prompt.trim()) return;
+  const messages = cpxOsceState.coachMessages[caseItem.id] || [];
+  const text = prompt.trim();
+  cpxOsceState.coachMessages[caseItem.id] = [
+    ...messages,
+    { role: "user", text },
+    { role: "coach", text: cpxLocalCoachReply(caseItem, text) },
+  ].slice(-16);
+  cpxOsceState.coachDraft = "";
+  cpxSaveState();
+  renderCpxOsceModule();
+}
+
+function cpxExportProgress() {
+  const payload = {
+    exported_at: new Date().toISOString(),
+    selected_case_id: cpxOsceState.selectedCaseId,
+    checked: cpxOsceState.checked,
+    notes: cpxOsceState.notes,
+    scores: cpxCases().map((caseItem) => ({
+      id: caseItem.id,
+      title: cpxCaseTitle(caseItem),
+      diagnosis: caseItem.diagnosis,
+      score: cpxScore(caseItem),
+    })),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `paccine_cpx_osce_progress_${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function cpxHandleClick(event) {
+  if (!(event.target instanceof Element)) return;
+  const caseButton = event.target.closest("[data-cpx-case-id]");
+  if (caseButton) {
+    cpxOsceState.selectedCaseId = caseButton.dataset.cpxCaseId;
+    cpxOsceState.activeTab = "study";
+    cpxOsceState.checklistSectionId = "history";
+    cpxOsceState.timerCaseId = cpxOsceState.selectedCaseId;
+    cpxOsceState.timerRemaining = cpxData().STATION_SECONDS || 720;
+    cpxOsceState.timerRunning = false;
+    cpxSaveState();
+    cpxSyncTimerInterval();
+    renderCpxOsceModule();
+    return;
+  }
+  const tabButton = event.target.closest("[data-cpx-tab]");
+  if (tabButton) {
+    cpxOsceState.activeTab = tabButton.dataset.cpxTab;
+    cpxSaveState();
+    renderCpxOsceModule();
+    return;
+  }
+  const sectionButton = event.target.closest("[data-cpx-section]");
+  if (sectionButton) {
+    cpxOsceState.checklistSectionId = sectionButton.dataset.cpxSection;
+    cpxSaveState();
+    renderCpxOsceModule();
+    return;
+  }
+  const promptButton = event.target.closest("[data-cpx-coach-prompt]");
+  if (promptButton) {
+    cpxSendCoachMessage(promptButton.dataset.cpxCoachPrompt || "");
+    return;
+  }
+  const categoryButton = event.target.closest("[data-cpx-category]");
+  if (categoryButton) {
+    cpxOsceState.category = categoryButton.dataset.cpxCategory || "전체";
+    const filtered = cpxFilteredCases();
+    const next = filtered[0];
+    if (next && !filtered.some((item) => item.id === cpxOsceState.selectedCaseId)) {
+      cpxOsceState.selectedCaseId = next.id;
+      cpxOsceState.timerCaseId = next.id;
+      cpxOsceState.timerRemaining = cpxData().STATION_SECONDS || 720;
+      cpxOsceState.timerRunning = false;
+    }
+    cpxSaveState();
+    cpxSyncTimerInterval();
+    renderCpxOsceModule();
+    return;
+  }
+  const action = event.target.closest("[data-cpx-action]")?.dataset.cpxAction;
+  if (!action) return;
+  const caseItem = cpxCurrentCase();
+  if (action === "random-case") {
+    const filtered = cpxFilteredCases();
+    const pool = filtered.length ? filtered : cpxData().cases;
+    const next = pool[Math.floor(Math.random() * pool.length)];
+    if (next) {
+      cpxOsceState.selectedCaseId = next.id;
+      cpxOsceState.activeTab = "study";
+      cpxOsceState.checklistSectionId = "history";
+      cpxOsceState.timerCaseId = next.id;
+      cpxOsceState.timerRemaining = cpxData().STATION_SECONDS || 720;
+      cpxOsceState.timerRunning = false;
+      cpxSaveState();
+      cpxSyncTimerInterval();
+      renderCpxOsceModule();
+    }
+  } else if (action === "toggle-timer" && caseItem) {
+    cpxOsceState.timerCaseId = caseItem.id;
+    if (!cpxOsceState.timerRemaining || cpxOsceState.timerRemaining <= 0) {
+      cpxOsceState.timerRemaining = cpxData().STATION_SECONDS || 720;
+    }
+    cpxOsceState.timerRunning = !cpxOsceState.timerRunning;
+    cpxSaveState();
+    cpxSyncTimerInterval();
+    renderCpxOsceModule();
+  } else if (action === "reset-timer" && caseItem) {
+    cpxOsceState.timerCaseId = caseItem.id;
+    cpxOsceState.timerRemaining = cpxData().STATION_SECONDS || 720;
+    cpxOsceState.timerRunning = false;
+    cpxSaveState();
+    cpxSyncTimerInterval();
+    renderCpxOsceModule();
+  } else if (action === "export") {
+    cpxExportProgress();
+  } else if (action === "print") {
+    window.print();
+  } else if (action === "send-coach") {
+    cpxSendCoachMessage(cpxOsceState.coachDraft);
+  }
+}
+
+function cpxHandleInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return;
+  if (target.id === "cpxCaseSearch") {
+    cpxOsceState.query = target.value;
+    cpxSaveState();
+    const list = document.querySelector(".cpx-case-list");
+    if (list) list.innerHTML = renderCpxCaseList();
+    return;
+  }
+  if (target.id === "cpxCaseNote") {
+    const caseItem = cpxCurrentCase();
+    if (!caseItem) return;
+    cpxOsceState.notes[caseItem.id] = target.value;
+    cpxSaveState();
+    return;
+  }
+  if (target.id === "cpxCoachDraft") {
+    cpxOsceState.coachDraft = target.value;
+    cpxSaveState();
+  }
+}
+
+function cpxHandleChange(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+  if (target.id === "cpxCategoryFilter") {
+    cpxOsceState.category = target.value;
+    const filtered = cpxFilteredCases();
+    const next = filtered[0];
+    if (next && !filtered.some((item) => item.id === cpxOsceState.selectedCaseId)) {
+      cpxOsceState.selectedCaseId = next.id;
+    }
+    cpxSaveState();
+    renderCpxOsceModule();
+    return;
+  }
+  if (target.matches("[data-cpx-check]")) {
+    const caseItem = cpxCurrentCase();
+    if (!caseItem) return;
+    const key = cpxChecklistKey(caseItem.id, target.dataset.cpxCheck, target.dataset.cpxIndex);
+    cpxOsceState.checked[key] = target.checked;
+    cpxSaveState();
+    renderCpxOsceModule();
+  }
+}
+
+function cpxHandleKeydown(event) {
+  const target = event.target;
+  if (target instanceof HTMLTextAreaElement && target.id === "cpxCoachDraft" && event.key === "Enter") {
+    event.preventDefault();
+    cpxSendCoachMessage(cpxOsceState.coachDraft);
+  }
+}
+
+document.addEventListener("click", cpxHandleClick);
+document.addEventListener("input", cpxHandleInput);
+document.addEventListener("change", cpxHandleChange);
+document.addEventListener("keydown", cpxHandleKeydown);
+
 checkHealth();
+initWorkspaceRail();
 renderCategoryGrid(facultyCategoryGrid, "faculty");
 renderCategoryGrid(studentCategoryGrid, "student");
-loadModels();
 loadMediaAssets();
 loadArchiveSets();
 loadStudentCourseExams();
+initStudioMethodTabs();
+initQuestionPresetChips();
+initTopicGenerate();
+initTopicImageFinder();
+initArchiveControls();
+initFeedbackWidget();
 updateImagePolicyState();
 showPage(window.location.hash.replace("#", "") || "faculty-dashboard", {
   updateHash: false,
@@ -4981,4 +8083,13 @@ if (window.location.hash) {
   window.requestAnimationFrame(restoreTop);
   window.setTimeout(restoreTop, 120);
   window.setTimeout(restoreTop, 480);
+}
+
+// PWA 서비스워커 등록 — 앱 셸만 캐시(API는 항상 네트워크). HTTPS 또는 localhost에서만 등록 가능.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.warn("서비스워커 등록 실패:", error);
+    });
+  });
 }

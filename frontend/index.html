@@ -4,149 +4,130 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>P:accine Learning OS</title>
-    <link rel="stylesheet" href="/styles.css?v=20260625-subject-label-routing-2" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f2a29" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="P:accine" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="stylesheet" href="/styles.css?v=20260705-cpx-standalone-13" />
+    <link rel="stylesheet" href="/paccine-v2.css?v=20260714-full-migration-3" />
+    <link rel="stylesheet" href="/uiux-migration-20260715.css?v=20260715-student-core-3" />
+    <script>
+      if (window.location.hash === "#student-dashboard") window.location.replace("/student/#home");
+      if (window.location.hash === "#student-library") window.location.replace("/student/#library");
+      if (window.location.hash === "#student-practice") window.location.replace("/student/#builder");
+      if (window.location.hash === "#student-concepts") window.location.replace("/student/#concepts");
+    </script>
   </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Axioma Studio navigation">
-        <div class="brand">
-          <span class="brand-emblem">P</span>
-          <div>
-            <strong>PNU Medicine</strong>
-            <small>Axioma Learning OS</small>
+  <body class="paccine-v2">
+    <div class="app-shell workspace-shell">
+      <aside class="sidebar workspace-rail" id="workspaceRail" aria-label="P:accine 내비게이션">
+        <div class="rail-brand-row">
+          <div class="brand">
+            <span class="brand-emblem">P</span>
+            <div class="brand-copy">
+              <strong>P:accine</strong>
+              <small>PNU Medicine</small>
+            </div>
           </div>
+          <button class="rail-toggle" type="button" id="workspaceRailToggle" aria-label="내비게이션 접기" aria-expanded="true">
+            <span aria-hidden="true">‹</span>
+          </button>
         </div>
 
-        <div class="role-switch" aria-label="사용자 역할 선택">
-          <button class="active" type="button" data-role-toggle="faculty">교수</button>
-          <button type="button" data-role-toggle="student">학생</button>
+        <div class="role-switch" aria-label="현재 작업공간">
+          <button class="active" type="button" data-role-toggle="faculty">교수 스튜디오</button>
         </div>
 
         <nav class="nav-list" data-nav-group="faculty">
-          <a class="active" href="#faculty-dashboard" data-page-link="faculty-dashboard">교수 홈</a>
-          <a href="#faculty-studio" data-page-link="faculty-studio">문항 생성</a>
-          <a href="#faculty-review" data-page-link="faculty-review">문항 검토 <span class="nav-badge" id="navReviewBadge">0</span></a>
-          <a href="#faculty-archive" data-page-link="faculty-archive">아카이브/내보내기</a>
-          <a href="#faculty-report" data-page-link="faculty-report">수업 리포트</a>
-          <a href="#faculty-ops" data-page-link="faculty-ops">운영 보드</a>
-          <a href="#faculty-medlegal" data-page-link="faculty-medlegal">EMR/CPX 훈련</a>
-        </nav>
-
-        <nav class="nav-list" data-nav-group="student" hidden>
-          <a class="active" href="#student-dashboard" data-page-link="student-dashboard">학습 홈</a>
-          <a href="#student-library" data-page-link="student-library">나의 서재</a>
-          <a href="#student-practice" data-page-link="student-practice">문제 풀기</a>
-          <a href="#student-review" data-page-link="student-review">학습 리포트</a>
-          <a href="#student-review" data-page-link="student-review">복습 카드</a>
+          <p class="rail-section-label">교수 작업</p>
+          <a class="active" href="#faculty-dashboard" data-page-link="faculty-dashboard"><span class="nav-glyph">H</span><span class="nav-label">홈</span></a>
+          <a href="/faculty-studio-v2/"><span class="nav-glyph">＋</span><span class="nav-label">문항 생성</span></a>
+          <a href="/faculty-studio-v2/review.html"><span class="nav-glyph">R</span><span class="nav-label">검토·승인</span><span class="nav-badge" id="navReviewBadge">0</span></a>
+          <a href="/faculty-studio-v2/evidence-media.html"><span class="nav-glyph">E</span><span class="nav-label">근거·미디어</span></a>
+          <a href="#faculty-report" data-page-link="faculty-report"><span class="nav-glyph">A</span><span class="nav-label">학습 분석</span></a>
+          <p class="rail-section-label rail-section-secondary">도구</p>
+          <a href="#faculty-ops" data-page-link="faculty-ops"><span class="nav-glyph">T</span><span class="nav-label">운영 보드</span></a>
+          <a href="#faculty-medlegal" data-page-link="faculty-medlegal"><span class="nav-glyph">M</span><span class="nav-label">EMR 훈련</span></a>
         </nav>
 
         <div class="sidebar-note">
           <strong id="sidebarNoteTitle">검토 원칙</strong>
-          <p id="sidebarNoteCopy">AI 생성 문항은 확인 후 학생에게 배포됩니다.</p>
+          <p id="sidebarNoteCopy">승인된 문항만 학생 화면에 표시됩니다.</p>
         </div>
       </aside>
 
-      <main class="main">
-        <header class="topbar">
-          <div>
+      <main class="main workspace-main">
+        <header class="topbar workspace-topbar">
+          <div class="topbar-route">
             <p class="subtle" id="appSubtitle">교수용 문항개발·배포 지원 도구</p>
             <h1 id="appTitle">교수 홈</h1>
           </div>
           <div class="topbar-actions">
+            <a class="topbar-link" href="/cpx-osce/">CPX/OSCE</a>
             <span class="status-pill" id="healthStatus">API 확인 중</span>
             <button type="submit" form="generateForm" id="generateButton">문항 초안 생성</button>
           </div>
         </header>
 
-        <section class="page-view dashboard-page active" id="faculty-dashboard" data-page="faculty-dashboard">
-          <section class="metrics" aria-label="generation summary">
-            <article>
-              <span>생성 문항</span>
-              <strong id="metricQuestions">0</strong>
-            </article>
-            <article>
-              <span>확인 필요</span>
-              <strong id="metricReview">0</strong>
-            </article>
-            <article>
-              <span>제시자료</span>
-              <strong id="metricMedia">0</strong>
-            </article>
-          </section>
-
-          <section class="hero-panel">
+        <section class="page-view dashboard-page workspace-page active" id="faculty-dashboard" data-page="faculty-dashboard">
+          <header class="workspace-page-head">
             <div>
-              <p class="section-label">Faculty</p>
-              <h2>강의 자료 기반 AI 문항 생성</h2>
-              <p>부산의대 강의록과 기출 데이터를 구조화해 문항 제작, 검토, 보강 제안까지 연결합니다.</p>
+              <p class="page-eyebrow">Faculty workspace</p>
+              <h2>오늘의 문항 작업</h2>
+              <p>생성, 검토, 근거 확인, 배포 준비를 한곳에서 이어갑니다.</p>
             </div>
-            <div class="hero-actions">
-              <button type="button" data-page-link="faculty-studio">문항 생성 시작</button>
-              <button type="button" class="secondary-button" data-page-link="faculty-review">문항 검토 보기</button>
+            <div class="page-head-actions">
+              <button type="button" class="secondary-button" onclick="window.location.href='/faculty-studio-v2/review.html'">검토 대기 열기</button>
+              <button type="button" onclick="window.location.href='/faculty-studio-v2/'">새 문항 만들기</button>
             </div>
+          </header>
+
+          <section class="stat-strip" aria-label="문항 작업 현황">
+            <article><span>생성 문항</span><strong id="metricQuestions">0</strong><small>전체 초안</small></article>
+            <article><span>확인 필요</span><strong id="metricReview">0</strong><small>검토 대기</small></article>
+            <article><span>제시자료</span><strong id="metricMedia">0</strong><small>연결된 자료</small></article>
+            <article><span>승인 원칙</span><strong class="text-stat">검수 완료</strong><small>학생 공개 아님</small></article>
           </section>
 
-          <section class="work-card-grid">
-            <article class="work-card" data-page-link="faculty-studio">
-              <span>01</span>
-              <strong>강의자료 업로드</strong>
-              <p>강의록, PPT, PDF를 먼저 넣습니다.</p>
+          <section class="workspace-dashboard-grid">
+            <article class="task-panel">
+              <div class="panel-heading">
+                <div><p class="section-label">작업 큐</p><h3>다음 단계</h3></div>
+                <button type="button" class="text-button" data-page-link="faculty-ops">운영 보드</button>
+              </div>
+              <div class="task-list">
+                <button type="button" onclick="window.location.href='/faculty-studio-v2/sources.html'"><span class="task-index">01</span><span><strong>시험지 가져오기·처리 확인</strong><small>HWP, PDF와 선택적 XLSX 정답지</small></span><b>→</b></button>
+                <button type="button" onclick="window.location.href='/faculty-studio-v2/review.html'"><span class="task-index">02</span><span><strong>문항과 선지 검토</strong><small>정답, 해설, 이미지 연결 확인</small></span><b>→</b></button>
+                <button type="button" onclick="window.location.href='/faculty-studio-v2/evidence-media.html'"><span class="task-index">03</span><span><strong>근거 승인</strong><small>교과서·가이드라인·문헌 연결</small></span><b>→</b></button>
+                <button type="button" onclick="window.location.href='/faculty-studio-v2/archive.html'"><span class="task-index">04</span><span><strong>세트 보관 및 내보내기</strong><small>승인 세트만 배포 형식으로 준비</small></span><b>→</b></button>
+              </div>
             </article>
-            <article class="work-card" data-page-link="faculty-studio">
-              <span>02</span>
-              <strong>유형과 근거 설정</strong>
-              <p>증례형, 개념형, 자료해석형을 고릅니다.</p>
-            </article>
-            <article class="work-card" data-page-link="faculty-studio">
-              <span>03</span>
-              <strong>제시자료 연결</strong>
-              <p>환자 사진, 영상, 병리 자료를 선택합니다.</p>
-            </article>
-            <article class="work-card" data-page-link="faculty-ops">
-              <span>04</span>
-              <strong>팀 작업 배분</strong>
-              <p>문항 구조화, 이미지 라벨링, 태그 QA를 나눕니다.</p>
-            </article>
-          </section>
 
-          <section class="dashboard-split">
-            <article class="card insight-card">
-              <div class="card-head compact">
-                <div>
-                  <p class="section-label">이번 주 운영 포커스</p>
-                  <h2>PMA/임종평 문항 DB 1차 구축</h2>
-                </div>
-                <span class="badge light">6주 파일럿</span>
+            <article class="task-panel faculty-focus-panel">
+              <div class="panel-heading">
+                <div><p class="section-label">현재 구축 범위</p><h3>PMA · 과정시험 아카이브</h3></div>
+                <span class="compact-status">진행 중</span>
               </div>
-              <ol class="focus-list">
-                <li><strong>원문 구조화</strong><span>문항번호, 지문, 선지, 정답, 해설을 Markdown/JSON으로 분리</span></li>
-                <li><strong>사진자료 연결</strong><span>사진 N-m 규칙으로 X-ray, CT, ECG, 병리 자료를 문항과 매핑</span></li>
-                <li><strong>교육 태그</strong><span>대분과, 세부 주제, 평가 항목, 오답 포인트를 검수 가능하게 라벨링</span></li>
-              </ol>
-            </article>
-            <article class="card insight-card">
-              <div class="card-head compact">
-                <div>
-                  <p class="section-label">AI 개입 지점</p>
-                  <h2>룰 기반 추출 + AI 라벨 초안</h2>
-                </div>
-                <span class="badge">human-in-loop</span>
-              </div>
-              <div class="ai-layer-grid">
-                <span>룰 기반<br /><b>번호·선지·정답</b></span>
-                <span>AI 보조<br /><b>분과·평가항목</b></span>
-                <span>사람 검토<br /><b>사진·공개여부</b></span>
+              <dl class="focus-summary">
+                <div><dt>원문</dt><dd>문항·선지·정답·해설 구조화</dd></div>
+                <div><dt>미디어</dt><dd>문항별 이미지·검사 자료 연결</dd></div>
+                <div><dt>교육 태그</dt><dd>과목·주제·평가 영역 분류</dd></div>
+                <div><dt>품질 게이트</dt><dd>사람 검토 후 승인 상태 기록</dd></div>
+              </dl>
+              <div class="pipeline-mini" aria-label="문항 처리 단계">
+                <span class="done">구조화</span><i></i><span class="active">검토</span><i></i><span>승인</span><i></i><span>배포</span>
               </div>
             </article>
           </section>
 
-          <section class="card library-panel">
-            <div class="card-head">
-              <div>
-                <p class="section-label">Department Library</p>
-                <h2>분과별 서재</h2>
-              </div>
-              <span class="badge light">교수·학생 공통</span>
+          <section class="task-panel library-panel">
+            <div class="panel-heading">
+              <div><p class="section-label">Course library</p><h3>과목별 문항 현황</h3></div>
+              <button type="button" class="text-button" data-page-link="faculty-archive">전체 아카이브</button>
             </div>
             <div class="category-grid" id="facultyCategoryGrid"></div>
           </section>
@@ -162,6 +143,58 @@
               <span class="badge">Draft</span>
             </div>
 
+            <nav class="studio-method-tabs" aria-label="문항 생성 방법 선택">
+              <button type="button" class="active" data-studio-method="simple">간단 생성</button>
+              <button type="button" data-studio-method="exam_import">기출·과정시험 구조화</button>
+              <button type="button" data-studio-method="ai_generate">AI 문항 생성</button>
+              <button type="button" data-studio-method="topic_generate">교과서 주제 생성</button>
+            </nav>
+
+            <div class="studio-method-panel active" data-studio-panel="simple">
+              <form id="simpleGenerateForm" class="studio-form simple-generate-form">
+                <label>
+                  출제 주제 <span class="req">*</span>
+                  <textarea id="simpleTopic" name="topic" rows="3" placeholder="예: 급성 심근경색의 초기 진단과 처치 / ECG 판독 감별" required></textarea>
+                </label>
+                <div class="field-grid two">
+                  <label>
+                    생성 개수
+                    <input id="simpleNumQuestions" name="num_questions" type="number" min="1" max="30" value="5" />
+                  </label>
+                  <label>
+                    난이도
+                    <select id="simpleDifficulty" name="difficulty">
+                      <option value="보통">보통</option>
+                      <option value="쉬움">쉬움</option>
+                      <option value="어려움">어려움</option>
+                      <option value="국가고시형">국시형</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="simple-image-block">
+                  <div class="simple-image-head">
+                    <strong>이미지 (선택)</strong>
+                    <span id="simpleImageCount">기존 이미지 0개 선택</span>
+                  </div>
+                  <label class="compact-upload">
+                    직접 업로드
+                    <input id="simpleImageFiles" type="file" accept=".png,.jpg,.jpeg,.webp" multiple />
+                    <span id="simpleImageFilesLabel">새 이미지 선택 (여러 장 가능)</span>
+                  </label>
+                  <details class="simple-existing-images">
+                    <summary>기존 이미지에서 선택</summary>
+                    <input id="simpleImageSearch" type="search" placeholder="진단·단원·소견 검색" />
+                    <div id="simpleImagePicker" class="simple-image-grid">저장된 이미지를 불러옵니다…</div>
+                  </details>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" id="simpleGenerateButton">문항 생성</button>
+                  <span>강의파일 없이 주제만으로 생성됩니다. 결과는 바로 검토 큐로 이동합니다.</span>
+                </div>
+              </form>
+            </div>
+
+            <div class="studio-method-panel" data-studio-panel="exam_import">
             <section class="exam-import-panel">
               <div>
                 <p class="section-label">Exam Import</p>
@@ -183,61 +216,7 @@
               </form>
               <div id="courseExamImportResult" class="exam-import-result" hidden></div>
             </section>
-
-            <section class="notebooklm-import-panel">
-              <div class="notebooklm-copy">
-                <p class="section-label">NotebookLM Import</p>
-                <h3>NotebookLM 문항 초안 가져오기</h3>
-                <p>NotebookLM에서 강의록·정리본·기출을 읽힌 뒤 JSON으로 받은 문항 초안을 P:accine 검토 큐에 저장합니다.</p>
-                <details>
-                  <summary>NotebookLM에 넣을 프롬프트 보기</summary>
-                  <pre id="notebookLmPrompt">업로드한 자료만 근거로 의대 내신 대비 5지선다 문항 초안을 JSON으로 만들어줘.
-반드시 아래 형식만 출력해줘. 설명 문장이나 마크다운은 넣지 마.
-
-{
-  "questions": [
-    {
-      "stem": "문항 지문",
-      "options": ["1번 선지", "2번 선지", "3번 선지", "4번 선지", "5번 선지"],
-      "answer": 1,
-      "explanation": "정답 근거와 오답 선지 해설",
-      "references": [
-        {"source": "강의록 또는 자료명", "basis": "근거 요약"}
-      ],
-      "labels": {
-        "department": "대분과",
-        "topic": "세부 주제",
-        "assessment_domain": "평가 항목"
-      },
-      "question_type": "clinical_case"
-    }
-  ]
-}</pre>
-                  <button type="button" class="secondary-button compact-action" id="copyNotebookLmPrompt">프롬프트 복사</button>
-                </details>
-              </div>
-              <form id="notebookLmImportForm" class="notebooklm-import-form">
-                <div class="field-grid two">
-                  <label>
-                    출처 이름
-                    <input id="notebookLmSourceName" name="source_name" value="NotebookLM 문항 초안" />
-                  </label>
-                  <label>
-                    과목/단원
-                    <input id="notebookLmSubjectUnit" name="subject_unit" value="신경 및 특수감각기학 / 미분류" />
-                  </label>
-                </div>
-                <label>
-                  NotebookLM JSON
-                  <textarea id="notebookLmRawText" rows="8" placeholder='{"questions":[{"stem":"...","options":["..."],"answer":1,"explanation":"...","references":[...]}]}'></textarea>
-                </label>
-                <div class="form-actions compact">
-                  <button type="submit" class="secondary-button" id="notebookLmImportButton">검토 큐로 가져오기</button>
-                  <span>가져온 문항은 바로 배포되지 않고 문항 검토 단계로 이동합니다.</span>
-                </div>
-              </form>
-              <div id="notebookLmImportResult" class="notebooklm-import-result" hidden></div>
-            </section>
+            </div>
 
             <section class="db-workbench">
               <aside class="db-stepper" aria-label="데이터 구축 단계">
@@ -266,6 +245,7 @@
               </div>
             </section>
 
+            <div class="studio-method-panel" data-studio-panel="ai_generate">
             <form id="generateForm" class="studio-form">
               <label class="file-drop">
                 <input id="lectureFile" name="lecture_file" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md" required />
@@ -276,99 +256,33 @@
               <div class="field-grid two">
                 <label>
                   과목명
-                  <input name="subject" value="신경과" placeholder="예: 소화기내과" />
+                  <input id="studioSubjectInput" name="subject" value="신경과" placeholder="예: 소화기내과" />
                 </label>
                 <label>
                   단원명
-                  <input name="unit" value="뇌혈관질환" placeholder="예: 뇌출혈" />
+                  <input id="studioUnitInput" name="unit" value="뇌혈관질환" placeholder="예: 뇌출혈" />
                 </label>
               </div>
 
-              <div class="field-grid three">
-                <label class="compact-upload">
-                  기출문항 유형 예시
-                  <input id="styleFiles" name="style_files" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md,.json,.tsv" multiple />
-                  <span id="styleLabel">선택 안 함</span>
-                </label>
-                <label class="compact-upload">
-                  승인 근거자료
-                  <input id="evidenceFiles" name="evidence_files" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md" multiple />
-                  <span id="evidenceLabel">선택 안 함</span>
-                </label>
-                <label class="compact-upload">
-                  직접 첨부 이미지
-                  <input id="imageFiles" name="image_files" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" multiple />
-                  <span id="imageLabel">선택 안 함</span>
-                </label>
+              <div class="topic-image-row">
+                <button type="button" id="findTopicImagesButton" class="secondary-button">이 주제 이미지 찾기</button>
+                <span id="topicImageHint" class="topic-image-hint">단원/주제에 맞는 저장된 이미지를 오른쪽 제시자료에서 걸러 보여줍니다.</span>
               </div>
 
-              <p class="policy-copy">
-                강의자료는 출제 범위와 교수 강조점을 잡는 기준으로 사용합니다. 환자 사진, 영상, 병리 자료는 오른쪽 제시자료 영역에서 선택할 수 있습니다.
-              </p>
-
-              <section class="creator-panel" id="generate">
-                <div class="card-head compact">
-                  <div>
-                    <p class="section-label">Draft Builder</p>
-                    <h2>문항 초안 생성 설정</h2>
-                  </div>
-                  <span class="badge">Step 02</span>
+              <div class="preset-field">
+                <span class="preset-label">출제 방식</span>
+                <div class="preset-chips" id="questionPresetChips" role="group" aria-label="출제 방식 프리셋">
+                  <button type="button" class="preset-chip active" data-preset="clinical_case" data-difficulty="보통">증례형</button>
+                  <button type="button" class="preset-chip" data-preset="basic_concept" data-difficulty="보통">개념형</button>
+                  <button type="button" class="preset-chip" data-preset="mixed" data-difficulty="국가고시형">국시형</button>
                 </div>
-
-              <div class="field-grid four">
-                <label>
-                  생성 개수
-                  <input name="num_questions" type="number" min="1" max="30" value="2" />
-                </label>
-                <label>
-                  난이도
-                  <select name="difficulty">
-                    <option>보통</option>
-                    <option>쉬움</option>
-                    <option>어려움</option>
-                    <option>국가고시형</option>
-                  </select>
-                </label>
-                <label>
-                  문제 유형
-                  <select name="question_type">
-                    <option value="clinical_case">임상 증례형</option>
-                    <option value="image_based">이미지/자료해석형</option>
-                    <option value="basic_concept">개념확인형</option>
-                    <option value="mechanism">병태생리/기전형</option>
-                    <option value="diagnostic">진단/검사형</option>
-                    <option value="management">치료/처치형</option>
-                    <option value="mixed">혼합형</option>
-                  </select>
-                </label>
-                <label>
-                  참고 범위
-                  <select name="reference_policy">
-                    <option value="local_open">로컬 자유 참고</option>
-                    <option value="uploaded_only">업로드 자료 중심</option>
-                  </select>
-                </label>
+                <small class="preset-hint">세부 유형·난이도는 아래 고급 설정에서 바꿀 수 있습니다.</small>
               </div>
 
-              <div class="field-grid two">
-                <label>
-                  제공자
-                  <select id="providerSelect" name="provider">
-                    <option value="auto">자동</option>
-                    <option value="claude-cli">Claude Code 계정</option>
-                    <option value="anthropic">Claude API</option>
-                    <option value="openai">OpenAI API</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="prompt-only">프롬프트만 생성</option>
-                  </select>
-                </label>
-                <label>
-                  모델
-                  <select id="modelSelect" name="model">
-                    <option value="auto">자동</option>
-                  </select>
-                </label>
-              </div>
+              <label class="basic-count-field">
+                생성 개수
+                <input name="num_questions" type="number" min="1" max="30" value="5" />
+              </label>
 
               <label class="toggle-card">
                 <input id="includeImagesToggle" type="checkbox" />
@@ -379,39 +293,197 @@
                 </span>
               </label>
 
-              <label class="toggle-card">
-                <input id="includeTablesToggle" name="include_tables" type="checkbox" value="true" />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>표 자료 생성 허용</strong>
-                  <small>필요한 경우 AI가 활력징후, 검사수치, ABGA, CBC, 치료 전후 변화 같은 짧은 표를 문항 안에 생성합니다.</small>
-                </span>
-              </label>
-
-              <label id="imagePolicyField" class="image-policy-field is-disabled">
-                이미지 선택 기준
-                <select id="imagePolicySelect" name="image_policy" disabled>
-                  <option value="none">이미지 삽입 안 함</option>
-                  <option value="clinical_visuals">환자/영상/병리 자료만 우선 사용</option>
-                  <option value="allow_slide_fallback">적절한 실제 자료가 없으면 슬라이드 캡처도 허용</option>
-                </select>
-              </label>
+              <div id="imageConfigBlock" class="image-config-block">
+                <label id="imagePolicyField" class="image-policy-field is-disabled">
+                  이미지 선택 기준
+                  <select id="imagePolicySelect" name="image_policy" disabled>
+                    <option value="none">이미지 삽입 안 함</option>
+                    <option value="clinical_visuals">환자/영상/병리 자료만 우선 사용</option>
+                    <option value="allow_slide_fallback">적절한 실제 자료가 없으면 슬라이드 캡처도 허용</option>
+                  </select>
+                </label>
+                <label>
+                  이미지 설명 기반 생성
+                  <textarea id="imageDescription" name="image_description" rows="4" placeholder="예: 교뇌 출혈 CT. pinpoint pupil, 사지마비, 의식저하와 연결. 초기 처치와 수술 적응증 감별을 묻고 싶음."></textarea>
+                </label>
+                <p class="policy-copy">
+                  이미지 기반 문항은 AI가 이미지 자체를 확정 판독하는 구조가 아니라, 교수자가 선택한 이미지와 설명을 바탕으로 KMLE/USMLE식 텍스트 문항·선지·해설 초안을 구성하는 방식입니다. 사용할 이미지는 오른쪽 제시자료 영역에서 선택하세요.
+                </p>
+              </div>
 
               <input id="selectedMediaIds" name="selected_media_ids" type="hidden" />
-              <label>
-                이미지 설명 기반 생성
-                <textarea id="imageDescription" name="image_description" rows="4" placeholder="예: 교뇌 출혈 CT. pinpoint pupil, 사지마비, 의식저하와 연결. 초기 처치와 수술 적응증 감별을 묻고 싶음."></textarea>
-              </label>
+
+              <details class="advanced-settings">
+                <summary>고급 설정 (선택 — 기본값을 그대로 써도 됩니다)</summary>
+                <div class="field-grid three">
+                  <label class="compact-upload">
+                    기출문항 유형 예시
+                    <input id="styleFiles" name="style_files" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md,.json,.tsv" multiple />
+                    <span id="styleLabel">선택 안 함</span>
+                  </label>
+                  <label class="compact-upload">
+                    승인 근거자료
+                    <input id="evidenceFiles" name="evidence_files" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md" multiple />
+                    <span id="evidenceLabel">선택 안 함</span>
+                  </label>
+                  <label class="compact-upload">
+                    직접 첨부 이미지
+                    <input id="imageFiles" name="image_files" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" multiple />
+                    <span id="imageLabel">선택 안 함</span>
+                  </label>
+                </div>
+
+                <div class="field-grid two">
+                  <label>
+                    문제 유형
+                    <select id="questionTypeSelect" name="question_type">
+                      <option value="clinical_case">임상 증례형</option>
+                      <option value="image_based">이미지/자료해석형</option>
+                      <option value="basic_concept">개념확인형</option>
+                      <option value="mechanism">병태생리/기전형</option>
+                      <option value="diagnostic">진단/검사형</option>
+                      <option value="management">치료/처치형</option>
+                      <option value="mixed">혼합형</option>
+                    </select>
+                  </label>
+                  <label>
+                    난이도
+                    <select id="difficultySelect" name="difficulty">
+                      <option>보통</option>
+                      <option>쉬움</option>
+                      <option>어려움</option>
+                      <option>국가고시형</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="field-grid two">
+                  <label>
+                    평가할 임상 축
+                    <select id="targetAxisTypeSelect" name="target_axis_type">
+                      <option value="">자동 판별 (증례형·혼합형은 검토 필요)</option>
+                      <option value="diagnosis">진단</option>
+                      <option value="treatment">치료</option>
+                      <option value="indication">적응증</option>
+                      <option value="contraindication">금기</option>
+                      <option value="symptom">증상·임상 소견</option>
+                      <option value="pathophysiology">병태생리</option>
+                      <option value="etiology">원인</option>
+                      <option value="risk_factor">위험요인</option>
+                      <option value="epidemiology">역학</option>
+                      <option value="prognosis">예후</option>
+                    </select>
+                    <small>문항이 실제로 평가할 한 축입니다. 진단형·치료형·기전형은 문제 유형에서 자동 판별할 수 있습니다.</small>
+                  </label>
+                  <span></span>
+                </div>
+
+                <div class="field-grid two">
+                  <label>
+                    참고 범위
+                    <select name="reference_policy">
+                      <option value="local_open">로컬 자유 참고</option>
+                      <option value="uploaded_only">업로드 자료 중심</option>
+                    </select>
+                  </label>
+                  <span></span>
+                </div>
+
+                <div class="inline-hint">
+                  <strong>생성 엔진 · P:accine 자동 선택</strong>
+                  <span>외부 도구나 모델을 직접 고르지 않아도 현재 연결 상태에 맞춰 내부에서 처리합니다.</span>
+                </div>
+
+                <label class="toggle-card">
+                  <input id="includeTablesToggle" name="include_tables" type="checkbox" value="true" />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>표 자료 생성 허용</strong>
+                    <small>필요한 경우 AI가 활력징후, 검사수치, ABGA, CBC, 치료 전후 변화 같은 짧은 표를 문항 안에 생성합니다.</small>
+                  </span>
+                </label>
+              </details>
 
               <p class="policy-copy">
-                이미지 기반 문항은 AI가 이미지 자체를 확정 판독하는 구조가 아니라, 교수자가 선택한 이미지와 설명을 바탕으로 KMLE/USMLE식 텍스트 문항·선지·해설 초안을 구성하는 방식입니다.
+                강의자료는 출제 범위와 교수 강조점을 잡는 기준으로 사용합니다.
               </p>
               <div class="form-actions">
                 <button type="submit">문항 초안 생성</button>
                 <span>설정 확인 후 바로 문항 검토 큐로 이동합니다.</span>
               </div>
-              </section>
             </form>
+            </div>
+
+            <div class="studio-method-panel" data-studio-panel="topic_generate">
+              <section class="topic-generate-panel">
+                <div>
+                  <p class="section-label">Textbook Topic</p>
+                  <h3>교과서 주제로 바로 생성</h3>
+                  <p>강의파일이 없어도 주제와 출제 의도만 적으면 문항을 만듭니다. 부산대 도서관에서 확인한 Harrison 등 교과서 페이지를 참고로 남기면, 생성된 문항에 열람 링크가 함께 연결됩니다.</p>
+                  <p class="policy-copy">저작권 보호: 교재 원문은 문항에 복사되지 않습니다. 주제·강조점은 교수님이 적은 내용만 근거로 사용합니다.</p>
+                </div>
+                <form id="topicGenerateForm">
+                  <label>
+                    출제 주제 <span class="req">*</span>
+                    <input id="topicGenTopic" name="topic" placeholder="예: 급성 골수성 백혈병 (AML)의 진단과 초기 치료" required />
+                  </label>
+                  <label>
+                    교수 강조점 / 출제 의도
+                    <textarea id="topicGenPoints" name="teaching_points" rows="4" placeholder="예: FLT3 변이 유무에 따른 치료 분기, 관해유도 후 재발 위험 평가를 묻고 싶음. 응급으로 백혈구울혈(leukostasis) 감별도 넣기."></textarea>
+                  </label>
+                  <label>
+                    참고 교재 페이지 (선택 — 학생 열람용)
+                    <input id="topicGenRef" name="textbook_reference" placeholder="예: Harrison's 22e, Ch.109 급성골수성백혈병 (부산대 도서관 AccessMedicine)" />
+                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      과목명
+                      <input id="topicGenSubject" name="subject" value="혈액종양내과" placeholder="예: 혈액종양내과" />
+                    </label>
+                    <label>
+                      단원명
+                      <input id="topicGenUnit" name="unit" placeholder="예: 백혈병 (비우면 주제로 자동)" />
+                    </label>
+                  </div>
+                  <div class="preset-field">
+                    <span class="preset-label">출제 방식</span>
+                    <div class="preset-chips" id="topicPresetChips" role="group" aria-label="출제 방식 프리셋">
+                      <button type="button" class="preset-chip active" data-preset="clinical_case" data-difficulty="보통">증례형</button>
+                      <button type="button" class="preset-chip" data-preset="basic_concept" data-difficulty="보통">개념형</button>
+                      <button type="button" class="preset-chip" data-preset="mixed" data-difficulty="국가고시형">국시형</button>
+                    </div>
+                  </div>
+                  <label class="basic-count-field">
+                    생성 개수
+                    <input id="topicGenCount" name="num_questions" type="number" min="1" max="30" value="5" />
+                  </label>
+                  <label>
+                    평가할 임상 축
+                    <select id="topicGenTargetAxisType" name="target_axis_type">
+                      <option value="">선택 필요 (증례형·혼합형)</option>
+                      <option value="diagnosis">진단</option>
+                      <option value="treatment">치료</option>
+                      <option value="indication">적응증</option>
+                      <option value="contraindication">금기</option>
+                      <option value="symptom">증상·임상 소견</option>
+                      <option value="pathophysiology">병태생리</option>
+                      <option value="etiology">원인</option>
+                      <option value="risk_factor">위험요인</option>
+                      <option value="epidemiology">역학</option>
+                      <option value="prognosis">예후</option>
+                    </select>
+                    <small>학생 피드백을 질환 × 임상 축으로 묶는 기준입니다.</small>
+                  </label>
+                  <input type="hidden" id="topicGenQuestionType" value="clinical_case" />
+                  <input type="hidden" id="topicGenDifficulty" value="보통" />
+                  <div class="form-actions">
+                    <button type="submit" id="topicGenerateButton">주제로 문항 생성</button>
+                    <span>생성된 문항은 바로 검토 큐로 이동합니다.</span>
+                  </div>
+                  <p class="practice-status" id="topicGenerateStatus"></p>
+                </form>
+              </section>
+            </div>
           </section>
 
               <aside class="right-stack">
@@ -520,7 +592,7 @@
                 <li><span>04</span>문항 검토 큐 저장</li>
               </ol>
               <p class="generation-help" id="progressMessage">
-                Claude Code 생성은 강의록 크기에 따라 1~5분 정도 걸릴 수 있습니다. 처음 테스트는 2~3문항을 권장합니다.
+                문항 생성은 강의록 크기에 따라 수 분이 걸릴 수 있습니다. 처음 테스트는 2~3문항을 권장합니다.
               </p>
               <div class="generation-progress" id="generationProgress" hidden>
                 <div class="progress-topline">
@@ -565,6 +637,30 @@
           </div>
         </section>
 
+        <section class="card result-card page-view" id="faculty-evidence" data-page="faculty-evidence">
+          <div class="card-head">
+            <div>
+              <p class="section-label">Evidence Review</p>
+              <h2>근거 검토</h2>
+            </div>
+            <span class="badge light">개념 태그 기반 자동 부착</span>
+          </div>
+          <p class="helper-copy">
+            concept_tags로 자동 부착된 PubMed 근거(draft)를 확인해 <b>승인</b>하거나, 관련 없으면 <b>반려</b>합니다.
+            검토필요는 자동 매칭에 실패한 문항입니다. 승인된 근거만 학생 화면에서 확정 표시됩니다.
+          </p>
+          <div class="evidence-review-toolbar">
+            <div class="evidence-status-tabs" id="evidenceStatusTabs" role="group" aria-label="근거 상태 필터">
+              <button type="button" class="active" data-evidence-status="draft">검토 대기 <span data-count="draft">0</span></button>
+              <button type="button" data-evidence-status="needs_review">검토필요 <span data-count="needs_review">0</span></button>
+              <button type="button" data-evidence-status="verified">승인됨 <span data-count="verified">0</span></button>
+              <button type="button" data-evidence-status="rejected">반려됨 <span data-count="rejected">0</span></button>
+            </div>
+            <button type="button" id="evidenceReloadButton" class="secondary-button compact-action">새로고침</button>
+          </div>
+          <div id="evidenceReviewList" class="evidence-review-list">불러오는 중…</div>
+        </section>
+
         <section class="card result-card page-view archive-page" id="faculty-archive" data-page="faculty-archive">
           <div class="card-head">
             <div>
@@ -573,54 +669,48 @@
             </div>
             <span class="badge light">로컬 저장</span>
           </div>
-          <form class="archive-filter-bar">
-            <label>
-              분과
-              <select>
-                <option>전체 분과</option>
-                <option>외과총론</option>
-                <option>신경과</option>
-                <option>소아청소년과</option>
-              </select>
+          <div class="archive-toolbar">
+            <label class="archive-search-field">
+              세트 검색
+              <input id="archiveSearch" type="search" placeholder="출처, 과목, 단원으로 검색" />
             </label>
-            <label>
-              문항 유형
-              <select>
-                <option>전체 유형</option>
-                <option>임상 증례형</option>
-                <option>이미지/자료해석형</option>
-                <option>개념확인형</option>
-              </select>
-            </label>
-            <label>
-              상태
-              <select>
-                <option>전체 상태</option>
-                <option>승인 완료</option>
-                <option>확인 필요</option>
-                <option>초안</option>
-              </select>
-            </label>
-            <button type="button">보기</button>
-          </form>
-          <div class="archive-layout">
-            <aside class="archive-category-panel" aria-label="문항 아카이브 분과">
-              <section>
-                <h3>분과</h3>
-                <a class="active" href="#faculty-archive">외과총론<span>외상, 쇼크, 수술 전후 관리</span></a>
-                <a href="#faculty-archive">신경과<span>뇌졸중, 두통, 발작, 신경영상</span></a>
-                <a href="#faculty-archive">소아청소년과<span>신생아, 성장발달, 소아감염</span></a>
-              </section>
-              <section>
-                <h3>자료</h3>
-                <a href="#faculty-studio" data-page-link="faculty-studio">제시자료 DB<span>X-ray, CT, MRI, 병리, 환자 사진</span></a>
-              </section>
-            </aside>
-            <div id="archiveList" class="archive-empty">아직 아카이브된 문항 세트가 없습니다.</div>
+            <div class="archive-status-filter" id="archiveStatusFilter" role="group" aria-label="상태 필터">
+              <button type="button" class="archive-status-chip active" data-archive-status="all">전체</button>
+              <button type="button" class="archive-status-chip" data-archive-status="approved">승인</button>
+              <button type="button" class="archive-status-chip" data-archive-status="pending">검토 대기</button>
+            </div>
           </div>
+          <div id="archiveList" class="archive-empty">아직 아카이브된 문항 세트가 없습니다.</div>
         </section>
 
         <section class="page-view report-page report-page-v2" id="faculty-report" data-page="faculty-report">
+          <section class="card faculty-feedback-card" id="facultyFeedbackCard" aria-label="학생 피드백">
+            <div class="card-head compact">
+              <div>
+                <p class="section-label">Student Feedback</p>
+                <h2>학생 피드백</h2>
+              </div>
+              <span class="badge light">실사용 수집</span>
+            </div>
+            <div id="facultyFeedbackBody" class="faculty-feedback-body">
+              <p class="faculty-feedback-loading">학생 피드백을 불러오는 중입니다.</p>
+            </div>
+          </section>
+
+          <section class="card distractor-card" id="distractorCard" aria-label="오답 선지 분석">
+            <div class="card-head compact">
+              <div>
+                <p class="section-label">Where Students Get Stuck</p>
+                <h2>오답 선지 분석</h2>
+              </div>
+              <span class="badge light">막힘 지점</span>
+            </div>
+            <p class="distractor-intro">학생들이 어떤 오답 선지에 몰리는지 보여줍니다. 한 선지에 응답이 몰릴수록 그 지점에 공통된 오개념이 있다는 신호입니다.</p>
+            <div id="distractorBody" class="distractor-body">
+              <p class="distractor-loading">오답 분포를 불러오는 중입니다.</p>
+            </div>
+          </section>
+
           <section class="report-summary-card" id="report">
             <div class="report-title-block">
               <p class="section-label">Performance Analysis</p>
@@ -706,7 +796,7 @@
               <ol class="recommendation-list">
                 <li>
                   <div><strong>뇌혈관·운동계 · 병변 위치 추론</strong><span>뇌간/척수/소뇌 병변과 신경학적 징후 연결</span></div>
-                  <button type="button" data-page-link="faculty-studio">문항 만들기</button>
+                  <button type="button" onclick="window.location.href='/faculty-studio-v2/'">문항 만들기</button>
                 </li>
                 <li>
                   <div><strong>시각계 · 시야결손/안구운동</strong><span>optic chiasm/tract, CN III/IV/VI 병변 감별</span></div>
@@ -760,7 +850,7 @@
                     <td>62</td>
                     <td><span class="score-chip low">47%</span></td>
                     <td>117s</td>
-                    <td><button type="button" class="table-action" data-page-link="faculty-studio">추천 문항 생성</button></td>
+                    <td><button type="button" class="table-action" onclick="window.location.href='/faculty-studio-v2/'">추천 문항 생성</button></td>
                   </tr>
                   <tr class="weak-row">
                     <td><strong>시각계</strong></td>
@@ -805,42 +895,30 @@
                 <p class="section-label">Session Analysis</p>
                 <h2>문항별 분석</h2>
               </div>
-              <span class="badge light">status · difficulty · time</span>
+              <span class="badge light">정답률 · 오답 분포 · 풀이 시간</span>
             </div>
-            <div class="question-analytics-list">
-              <article>
-                <span class="question-status incorrect">Incorrect</span>
-                <strong>Q42 · 뇌간 병변 위치 추론</strong>
-                <p>복시, 안면마비, 반대측 편마비를 이용한 병변 위치 감별</p>
-                <dl>
-                  <div><dt>난이도</dt><dd>Hard</dd></div>
-                  <div><dt>정답률</dt><dd>34%</dd></div>
-                  <div><dt>평균 시간</dt><dd>2:05</dd></div>
-                  <div><dt>비교</dt><dd>-21%p</dd></div>
-                </dl>
-              </article>
-              <article>
-                <span class="question-status review-needed">Review</span>
-                <strong>Q76 · 시야결손과 시각경로</strong>
-                <p>양측성/동측성 시야결손을 optic chiasm/tract 병변과 연결</p>
-                <dl>
-                  <div><dt>난이도</dt><dd>Medium</dd></div>
-                  <div><dt>정답률</dt><dd>49%</dd></div>
-                  <div><dt>평균 시간</dt><dd>1:47</dd></div>
-                  <div><dt>비교</dt><dd>-12%p</dd></div>
-                </dl>
-              </article>
-              <article>
-                <span class="question-status review-needed">Review</span>
-                <strong>Q88 · 전정계 말초/중추 감별</strong>
-                <p>안진 방향, 청력저하, 신경학적 징후를 이용한 감별</p>
-                <dl>
-                  <div><dt>난이도</dt><dd>Medium</dd></div>
-                  <div><dt>정답률</dt><dd>55%</dd></div>
-                  <div><dt>평균 시간</dt><dd>1:32</dd></div>
-                  <div><dt>비교</dt><dd>-7%p</dd></div>
-                </dl>
-              </article>
+            <div class="question-analytics-list" id="facultyReportAnalytics">
+              <div class="student-analytics-empty">
+                <strong>풀이 기록을 불러오는 중입니다.</strong>
+                <p>학생 풀이가 저장되면 문항별 정답률과 가장 많이 선택된 오답이 표시됩니다.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="report-summary-card" id="weaknessTargeting">
+            <div class="report-title-block">
+              <div>
+                <p class="section-label">Weakness-Targeted Generation</p>
+                <h2>약점 보강 출제</h2>
+                <span>코호트가 약한 영역의 기출을 찾아 변형 문항 생성 묶음을 준비합니다.</span>
+              </div>
+              <button type="button" class="primary-button" id="weaknessTargetingBtn">이 약점 보강 출제 준비</button>
+            </div>
+            <div id="weaknessTargetingResult">
+              <div class="student-analytics-empty">
+                <strong>약점 기반 보강 출제 준비</strong>
+                <p>버튼을 누르면 정답률이 낮은 영역 → 같은 라벨의 기출 부모 → 변형 생성 프롬프트 묶음을 만들어 검토 큐로 보냅니다.</p>
+              </div>
             </div>
           </section>
         </section>
@@ -889,7 +967,7 @@
             <article class="ops-lane">
               <span>팀원 6</span>
               <h3>교수 검토 UX</h3>
-              <p>문항 검토 기준, 수업 리포트 항목, 인터뷰 질문 정리</p>
+              <p>문항 검토 기준, 시험 피드백 항목, 인터뷰 질문 정리</p>
               <strong>산출물: faculty review checklist</strong>
             </article>
           </section>
@@ -906,7 +984,7 @@
               <li>임종평/PMA 예시 파일 1세트 구조화 결과 캡처</li>
               <li>사진자료 PDF에서 사진 N-m 매핑 예시 5개</li>
               <li>대분과-세부주제-평가항목 taxonomy 초안</li>
-              <li>교수자에게 보여줄 수업 리포트 예시 화면</li>
+              <li>교수자에게 보여줄 시험 피드백 예시 화면</li>
               <li>학생에게 보여줄 문제 풀이/오답 피드백 예시 화면</li>
             </ul>
           </section>
@@ -963,66 +1041,69 @@
           </section>
         </section>
 
-        <section class="page-view dashboard-page" id="student-dashboard" data-page="student-dashboard">
-          <section class="hero-panel student-hero">
+        <section class="page-view dashboard-page workspace-page student-home" id="student-dashboard" data-page="student-dashboard">
+          <header class="workspace-page-head">
             <div>
-              <p class="section-label">Student Learning</p>
-              <h2>문항 세트 기반 학습</h2>
-              <p>시험지 단위로 보거나, 파트별로 필요한 문항만 골라 풀 수 있습니다.</p>
+              <p class="page-eyebrow">Learning workspace</p>
+              <h2>학습 홈</h2>
+              <p>최근 세트를 이어 풀거나 필요한 과목에서 새 세트를 만드세요.</p>
             </div>
-            <div class="hero-actions">
-              <button type="button" data-page-link="student-library">나의 서재 열기</button>
-              <button type="button" class="secondary-button" data-page-link="student-practice">오늘의 문제</button>
+            <div class="page-head-actions">
+              <button type="button" class="secondary-button" onclick="window.location.href='/student-v2/'">과목 선택</button>
+              <button type="button" onclick="window.location.href='/student-v2/builder.html'">문제 풀기</button>
             </div>
+          </header>
+
+          <section class="student-home-grid">
+            <article class="resume-panel">
+              <div class="panel-heading">
+                <div><p class="section-label">최근 학습</p><h3>이어서 풀기</h3></div>
+                <span class="compact-status">저장됨</span>
+              </div>
+              <div class="resume-course">
+                <span class="course-mark">신</span>
+                <div><strong>신경 및 특수감각기학</strong><small>최근 풀이 위치에서 계속합니다.</small></div>
+              </div>
+              <div class="resume-progress"><span style="width: 36%"></span></div>
+              <div class="resume-meta"><span>진행 36%</span><span>학습 모드</span></div>
+              <button type="button" onclick="window.location.href='/student-v2/practice.html'">최근 세트 이어 풀기</button>
+            </article>
+
+            <article class="task-panel today-panel">
+              <div class="panel-heading"><div><p class="section-label">바로 시작</p><h3>학습 방식 선택</h3></div></div>
+              <div class="quick-study-list">
+                <button type="button" onclick="window.location.href='/student-v2/builder.html'"><span>과목별</span><strong>파트를 골라 새 세트 구성</strong><b>→</b></button>
+                <button type="button" onclick="window.location.href='/student-v2/builder.html'"><span>학습 세트</span><strong>사용 가능한 문항으로 세트 구성</strong><b>→</b></button>
+                <a href="/cpx-osce/"><span>실기</span><strong>CPX/OSCE 스테이션 연습</strong><b>→</b></a>
+              </div>
+            </article>
           </section>
 
-          <section class="student-summary-grid">
-            <article class="summary-card">
-              <span>오늘의 문제</span>
-              <strong>0</strong>
-              <p>배포된 문항이 여기에 표시됩니다.</p>
-            </article>
-            <article class="summary-card">
-              <span>파트별 랜덤 세트</span>
-              <strong>설계 중</strong>
-              <p>해부·생리·병리·임상 주제별로 N문항씩 섞어 풉니다.</p>
-            </article>
-            <article class="summary-card">
-              <span>Anki Export</span>
-              <strong>가능</strong>
-              <p>해설과 핵심 포인트를 카드로 저장합니다.</p>
-            </article>
+          <section class="stat-strip student-stat-strip" aria-label="학습 요약">
+            <article><span>풀이 기록</span><strong>로컬 저장</strong><small>문항별 시간·정오답</small></article>
+            <article><span>복습</span><strong>오답 중심</strong><small>북마크 포함</small></article>
+            <article><span>해설</span><strong>선지별</strong><small>근거 연결</small></article>
+            <article><span>카드</span><strong>Anki</strong><small>선택 문항 내보내기</small></article>
           </section>
         </section>
 
-        <section class="card result-card page-view library-page" id="student-library" data-page="student-library">
-          <div class="card-head">
+        <section class="page-view library-page workspace-page" id="student-library" data-page="student-library">
+          <header class="workspace-page-head compact-page-head">
             <div>
-              <p class="section-label">My Library</p>
+              <p class="page-eyebrow">My library</p>
               <h2>나의 서재</h2>
+              <p>과목과 세부 주제를 선택해 필요한 문항만 묶습니다.</p>
             </div>
-            <span class="badge light">분과별 학습</span>
-          </div>
-          <div class="library-hero">
-            <div>
-              <p class="section-label">PNU Medicine Library</p>
-              <h2>부산의대 문항 라이브러리</h2>
-              <p>과목, 파트, 교수자, 시험지 기준으로 문항을 고르고 바로 풀이 세트를 구성합니다.</p>
-            </div>
-            <div class="continue-card">
-              <span>최근 학습</span>
-              <strong>신경 및 특수감각기학</strong>
-              <small>Q42 · 뇌간 병변 위치 추론</small>
-              <button type="button" data-page-link="student-practice">이어 풀기</button>
-            </div>
-          </div>
-          <div class="library-filter-bar">
-            <label>
-              검색
-              <input type="search" placeholder="분과, 진단명, 핵심 개념 검색" />
+            <button type="button" class="secondary-button" onclick="window.location.href='/student-v2/builder.html'">학습 문항 풀기</button>
+          </header>
+
+          <div class="library-filter-bar library-command-bar">
+            <label class="library-search-field">
+              <span>검색</span>
+              <input type="search" placeholder="과목, 질환, 핵심 개념" />
             </label>
             <label>
-              풀이 구성
+              <span>문항 구성</span>
               <select>
                 <option>전체 문항</option>
                 <option>시험지 단위</option>
@@ -1030,112 +1111,156 @@
                 <option>교수자별</option>
               </select>
             </label>
-            <button type="button">찾기</button>
+            <button type="button">검색</button>
           </div>
-          <div class="category-grid large" id="studentCategoryGrid"></div>
-          <section class="library-course-builder" id="studentCourseBuilder" aria-label="과목별 문항 선택"></section>
+
+          <section class="library-workspace-grid">
+            <article class="task-panel library-catalog-panel">
+              <div class="panel-heading">
+                <div><p class="section-label">Courses</p><h3>과목 선택</h3></div>
+                <span class="compact-status">분과별</span>
+              </div>
+              <div class="category-grid large" id="studentCategoryGrid"></div>
+            </article>
+            <aside class="task-panel library-builder-panel">
+              <div class="panel-heading"><div><p class="section-label">Build a set</p><h3>풀이 세트</h3></div></div>
+              <section class="library-course-builder" id="studentCourseBuilder" aria-label="과목별 문항 선택"></section>
+            </aside>
+          </section>
         </section>
 
-        <section class="card result-card page-view" id="student-practice" data-page="student-practice">
-          <div class="card-head">
+        <section class="page-view workspace-page practice-setup-page" id="student-practice" data-page="student-practice">
+          <header class="workspace-page-head compact-page-head practice-page-head">
             <div>
-              <p class="section-label">Practice</p>
+              <p class="page-eyebrow">Practice</p>
               <h2>문제 풀기</h2>
+              <p>시험지와 학습 방식을 정한 뒤 원하는 문항부터 시작할 수 있습니다.</p>
             </div>
-            <span class="badge light">구조화 문항 세트</span>
-          </div>
-          <div class="student-practice-toolbar">
-            <label>
-              기출/과정시험 세트
-              <select id="studentExamSelect">
-                <option value="">구조화된 문항을 불러오는 중입니다</option>
-              </select>
-            </label>
-            <label>
-              풀이 방식
-              <select id="studentPracticeMode">
-                <option value="study">학습 모드 · 정답/해설 즉시 확인</option>
-                <option value="exam">시험 모드 · 해설 숨김</option>
-              </select>
-            </label>
-            <button type="button" id="startStudentPractice">문항 목록 열기</button>
-          </div>
-          <p class="practice-status" id="studentPracticeStatus">저장된 구조화 문항 세트를 확인하고 있습니다.</p>
+            <button type="button" class="secondary-button" data-page-link="student-review">풀이 기록</button>
+          </header>
+
+          <section class="task-panel practice-setup-panel">
+            <div class="panel-heading">
+              <div><p class="section-label">Session setup</p><h3>세트 설정</h3></div>
+              <span class="compact-status">자동 저장</span>
+            </div>
+            <div class="student-practice-toolbar">
+              <label>
+                <span>기출·과정시험</span>
+                <select id="studentExamSelect">
+                  <option value="">구조화된 문항을 불러오는 중입니다</option>
+                </select>
+              </label>
+              <label>
+                <span>풀이 방식</span>
+                <select id="studentPracticeMode">
+                  <option value="study">학습 모드 · 정답/해설 즉시 확인</option>
+                  <option value="exam">시험 모드 · 해설 숨김</option>
+                </select>
+              </label>
+              <label>
+                <span>문항 수</span>
+                <select id="studentPracticeCount">
+                  <option value="10">10문항</option>
+                  <option value="20">20문항</option>
+                  <option value="30">30문항</option>
+                  <option value="50">50문항</option>
+                  <option value="all">세트 전체</option>
+                </select>
+              </label>
+              <label class="inline-checkbox">
+                <input type="checkbox" id="studentPracticeShuffle" checked />
+                <span>문항 순서 섞기</span>
+              </label>
+              <button type="button" id="startStudentPractice">세트 열기</button>
+            </div>
+            <p class="practice-status" id="studentPracticeStatus">저장된 구조화 문항 세트를 확인하고 있습니다.</p>
+          </section>
+
           <div class="practice-layout" id="studentPracticeStage">
             <article class="practice-question empty-practice">
-              <p>구조화한 HWP/PDF 시험지를 선택하면 문항 목록이 열리고, 원하는 문제부터 풀 수 있습니다.</p>
+              <span class="empty-icon">Q</span>
+              <h3>풀이 세트를 선택하세요</h3>
+              <p>세트를 연 뒤 문항 목록에서 필요한 번호를 바로 선택할 수 있습니다.</p>
             </article>
             <aside class="practice-helper">
-              <h3>문항 선택형 학습</h3>
-              <button type="button" class="secondary-button" data-page-link="student-review">풀이 기록 보기</button>
-              <p>끝까지 순서대로 풀 필요 없이, 필요한 번호와 파트를 골라 정답/해설/출처를 확인할 수 있습니다.</p>
+              <p class="section-label">학습 기록</p>
+              <h3>문항별로 저장됩니다</h3>
+              <ul>
+                <li>선택한 답과 정오답</li>
+                <li>문항별 풀이 시간</li>
+                <li>북마크와 복습 대상</li>
+              </ul>
             </aside>
           </div>
         </section>
 
-        <section class="card result-card page-view" id="student-concepts" data-page="student-concepts">
-          <div class="card-head">
-            <div>
-              <p class="section-label">Concept Graph</p>
-              <h2>개념 노트와 레퍼런스</h2>
+        <section class="page-view workspace-page concepts-page" id="student-concepts" data-page="student-concepts">
+          <header class="workspace-page-head compact-page-head">
+            <div><p class="page-eyebrow">Concept map</p><h2>개념 연결</h2><p>문항, 강의록, 근거 자료 사이의 연결을 확인합니다.</p></div>
+            <span class="compact-status">Ontology preview</span>
+          </header>
+          <section class="concept-workspace-grid">
+            <div class="concept-graph-panel" aria-label="개념 연결 그래프 예시">
+              <span class="graph-line line-a"></span>
+              <span class="graph-line line-b"></span>
+              <span class="graph-line line-c"></span>
+              <span class="graph-line line-d"></span>
+              <button type="button" class="concept-node main">뇌출혈</button>
+              <button type="button" class="concept-node node-a">교뇌</button>
+              <button type="button" class="concept-node node-b">Pinpoint pupil</button>
+              <button type="button" class="concept-node node-c">CT 판독</button>
+              <button type="button" class="concept-node node-d">보존적 치료</button>
+              <button type="button" class="concept-node node-e">금기 처치</button>
             </div>
-            <span class="badge light">Obsidian식 연결</span>
-          </div>
-          <div class="concept-graph-panel" aria-label="개념 연결 그래프 예시">
-            <span class="graph-line line-a"></span>
-            <span class="graph-line line-b"></span>
-            <span class="graph-line line-c"></span>
-            <span class="graph-line line-d"></span>
-            <button type="button" class="concept-node main">뇌출혈</button>
-            <button type="button" class="concept-node node-a">교뇌</button>
-            <button type="button" class="concept-node node-b">Pinpoint pupil</button>
-            <button type="button" class="concept-node node-c">CT 판독</button>
-            <button type="button" class="concept-node node-d">보존적 치료</button>
-            <button type="button" class="concept-node node-e">금기 처치</button>
-          </div>
-          <div class="concept-layout">
-            <article>
-              <h3>강의록 기반 개념 카드</h3>
-              <p>문항에서 추출된 핵심 개념을 노드로 저장합니다.</p>
-            </article>
-            <article>
-              <h3>문항별 레퍼런스 연결</h3>
-              <p>참고문헌 번호를 누르면 근거 요약으로 이동합니다.</p>
-            </article>
-            <article>
-              <h3>관련 문제 추천</h3>
-              <p>같은 개념의 문항을 이어서 복습합니다.</p>
-            </article>
-          </div>
+            <aside class="task-panel concept-detail-panel">
+              <p class="section-label">Selected concept</p>
+              <h3>뇌교 출혈</h3>
+              <p>병변 위치, 신경학적 징후, 영상 소견, 초기 처치를 문항 단위로 연결합니다.</p>
+              <dl><div><dt>연결 문항</dt><dd>12</dd></div><div><dt>강의 자료</dt><dd>4</dd></div><div><dt>근거 자료</dt><dd>3</dd></div></dl>
+              <button type="button" onclick="window.location.href='/student-v2/builder.html'">관련 문항 풀기</button>
+            </aside>
+          </section>
         </section>
 
-        <section class="card result-card page-view" id="student-review" data-page="student-review">
-          <div class="card-head">
-            <div>
-              <p class="section-label">Review Cards</p>
-              <h2>복습 카드</h2>
+        <section class="page-view workspace-page student-report-page" id="student-review" data-page="student-review">
+          <header class="workspace-page-head compact-page-head">
+            <div><p class="page-eyebrow">Learning report</p><h2>학습 리포트</h2><p>정답률, 풀이 시간, 반복 오답을 기준으로 다음 복습을 정합니다.</p></div>
+            <button type="button" class="secondary-button" onclick="window.location.href='/student-v2/builder.html'">다시 풀기</button>
+          </header>
+          <div class="student-review-analytics" id="studentReviewAnalytics">
+            <div class="student-analytics-empty">
+              <strong>풀이 기록을 불러오는 중입니다.</strong>
+              <p>문제를 풀면 정답률, 평균 풀이 시간, 취약 라벨이 이곳에 표시됩니다.</p>
             </div>
-            <span class="badge light">Anki 연동</span>
           </div>
-          <div class="review-card-grid">
-            <article>
-              <span>오늘 생성</span>
-              <strong>12 cards</strong>
-              <p>ABGA, 산소치료, X-ray 판독 핵심 개념</p>
-            </article>
-            <article>
-              <span>오답 기반</span>
-              <strong>8 cards</strong>
-              <p>반복 오답 문항에서 자동 추출한 카드</p>
-            </article>
-            <article>
-              <span>내보내기</span>
-              <strong>Anki</strong>
-              <p>문항-해설-핵심 소견을 카드 앞뒤면으로 저장</p>
-            </article>
+          <div class="review-action-row">
+            <button type="button" onclick="window.location.href='/student-v2/result.html'"><span>오답 복습</span><strong>틀린 문항만 다시 풀기</strong></button>
+            <button type="button"><span>복습 카드</span><strong>Anki 후보 확인</strong></button>
+            <button type="button" onclick="window.location.href='/student-v2/builder.html'"><span>취약 영역</span><strong>보강 세트 만들기</strong></button>
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="feedback-fab-wrap" id="feedbackFabWrap">
+      <div class="feedback-panel" id="feedbackPanel" hidden>
+        <div class="feedback-panel-head">
+          <strong>P:accine 어떠셨나요?</strong>
+          <button type="button" class="feedback-panel-close" id="feedbackPanelClose" aria-label="닫기">×</button>
+        </div>
+        <div class="feedback-rating" role="radiogroup" aria-label="만족도 1~5점">
+          <button type="button" data-feedback-rating="1">1</button>
+          <button type="button" data-feedback-rating="2">2</button>
+          <button type="button" data-feedback-rating="3">3</button>
+          <button type="button" data-feedback-rating="4">4</button>
+          <button type="button" data-feedback-rating="5">5</button>
+        </div>
+        <textarea id="feedbackComment" rows="3" placeholder="좋았던 점, 불편했던 점, 더 필요한 기능을 자유롭게 적어주세요 (선택)"></textarea>
+        <button type="button" id="feedbackSubmitButton" class="secondary-button">보내기</button>
+        <p class="feedback-status" id="feedbackStatus"></p>
+      </div>
+      <button type="button" class="feedback-fab" id="feedbackFabButton">피드백 보내기</button>
     </div>
 
     <dialog class="image-lightbox" id="imageLightbox" aria-label="이미지 확대 보기">
@@ -1157,6 +1282,7 @@
       </div>
     </dialog>
 
-    <script src="/app.js?v=20260625-subject-label-routing-2"></script>
+    <script src="/data/cpx_osce_data.js?v=20260705-cpx-standalone-13"></script>
+    <script src="/app.js?v=20260715-student-core-1"></script>
   </body>
 </html>

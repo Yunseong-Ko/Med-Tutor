@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.paccine.learning-os</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/REPLACE_WITH_MACMINI_USER/Med-Tutor/scripts/start_macmini_server.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/REPLACE_WITH_MACMINI_USER/Med-Tutor</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PACCINE_HOST</key>
+    <string>0.0.0.0</string>
+    <key>PACCINE_PORT</key>
+    <string>8000</string>
+    <key>AXIOMA_REQUIRE_SUPABASE</key>
+    <string>0</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/REPLACE_WITH_MACMINI_USER/Med-Tutor/logs/paccine-server.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/REPLACE_WITH_MACMINI_USER/Med-Tutor/logs/paccine-server.err.log</string>
+</dict>
+</plist>

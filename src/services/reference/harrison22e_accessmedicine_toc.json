@@ -1,0 +1,2536 @@
+{
+ "schema": "paccine.accessmedicine_toc.v1",
+ "book_id": "3541",
+ "book_title": "Harrison's Principles of Internal Medicine, 22nd Edition",
+ "verified_at": "2026-09-27",
+ "method": "AccessMedicine 공개 목차(book.aspx?bookid=3541, 24개 Part 확장) DOM에서 읽은 chapter→sectionid. 교내 IP 인증 상태·로그인 없음·본문(content.aspx) 미열람·추측값 없음. observations = 서로 다른 페이지 로드/에이전트에서 같은 값을 관찰한 횟수(불일치 0).",
+ "url_template": "https://accessmedicine.mhmedical.com/content.aspx?bookid=3541&sectionid={sectionid}",
+ "chapter_count": 505,
+ "chapters": {
+  "1": {
+   "sectionid": "291971496",
+   "title": "The Practice of Medicine",
+   "observations": 2
+  },
+  "2": {
+   "sectionid": "291971590",
+   "title": "Promoting Good Health",
+   "observations": 2
+  },
+  "3": {
+   "sectionid": "291971653",
+   "title": "Vaccine Opposition and Hesitancy",
+   "observations": 2
+  },
+  "4": {
+   "sectionid": "292053336",
+   "title": "Decision-Making in Clinical Medicine",
+   "observations": 2
+  },
+  "5": {
+   "sectionid": "292053436",
+   "title": "Precision Medicine and Clinical Care",
+   "observations": 2
+  },
+  "6": {
+   "sectionid": "291971714",
+   "title": "Screening and Prevention of Disease",
+   "observations": 2
+  },
+  "7": {
+   "sectionid": "292053515",
+   "title": "The Safety and Quality of Health Care",
+   "observations": 2
+  },
+  "8": {
+   "sectionid": "291971755",
+   "title": "The Value of the Physical Examination in Modern Medicine",
+   "observations": 2
+  },
+  "9": {
+   "sectionid": "291971823",
+   "title": "Physician Well-Being",
+   "observations": 2
+  },
+  "10": {
+   "sectionid": "292054091",
+   "title": "Diagnosis: Reducing Errors and Improving Quality",
+   "observations": 2
+  },
+  "11": {
+   "sectionid": "291971868",
+   "title": "Racial and Ethnic Disparities in Health Care",
+   "observations": 2
+  },
+  "12": {
+   "sectionid": "292622897",
+   "title": "Ethical Issues in Clinical Medicine",
+   "observations": 2
+  },
+  "13": {
+   "sectionid": "291971961",
+   "title": "Palliative and End-of-Life Care",
+   "observations": 2
+  },
+  "14": {
+   "sectionid": "292622981",
+   "title": "Pain: Pathophysiology and Management",
+   "observations": 2
+  },
+  "15": {
+   "sectionid": "292623035",
+   "title": "Chest Discomfort",
+   "observations": 2
+  },
+  "16": {
+   "sectionid": "292623084",
+   "title": "Abdominal Pain",
+   "observations": 2
+  },
+  "17": {
+   "sectionid": "292623128",
+   "title": "Headache",
+   "observations": 2
+  },
+  "18": {
+   "sectionid": "293139495",
+   "title": "Low Back Pain",
+   "observations": 2
+  },
+  "19": {
+   "sectionid": "292623180",
+   "title": "Neck Pain",
+   "observations": 2
+  },
+  "20": {
+   "sectionid": "293066206",
+   "title": "Fever",
+   "observations": 2
+  },
+  "21": {
+   "sectionid": "294820065",
+   "title": "Fever and Rash",
+   "observations": 2
+  },
+  "22": {
+   "sectionid": "295149282",
+   "title": "Fever of Unknown Origin",
+   "observations": 2
+  },
+  "23": {
+   "sectionid": "292623240",
+   "title": "Syncope",
+   "observations": 2
+  },
+  "24": {
+   "sectionid": "292623292",
+   "title": "Dizziness and Vertigo",
+   "observations": 2
+  },
+  "25": {
+   "sectionid": "292623331",
+   "title": "Fatigue",
+   "observations": 2
+  },
+  "26": {
+   "sectionid": "292623376",
+   "title": "Neurologic Causes of Weakness and Paralysis",
+   "observations": 2
+  },
+  "27": {
+   "sectionid": "292623436",
+   "title": "Numbness, Tingling, and Sensory Loss",
+   "observations": 2
+  },
+  "28": {
+   "sectionid": "292623482",
+   "title": "Gait Disorders, Imbalance, and Falls",
+   "observations": 2
+  },
+  "29": {
+   "sectionid": "292623561",
+   "title": "Confusion and Delirium",
+   "observations": 2
+  },
+  "30": {
+   "sectionid": "292623590",
+   "title": "Coma",
+   "observations": 2
+  },
+  "31": {
+   "sectionid": "292623643",
+   "title": "Dementia",
+   "observations": 1
+  },
+  "32": {
+   "sectionid": "292623673",
+   "title": "Aphasia, Memory Loss, and Other Cognitive Disorders",
+   "observations": 1
+  },
+  "33": {
+   "sectionid": "293947401",
+   "title": "Sleep Disorders",
+   "observations": 1
+  },
+  "34": {
+   "sectionid": "292623767",
+   "title": "Disorders of the Eye",
+   "observations": 1
+  },
+  "35": {
+   "sectionid": "292623989",
+   "title": "Disorders of Smell and Taste",
+   "observations": 1
+  },
+  "36": {
+   "sectionid": "293066238",
+   "title": "Disorders of Hearing",
+   "observations": 1
+  },
+  "37": {
+   "sectionid": "292624037",
+   "title": "Upper Respiratory Symptoms, Including Earache, Sinus Symptoms, and Sore Throat",
+   "observations": 1
+  },
+  "38": {
+   "sectionid": "293066306",
+   "title": "Oral Manifestations of Disease",
+   "observations": 1
+  },
+  "39": {
+   "sectionid": "292624184",
+   "title": "Dyspnea",
+   "observations": 1
+  },
+  "40": {
+   "sectionid": "292624207",
+   "title": "Cough",
+   "observations": 1
+  },
+  "41": {
+   "sectionid": "292624241",
+   "title": "Hemoptysis",
+   "observations": 1
+  },
+  "42": {
+   "sectionid": "292624281",
+   "title": "Hypoxia and Cyanosis",
+   "observations": 1
+  },
+  "43": {
+   "sectionid": "294822148",
+   "title": "Edema",
+   "observations": 1
+  },
+  "44": {
+   "sectionid": "293066374",
+   "title": "Approach to the Patient with a Heart Murmur",
+   "observations": 1
+  },
+  "45": {
+   "sectionid": "293066458",
+   "title": "Palpitations",
+   "observations": 1
+  },
+  "46": {
+   "sectionid": "293066466",
+   "title": "Exercise Intolerance",
+   "observations": 1
+  },
+  "47": {
+   "sectionid": "293066499",
+   "title": "Dysphagia",
+   "observations": 1
+  },
+  "48": {
+   "sectionid": "293066990",
+   "title": "Nausea, Vomiting, and Indigestion",
+   "observations": 1
+  },
+  "49": {
+   "sectionid": "293067526",
+   "title": "Diarrhea and Constipation",
+   "observations": 1
+  },
+  "50": {
+   "sectionid": "293067655",
+   "title": "Unintentional Weight Loss",
+   "observations": 1
+  },
+  "51": {
+   "sectionid": "293067678",
+   "title": "Gastrointestinal Bleeding",
+   "observations": 1
+  },
+  "52": {
+   "sectionid": "293067712",
+   "title": "Jaundice",
+   "observations": 1
+  },
+  "53": {
+   "sectionid": "293067738",
+   "title": "Abdominal Swelling and Ascites",
+   "observations": 1
+  },
+  "54": {
+   "sectionid": "293067788",
+   "title": "Interstitial Cystitis/Bladder Pain Syndrome",
+   "observations": 1
+  },
+  "55": {
+   "sectionid": "293140441",
+   "title": "Azotemia and Urinary Abnormalities",
+   "observations": 1
+  },
+  "56": {
+   "sectionid": "296172920",
+   "title": "Fluid and Electrolyte Disturbances",
+   "observations": 1
+  },
+  "57": {
+   "sectionid": "293067856",
+   "title": "Hypercalcemia and Hypocalcemia",
+   "observations": 1
+  },
+  "58": {
+   "sectionid": "293067890",
+   "title": "Acidosis and Alkalosis",
+   "observations": 1
+  },
+  "59": {
+   "sectionid": "293068004",
+   "title": "Approach to the Patient with a Skin Disorder",
+   "observations": 1
+  },
+  "60": {
+   "sectionid": "293068042",
+   "title": "Eczema, Psoriasis, Cutaneous Infections, Acne, and Other Common Skin Disorders",
+   "observations": 1
+  },
+  "61": {
+   "sectionid": "293068139",
+   "title": "Skin Manifestations of Internal Disease",
+   "observations": 1
+  },
+  "62": {
+   "sectionid": "293068297",
+   "title": "Immunologically Mediated Skin Diseases",
+   "observations": 1
+  },
+  "63": {
+   "sectionid": "296173085",
+   "title": "Cutaneous Drug Reactions",
+   "observations": 1
+  },
+  "64": {
+   "sectionid": "293068362",
+   "title": "Photosensitivity and Other Reactions to Sunlight",
+   "observations": 1
+  },
+  "65": {
+   "sectionid": "294355777",
+   "title": "Interpreting Peripheral Blood Smears",
+   "observations": 1
+  },
+  "66": {
+   "sectionid": "293140487",
+   "title": "Anemia and Polycythemia",
+   "observations": 1
+  },
+  "67": {
+   "sectionid": "294822198",
+   "title": "Disorders of Granulocytes and Monocytes",
+   "observations": 1
+  },
+  "68": {
+   "sectionid": "295691929",
+   "title": "Primary and Secondary Hemophagocytic Lymphohistiocytosis",
+   "observations": 1
+  },
+  "69": {
+   "sectionid": "293068459",
+   "title": "Bleeding and Thrombosis",
+   "observations": 1
+  },
+  "70": {
+   "sectionid": "296173229",
+   "title": "Enlargement of Lymph Nodes and Spleen",
+   "observations": 1
+  },
+  "71": {
+   "sectionid": "292624531",
+   "title": "Principles of Clinical Pharmacology",
+   "observations": 1
+  },
+  "72": {
+   "sectionid": "292631234",
+   "title": "Pharmacogenomics",
+   "observations": 1
+  },
+  "73": {
+   "sectionid": "295692059",
+   "title": "Approach to the Patient with Cancer",
+   "observations": 2
+  },
+  "74": {
+   "sectionid": "293068494",
+   "title": "Symptom Control in Patients with Cancer",
+   "observations": 2
+  },
+  "75": {
+   "sectionid": "294355826",
+   "title": "Prevention and Early Detection of Cancer",
+   "observations": 2
+  },
+  "76": {
+   "sectionid": "293140623",
+   "title": "Cancer Genetics",
+   "observations": 2
+  },
+  "77": {
+   "sectionid": "294355945",
+   "title": "Cancer Cell Biology",
+   "observations": 2
+  },
+  "78": {
+   "sectionid": "294356077",
+   "title": "Principles of Cancer Treatment",
+   "observations": 2
+  },
+  "79": {
+   "sectionid": "293068614",
+   "title": "Infections in Patients with Cancer",
+   "observations": 2
+  },
+  "80": {
+   "sectionid": "293068729",
+   "title": "Oncologic Emergencies",
+   "observations": 2
+  },
+  "81": {
+   "sectionid": "293336215",
+   "title": "Cancer of the Skin",
+   "observations": 2
+  },
+  "82": {
+   "sectionid": "293336304",
+   "title": "Head and Neck Cancer",
+   "observations": 2
+  },
+  "83": {
+   "sectionid": "296173295",
+   "title": "Neoplasms of the Lung",
+   "observations": 2
+  },
+  "84": {
+   "sectionid": "293336336",
+   "title": "Breast Cancer",
+   "observations": 2
+  },
+  "85": {
+   "sectionid": "293336377",
+   "title": "Upper Gastrointestinal Tract Cancers",
+   "observations": 2
+  },
+  "86": {
+   "sectionid": "293336468",
+   "title": "Colorectal Cancer",
+   "observations": 2
+  },
+  "87": {
+   "sectionid": "295692129",
+   "title": "Tumors of the Liver and Biliary Tree",
+   "observations": 2
+  },
+  "88": {
+   "sectionid": "294616800",
+   "title": "Pancreatic Cancer",
+   "observations": 2
+  },
+  "89": {
+   "sectionid": "293336551",
+   "title": "Gastrointestinal Neuroendocrine Tumors",
+   "observations": 2
+  },
+  "90": {
+   "sectionid": "294356293",
+   "title": "Renal Cell Carcinoma",
+   "observations": 2
+  },
+  "91": {
+   "sectionid": "293336666",
+   "title": "Cancer of the Bladder and Urinary Tract",
+   "observations": 2
+  },
+  "92": {
+   "sectionid": "296173467",
+   "title": "Benign and Malignant Diseases of the Prostate",
+   "observations": 2
+  },
+  "93": {
+   "sectionid": "293947725",
+   "title": "Testicular Cancer",
+   "observations": 2
+  },
+  "94": {
+   "sectionid": "293947788",
+   "title": "Gynecologic Malignancies",
+   "observations": 2
+  },
+  "95": {
+   "sectionid": "293336704",
+   "title": "Primary and Metastatic Tumors of the Nervous System",
+   "observations": 2
+  },
+  "96": {
+   "sectionid": "293336837",
+   "title": "Soft Tissue and Bone Sarcomas and Bone Metastases",
+   "observations": 2
+  },
+  "97": {
+   "sectionid": "294356319",
+   "title": "Carcinoma of Unknown Primary",
+   "observations": 2
+  },
+  "98": {
+   "sectionid": "293947849",
+   "title": "Paraneoplastic Syndromes: Endocrinologic/Hematologic",
+   "observations": 2
+  },
+  "99": {
+   "sectionid": "293947942",
+   "title": "Paraneoplastic Neurologic Syndromes and Autoimmune Encephalitis",
+   "observations": 2
+  },
+  "100": {
+   "sectionid": "293334753",
+   "title": "Cancer Survivorship and the Long-Term Impact of Cancer and Its Treatment",
+   "observations": 2
+  },
+  "101": {
+   "sectionid": "293334810",
+   "title": "Hematopoietic Stem Cells",
+   "observations": 2
+  },
+  "102": {
+   "sectionid": "293334848",
+   "title": "Iron Deficiency and Other Acquired Anemias Due to Decreased Erythrocyte Production",
+   "observations": 2
+  },
+  "103": {
+   "sectionid": "293334912",
+   "title": "Disorders of Hemoglobin",
+   "observations": 2
+  },
+  "104": {
+   "sectionid": "293335049",
+   "title": "Megaloblastic Anemias",
+   "observations": 2
+  },
+  "105": {
+   "sectionid": "295692236",
+   "title": "Hemolytic Anemias",
+   "observations": 2
+  },
+  "106": {
+   "sectionid": "293335228",
+   "title": "Anemia Due to Acute Blood Loss",
+   "observations": 2
+  },
+  "107": {
+   "sectionid": "294352914",
+   "title": "Bone Marrow Failure Syndromes Including Aplastic Anemia and Myelodysplasia",
+   "observations": 2
+  },
+  "108": {
+   "sectionid": "293335237",
+   "title": "Polycythemia Vera and Other Myeloproliferative Neoplasms",
+   "observations": 2
+  },
+  "109": {
+   "sectionid": "295692379",
+   "title": "Acute Myeloid Leukemia",
+   "observations": 2
+  },
+  "110": {
+   "sectionid": "294818632",
+   "title": "Chronic Myeloid Leukemia",
+   "observations": 2
+  },
+  "111": {
+   "sectionid": "293335301",
+   "title": "Acute Lymphoid Leukemia",
+   "observations": 2
+  },
+  "112": {
+   "sectionid": "296164332",
+   "title": "Chronic Lymphocytic Leukemia",
+   "observations": 2
+  },
+  "113": {
+   "sectionid": "293335405",
+   "title": "Non-Hodgkin's Lymphoma",
+   "observations": 2
+  },
+  "114": {
+   "sectionid": "293335500",
+   "title": "Hodgkin's Lymphoma",
+   "observations": 2
+  },
+  "115": {
+   "sectionid": "293946265",
+   "title": "Less Common Lymphoid and Myeloid Malignancies",
+   "observations": 2
+  },
+  "116": {
+   "sectionid": "293335514",
+   "title": "Plasma Cell Disorders",
+   "observations": 2
+  },
+  "117": {
+   "sectionid": "293946398",
+   "title": "Amyloidosis",
+   "observations": 2
+  },
+  "118": {
+   "sectionid": "294613499",
+   "title": "Transfusion Therapy and Biology",
+   "observations": 2
+  },
+  "119": {
+   "sectionid": "293946440",
+   "title": "Hematopoietic Cell Transplantation",
+   "observations": 2
+  },
+  "120": {
+   "sectionid": "293946501",
+   "title": "Disorders of Platelets and Vessel Wall",
+   "observations": 2
+  },
+  "121": {
+   "sectionid": "293946578",
+   "title": "Coagulation Disorders",
+   "observations": 2
+  },
+  "122": {
+   "sectionid": "294353026",
+   "title": "Arterial and Venous Thrombosis",
+   "observations": 2
+  },
+  "123": {
+   "sectionid": "294353086",
+   "title": "Antiplatelet, Anticoagulant, and Fibrinolytic Drugs",
+   "observations": 2
+  },
+  "124": {
+   "sectionid": "295692654",
+   "title": "Approach to the Patient with an Infectious Disease",
+   "observations": 2
+  },
+  "125": {
+   "sectionid": "294613591",
+   "title": "Molecular Mechanisms of Microbial Pathogenesis",
+   "observations": 2
+  },
+  "126": {
+   "sectionid": "294613724",
+   "title": "Microbial Genomics and Infectious Disease",
+   "observations": 2
+  },
+  "127": {
+   "sectionid": "295148584",
+   "title": "Approach to the Acutely Ill Infected Febrile Patient",
+   "observations": 2
+  },
+  "128": {
+   "sectionid": "295692723",
+   "title": "Principles of Immunization",
+   "observations": 2
+  },
+  "129": {
+   "sectionid": "294613816",
+   "title": "Immunization Principles and Vaccine Use",
+   "observations": 2
+  },
+  "130": {
+   "sectionid": "295692774",
+   "title": "Health Recommendations for International Travel",
+   "observations": 2
+  },
+  "131": {
+   "sectionid": "294613915",
+   "title": "Pneumonia",
+   "observations": 2
+  },
+  "132": {
+   "sectionid": "294614095",
+   "title": "Lung Abscess",
+   "observations": 2
+  },
+  "133": {
+   "sectionid": "294818724",
+   "title": "Infective Endocarditis",
+   "observations": 2
+  },
+  "134": {
+   "sectionid": "294614144",
+   "title": "Infections of the Skin, Muscles, and Soft Tissues",
+   "observations": 2
+  },
+  "135": {
+   "sectionid": "295148676",
+   "title": "Infectious Arthritis",
+   "observations": 2
+  },
+  "136": {
+   "sectionid": "295148750",
+   "title": "Osteomyelitis",
+   "observations": 2
+  },
+  "137": {
+   "sectionid": "295692900",
+   "title": "Intraabdominal Infections and Abscesses",
+   "observations": 2
+  },
+  "138": {
+   "sectionid": "296164430",
+   "title": "Acute Infectious Diarrheal Diseases and Bacterial Food Poisoning",
+   "observations": 2
+  },
+  "139": {
+   "sectionid": "294614205",
+   "title": "Clostridioides difficile Infection, Including Pseudomembranous Colitis",
+   "observations": 2
+  },
+  "140": {
+   "sectionid": "294614246",
+   "title": "Urinary Tract Infections: Cystitis, Prostatitis, and Pyelonephritis",
+   "observations": 2
+  },
+  "141": {
+   "sectionid": "294818851",
+   "title": "Sexually Transmitted Infections: Overview and Clinical Approach",
+   "observations": 2
+  },
+  "142": {
+   "sectionid": "294614365",
+   "title": "Encephalitis",
+   "observations": 2
+  },
+  "143": {
+   "sectionid": "294614440",
+   "title": "Acute Meningitis",
+   "observations": 2
+  },
+  "144": {
+   "sectionid": "294614568",
+   "title": "Chronic and Recurrent Meningitis",
+   "observations": 2
+  },
+  "145": {
+   "sectionid": "294819018",
+   "title": "Brain Abscess and Empyema",
+   "observations": 2
+  },
+  "146": {
+   "sectionid": "295148867",
+   "title": "Infectious Complications of Bites",
+   "observations": 2
+  },
+  "147": {
+   "sectionid": "294614611",
+   "title": "Infections Acquired in Health Care Facilities",
+   "observations": 2
+  },
+  "148": {
+   "sectionid": "294614727",
+   "title": "Infections in Transplant Recipients",
+   "observations": 2
+  },
+  "149": {
+   "sectionid": "294819118",
+   "title": "Treatment and Prophylaxis of Bacterial Infections",
+   "observations": 2
+  },
+  "150": {
+   "sectionid": "293946646",
+   "title": "Bacterial Resistance to Antimicrobial Agents",
+   "observations": 2
+  },
+  "151": {
+   "sectionid": "295148910",
+   "title": "Pneumococcal Infections",
+   "observations": 2
+  },
+  "152": {
+   "sectionid": "295692980",
+   "title": "Staphylococcal Infections",
+   "observations": 2
+  },
+  "153": {
+   "sectionid": "293946698",
+   "title": "Streptococcal Infections",
+   "observations": 2
+  },
+  "154": {
+   "sectionid": "293946783",
+   "title": "Enterococcal Infections",
+   "observations": 2
+  },
+  "155": {
+   "sectionid": "294614852",
+   "title": "Diphtheria and Other Corynebacterial Infections",
+   "observations": 2
+  },
+  "156": {
+   "sectionid": "294614942",
+   "title": "Listeria monocytogenes Infections",
+   "observations": 2
+  },
+  "157": {
+   "sectionid": "294614986",
+   "title": "Tetanus",
+   "observations": 2
+  },
+  "158": {
+   "sectionid": "293946828",
+   "title": "Botulism",
+   "observations": 2
+  },
+  "159": {
+   "sectionid": "294615042",
+   "title": "Gas Gangrene and Other Clostridial Infections",
+   "observations": 2
+  },
+  "160": {
+   "sectionid": "293946888",
+   "title": "Meningococcal Infections",
+   "observations": 2
+  },
+  "161": {
+   "sectionid": "294819285",
+   "title": "Gonococcal Infections",
+   "observations": 2
+  },
+  "162": {
+   "sectionid": "293946975",
+   "title": "Haemophilus and Moraxella Infections",
+   "observations": 2
+  },
+  "163": {
+   "sectionid": "293947058",
+   "title": "Infections Due to the HACEK Group and Miscellaneous Gram-Negative Bacteria",
+   "observations": 2
+  },
+  "164": {
+   "sectionid": "295693145",
+   "title": "Legionella Infections",
+   "observations": 2
+  },
+  "165": {
+   "sectionid": "295693220",
+   "title": "Pertussis and Other Bordetella Infections",
+   "observations": 2
+  },
+  "166": {
+   "sectionid": "295149011",
+   "title": "Diseases Caused by Gram-Negative Enteric Bacilli",
+   "observations": 2
+  },
+  "167": {
+   "sectionid": "294353378",
+   "title": "Acinetobacter Infections",
+   "observations": 2
+  },
+  "168": {
+   "sectionid": "293947107",
+   "title": "Helicobacter pylori Infections",
+   "observations": 2
+  },
+  "169": {
+   "sectionid": "294819373",
+   "title": "Infections Due to Campylobacter and Related Organisms",
+   "observations": 2
+  },
+  "170": {
+   "sectionid": "293947166",
+   "title": "Infections Due to Pseudomonas, Burkholderia, and Stenotrophomonas Species",
+   "observations": 2
+  },
+  "171": {
+   "sectionid": "293947259",
+   "title": "Salmonellosis",
+   "observations": 2
+  },
+  "172": {
+   "sectionid": "294615118",
+   "title": "Shigellosis",
+   "observations": 2
+  },
+  "173": {
+   "sectionid": "293947344",
+   "title": "Cholera and Other Vibrioses",
+   "observations": 2
+  },
+  "174": {
+   "sectionid": "294819408",
+   "title": "Brucellosis",
+   "observations": 2
+  },
+  "175": {
+   "sectionid": "295693271",
+   "title": "Tularemia",
+   "observations": 2
+  },
+  "176": {
+   "sectionid": "296164509",
+   "title": "Plague and Other Yersinia Infections",
+   "observations": 2
+  },
+  "177": {
+   "sectionid": "294353433",
+   "title": "Bartonella Infections, Including Cat-Scratch Disease",
+   "observations": 2
+  },
+  "178": {
+   "sectionid": "294353506",
+   "title": "Donovanosis",
+   "observations": 2
+  },
+  "179": {
+   "sectionid": "295149222",
+   "title": "Nocardiosis",
+   "observations": 2
+  },
+  "180": {
+   "sectionid": "294819456",
+   "title": "Actinomycosis",
+   "observations": 2
+  },
+  "181": {
+   "sectionid": "294353532",
+   "title": "Whipple Disease",
+   "observations": 2
+  },
+  "182": {
+   "sectionid": "294353583",
+   "title": "Infections Due to Mixed Anaerobic Organisms",
+   "observations": 2
+  },
+  "183": {
+   "sectionid": "294819502",
+   "title": "Tuberculosis",
+   "observations": 2
+  },
+  "184": {
+   "sectionid": "294353676",
+   "title": "Leprosy",
+   "observations": 2
+  },
+  "185": {
+   "sectionid": "294353807",
+   "title": "Nontuberculous Mycobacterial Infections",
+   "observations": 2
+  },
+  "186": {
+   "sectionid": "295693325",
+   "title": "Antimycobacterial Agents",
+   "observations": 2
+  },
+  "187": {
+   "sectionid": "294353853",
+   "title": "Syphilis",
+   "observations": 2
+  },
+  "188": {
+   "sectionid": "294353942",
+   "title": "Endemic Treponematoses",
+   "observations": 2
+  },
+  "189": {
+   "sectionid": "295693485",
+   "title": "Leptospirosis",
+   "observations": 2
+  },
+  "190": {
+   "sectionid": "294615178",
+   "title": "Relapsing Fever",
+   "observations": 2
+  },
+  "191": {
+   "sectionid": "294615229",
+   "title": "Lyme Borreliosis",
+   "observations": 2
+  },
+  "192": {
+   "sectionid": "294615299",
+   "title": "Rickettsial Diseases",
+   "observations": 2
+  },
+  "193": {
+   "sectionid": "294353975",
+   "title": "Infections Due to Mycoplasmas",
+   "observations": 2
+  },
+  "194": {
+   "sectionid": "294615467",
+   "title": "Chlamydial Infections",
+   "observations": 2
+  },
+  "195": {
+   "sectionid": "294615601",
+   "title": "Principles of Medical Virology",
+   "observations": 2
+  },
+  "196": {
+   "sectionid": "294615702",
+   "title": "Antiviral Chemotherapy, Excluding Antiretroviral Drugs",
+   "observations": 2
+  },
+  "197": {
+   "sectionid": "294615824",
+   "title": "Herpes Simplex Virus Infections",
+   "observations": 2
+  },
+  "198": {
+   "sectionid": "294615913",
+   "title": "Varicella-Zoster Virus Infections",
+   "observations": 2
+  },
+  "199": {
+   "sectionid": "294615965",
+   "title": "Epstein-Barr Virus Infections, Including Infectious Mononucleosis",
+   "observations": 2
+  },
+  "200": {
+   "sectionid": "296164607",
+   "title": "Cytomegalovirus and Human Herpesvirus Types 6, 7, and 8",
+   "observations": 2
+  },
+  "201": {
+   "sectionid": "294819713",
+   "title": "Monkeypox, Molluscum Contagiosum, and Other Poxvirus Infections",
+   "observations": 2
+  },
+  "202": {
+   "sectionid": "296164676",
+   "title": "Parvovirus Infections",
+   "observations": 2
+  },
+  "203": {
+   "sectionid": "295693544",
+   "title": "Human Papillomavirus Infections",
+   "observations": 2
+  },
+  "204": {
+   "sectionid": "294819759",
+   "title": "Common Viral Respiratory Infections, Other Than COVID-19",
+   "observations": 2
+  },
+  "205": {
+   "sectionid": "294819863",
+   "title": "SARS-CoV-2 and COVID-19",
+   "observations": 2
+  },
+  "206": {
+   "sectionid": "294819909",
+   "title": "Influenza",
+   "observations": 2
+  },
+  "207": {
+   "sectionid": "294819991",
+   "title": "The Human Retroviruses",
+   "observations": 2
+  },
+  "208": {
+   "sectionid": "295693646",
+   "title": "Human Immunodeficiency Virus Disease: AIDS and Related Disorders",
+   "observations": 2
+  },
+  "209": {
+   "sectionid": "295694136",
+   "title": "Viral Gastroenteritis",
+   "observations": 2
+  },
+  "210": {
+   "sectionid": "294820114",
+   "title": "Enterovirus, Parechovirus, and Reovirus Infections",
+   "observations": 2
+  },
+  "211": {
+   "sectionid": "294820196",
+   "title": "Measles (Rubeola)",
+   "observations": 2
+  },
+  "212": {
+   "sectionid": "295694198",
+   "title": "Rubella (German Measles)",
+   "observations": 2
+  },
+  "213": {
+   "sectionid": "294616022",
+   "title": "Mumps",
+   "observations": 2
+  },
+  "214": {
+   "sectionid": "294616071",
+   "title": "Rabies and Other Rhabdovirus Infections",
+   "observations": 2
+  },
+  "215": {
+   "sectionid": "294820266",
+   "title": "Arthropod-Borne and Rodent-Borne Virus Infections",
+   "observations": 2
+  },
+  "216": {
+   "sectionid": "295694242",
+   "title": "Filovirids: Orthoebolavirus and Orthomarburgvirus Infections",
+   "observations": 2
+  },
+  "217": {
+   "sectionid": "294820449",
+   "title": "Pathogenesis, Diagnosis, and Treatment of Fungal Infections",
+   "observations": 2
+  },
+  "218": {
+   "sectionid": "294820501",
+   "title": "Histoplasmosis",
+   "observations": 2
+  },
+  "219": {
+   "sectionid": "294820540",
+   "title": "Coccidioidomycosis",
+   "observations": 2
+  },
+  "220": {
+   "sectionid": "294820584",
+   "title": "Blastomycosis",
+   "observations": 2
+  },
+  "221": {
+   "sectionid": "294820630",
+   "title": "Cryptococcosis",
+   "observations": 2
+  },
+  "222": {
+   "sectionid": "294616134",
+   "title": "Candidiasis",
+   "observations": 2
+  },
+  "223": {
+   "sectionid": "294616187",
+   "title": "Aspergillosis",
+   "observations": 2
+  },
+  "224": {
+   "sectionid": "295694287",
+   "title": "Mucormycosis",
+   "observations": 2
+  },
+  "225": {
+   "sectionid": "294616265",
+   "title": "Superficial Fungal Infections",
+   "observations": 2
+  },
+  "226": {
+   "sectionid": "294820666",
+   "title": "Uncommon Disseminated Fungal Infections",
+   "observations": 2
+  },
+  "227": {
+   "sectionid": "294820748",
+   "title": "Pneumocystis Infections",
+   "observations": 2
+  },
+  "228": {
+   "sectionid": "294820801",
+   "title": "Introduction to Parasitic Infections",
+   "observations": 2
+  },
+  "229": {
+   "sectionid": "294820856",
+   "title": "Agents Used to Treat Parasitic Infections",
+   "observations": 2
+  },
+  "230": {
+   "sectionid": "295149343",
+   "title": "Amebiasis and Infection with Free-Living Amebae",
+   "observations": 2
+  },
+  "231": {
+   "sectionid": "294821039",
+   "title": "Malaria",
+   "observations": 2
+  },
+  "232": {
+   "sectionid": "295694348",
+   "title": "Babesiosis",
+   "observations": 2
+  },
+  "233": {
+   "sectionid": "294821179",
+   "title": "Leishmaniasis",
+   "observations": 2
+  },
+  "234": {
+   "sectionid": "295694430",
+   "title": "Chagas Disease and African Trypanosomiasis",
+   "observations": 2
+  },
+  "235": {
+   "sectionid": "294821262",
+   "title": "Toxoplasma Infections",
+   "observations": 2
+  },
+  "236": {
+   "sectionid": "294821372",
+   "title": "Protozoal Intestinal Infections and Trichomoniasis",
+   "observations": 2
+  },
+  "237": {
+   "sectionid": "295149434",
+   "title": "Introduction to Helminthic Infections",
+   "observations": 2
+  },
+  "238": {
+   "sectionid": "294821453",
+   "title": "Trichinellosis and Other Tissue Nematode Infections",
+   "observations": 2
+  },
+  "239": {
+   "sectionid": "294821514",
+   "title": "Intestinal Nematode Infections",
+   "observations": 2
+  },
+  "240": {
+   "sectionid": "296164729",
+   "title": "Filarial and Related Infections",
+   "observations": 2
+  },
+  "241": {
+   "sectionid": "295149450",
+   "title": "Schistosomiasis and Other Trematode Infections",
+   "observations": 2
+  },
+  "242": {
+   "sectionid": "296164846",
+   "title": "Cestode Infections",
+   "observations": 2
+  },
+  "243": {
+   "sectionid": "293139555",
+   "title": "Approach to the Patient with Possible Cardiovascular Disease",
+   "observations": 1
+  },
+  "244": {
+   "sectionid": "293139593",
+   "title": "Basic Biology of the Cardiovascular System",
+   "observations": 1
+  },
+  "245": {
+   "sectionid": "293139689",
+   "title": "Epidemiology of Cardiovascular Disease",
+   "observations": 1
+  },
+  "246": {
+   "sectionid": "293139745",
+   "title": "Physical Examination of the Cardiovascular System",
+   "observations": 1
+  },
+  "247": {
+   "sectionid": "293335578",
+   "title": "Electrocardiography",
+   "observations": 1
+  },
+  "248": {
+   "sectionid": "296164950",
+   "title": "Noninvasive Cardiac Imaging: Echocardiography, Nuclear Cardiology, and Magnetic Resonance/Computed Tomography Imaging",
+   "observations": 1
+  },
+  "249": {
+   "sectionid": "293335648",
+   "title": "Diagnostic Cardiac Catheterization and Coronary Angiography",
+   "observations": 1
+  },
+  "250": {
+   "sectionid": "293335709",
+   "title": "Principles of Clinical Cardiac Electrophysiology",
+   "observations": 1
+  },
+  "251": {
+   "sectionid": "293139824",
+   "title": "The Bradyarrhythmias: Disorders of the Sinoatrial Node",
+   "observations": 1
+  },
+  "252": {
+   "sectionid": "293335759",
+   "title": "The Bradyarrhythmias: Disorders of the Atrioventricular Node",
+   "observations": 1
+  },
+  "253": {
+   "sectionid": "293139864",
+   "title": "Approach to Supraventricular Arrhythmias",
+   "observations": 1
+  },
+  "254": {
+   "sectionid": "293139884",
+   "title": "Physiologic and Nonphysiologic Sinus Rhythm",
+   "observations": 1
+  },
+  "255": {
+   "sectionid": "293139902",
+   "title": "Focal Atrial Tachycardia",
+   "observations": 1
+  },
+  "256": {
+   "sectionid": "293139917",
+   "title": "Paroxysmal Supraventricular Tachycardias",
+   "observations": 1
+  },
+  "257": {
+   "sectionid": "296165166",
+   "title": "Common Atrial Flutter and Macroreentrant and Multifocal Atrial Tachycardias",
+   "observations": 1
+  },
+  "258": {
+   "sectionid": "296165185",
+   "title": "Atrial Fibrillation",
+   "observations": 1
+  },
+  "259": {
+   "sectionid": "293139952",
+   "title": "Approach to Ventricular Arrhythmias",
+   "observations": 1
+  },
+  "260": {
+   "sectionid": "293140010",
+   "title": "Premature Ventricular Contractions, Nonsustained Ventricular Tachycardia, and Accelerated Idioventricular Rhythm",
+   "observations": 1
+  },
+  "261": {
+   "sectionid": "293140044",
+   "title": "Sustained Ventricular Tachycardia",
+   "observations": 1
+  },
+  "262": {
+   "sectionid": "293140088",
+   "title": "Polymorphic Ventricular Tachycardia and Ventricular Fibrillation",
+   "observations": 1
+  },
+  "263": {
+   "sectionid": "293140123",
+   "title": "Electrical Storm and Incessant Ventricular Tachycardia",
+   "observations": 1
+  },
+  "264": {
+   "sectionid": "296165244",
+   "title": "Heart Failure: Pathophysiology and Diagnosis",
+   "observations": 1
+  },
+  "265": {
+   "sectionid": "293140153",
+   "title": "Heart Failure: Management",
+   "observations": 1
+  },
+  "266": {
+   "sectionid": "293140276",
+   "title": "Classification of Cardiomyopathy",
+   "observations": 1
+  },
+  "267": {
+   "sectionid": "293140289",
+   "title": "Genetic Cardiomyopathies",
+   "observations": 1
+  },
+  "268": {
+   "sectionid": "293140342",
+   "title": "Acute and Chronic Myocarditis",
+   "observations": 1
+  },
+  "269": {
+   "sectionid": "293140398",
+   "title": "Dilated Cardiomyopathies",
+   "observations": 1
+  },
+  "270": {
+   "sectionid": "296165371",
+   "title": "Amyloidosis and Other Restrictive Cardiomyopathies",
+   "observations": 1
+  },
+  "271": {
+   "sectionid": "296165425",
+   "title": "Cardiac Transplantation and Prolonged Assisted Circulation",
+   "observations": 1
+  },
+  "272": {
+   "sectionid": "294354026",
+   "title": "Aortic Stenosis",
+   "observations": 1
+  },
+  "273": {
+   "sectionid": "293335808",
+   "title": "Aortic Regurgitation",
+   "observations": 1
+  },
+  "274": {
+   "sectionid": "295694544",
+   "title": "Mitral Stenosis",
+   "observations": 1
+  },
+  "275": {
+   "sectionid": "296165467",
+   "title": "Mitral Regurgitation",
+   "observations": 1
+  },
+  "276": {
+   "sectionid": "293335852",
+   "title": "Mitral Valve Prolapse",
+   "observations": 1
+  },
+  "277": {
+   "sectionid": "296165515",
+   "title": "Tricuspid Valve Disease",
+   "observations": 1
+  },
+  "278": {
+   "sectionid": "293335874",
+   "title": "Pulmonic Valve Disease",
+   "observations": 1
+  },
+  "279": {
+   "sectionid": "293335901",
+   "title": "Multiple and Mixed Valvular Heart Disease",
+   "observations": 1
+  },
+  "280": {
+   "sectionid": "294354084",
+   "title": "Congenital Heart Disease in the Adult",
+   "observations": 1
+  },
+  "281": {
+   "sectionid": "293335923",
+   "title": "Pericardial Disease",
+   "observations": 1
+  },
+  "282": {
+   "sectionid": "293335988",
+   "title": "Atrial Myxoma and Other Cardiac Tumors",
+   "observations": 1
+  },
+  "283": {
+   "sectionid": "293336020",
+   "title": "Cardiac Trauma",
+   "observations": 1
+  },
+  "284": {
+   "sectionid": "296165548",
+   "title": "Ischemic Heart Disease",
+   "observations": 1
+  },
+  "285": {
+   "sectionid": "296165714",
+   "title": "Non-ST-Segment Elevation Acute Coronary Syndrome (Non-ST-Segment Elevation Myocardial Infarction and Unstable Angina)",
+   "observations": 1
+  },
+  "286": {
+   "sectionid": "296165787",
+   "title": "ST-Segment Elevation Myocardial Infarction",
+   "observations": 1
+  },
+  "287": {
+   "sectionid": "296165950",
+   "title": "Percutaneous Coronary Interventions and Other Interventional Procedures",
+   "observations": 1
+  },
+  "288": {
+   "sectionid": "294354164",
+   "title": "Hypertension",
+   "observations": 1
+  },
+  "289": {
+   "sectionid": "296166006",
+   "title": "Renovascular Disease",
+   "observations": 1
+  },
+  "290": {
+   "sectionid": "296166046",
+   "title": "Deep-Venous Thrombosis and Pulmonary Thromboembolism",
+   "observations": 1
+  },
+  "291": {
+   "sectionid": "294354285",
+   "title": "Diseases of the Aorta",
+   "observations": 1
+  },
+  "292": {
+   "sectionid": "294354350",
+   "title": "Arterial Diseases of the Extremities",
+   "observations": 1
+  },
+  "293": {
+   "sectionid": "293336043",
+   "title": "Chronic Venous Disease and Lymphedema",
+   "observations": 1
+  },
+  "294": {
+   "sectionid": "296166199",
+   "title": "Pulmonary Hypertension",
+   "observations": 1
+  },
+  "295": {
+   "sectionid": "293336086",
+   "title": "Approach to the Patient with Disease of the Respiratory System",
+   "observations": 1
+  },
+  "296": {
+   "sectionid": "294354433",
+   "title": "Disturbances of Respiratory Function",
+   "observations": 1
+  },
+  "297": {
+   "sectionid": "294354507",
+   "title": "Diagnostic Procedures in Respiratory Disease",
+   "observations": 1
+  },
+  "298": {
+   "sectionid": "294354591",
+   "title": "Asthma",
+   "observations": 1
+  },
+  "299": {
+   "sectionid": "294354772",
+   "title": "Hypersensitivity Pneumonitis and Pulmonary Infiltrates with Eosinophilia",
+   "observations": 1
+  },
+  "300": {
+   "sectionid": "294354874",
+   "title": "Occupational and Environmental Lung Disease",
+   "observations": 1
+  },
+  "301": {
+   "sectionid": "294354972",
+   "title": "Bronchiectasis",
+   "observations": 1
+  },
+  "302": {
+   "sectionid": "294355004",
+   "title": "Cystic Fibrosis",
+   "observations": 1
+  },
+  "303": {
+   "sectionid": "294616324",
+   "title": "Chronic Obstructive Pulmonary Disease",
+   "observations": 1
+  },
+  "304": {
+   "sectionid": "295149548",
+   "title": "Interstitial Lung Disease",
+   "observations": 1
+  },
+  "305": {
+   "sectionid": "295149692",
+   "title": "Disorders of the Pleura",
+   "observations": 1
+  },
+  "306": {
+   "sectionid": "295149754",
+   "title": "Disorders of the Mediastinum",
+   "observations": 1
+  },
+  "307": {
+   "sectionid": "294821597",
+   "title": "Disorders of Ventilation",
+   "observations": 1
+  },
+  "308": {
+   "sectionid": "295149776",
+   "title": "Sleep Apnea",
+   "observations": 1
+  },
+  "309": {
+   "sectionid": "294821644",
+   "title": "Lung Transplantation",
+   "observations": 1
+  },
+  "310": {
+   "sectionid": "295149843",
+   "title": "Interventional Pulmonary Medicine",
+   "observations": 1
+  },
+  "311": {
+   "sectionid": "294821704",
+   "title": "Approach to the Patient with Critical Illness",
+   "observations": 1
+  },
+  "312": {
+   "sectionid": "295694603",
+   "title": "Acute Respiratory Distress Syndrome",
+   "observations": 1
+  },
+  "313": {
+   "sectionid": "294821809",
+   "title": "Mechanical Ventilatory Support",
+   "observations": 1
+  },
+  "314": {
+   "sectionid": "296166309",
+   "title": "Approach to the Patient with Shock",
+   "observations": 1
+  },
+  "315": {
+   "sectionid": "295694664",
+   "title": "Sepsis and Septic Shock",
+   "observations": 1
+  },
+  "316": {
+   "sectionid": "295694736",
+   "title": "Cardiogenic Shock and Pulmonary Edema",
+   "observations": 1
+  },
+  "317": {
+   "sectionid": "295694858",
+   "title": "Cardiovascular Collapse, Cardiac Arrest, and Sudden Cardiac Death",
+   "observations": 1
+  },
+  "318": {
+   "sectionid": "295694927",
+   "title": "Nervous System Disorders in Critical Care",
+   "observations": 1
+  },
+  "319": {
+   "sectionid": "296166397",
+   "title": "Approach to the Patient with Renal Disease or Urinary Tract Disease",
+   "observations": 1
+  },
+  "320": {
+   "sectionid": "295149888",
+   "title": "Cell Biology and Physiology of the Kidney",
+   "observations": 1
+  },
+  "321": {
+   "sectionid": "296166492",
+   "title": "Acute Kidney Injury",
+   "observations": 1
+  },
+  "322": {
+   "sectionid": "296166630",
+   "title": "Chronic Kidney Disease",
+   "observations": 1
+  },
+  "323": {
+   "sectionid": "295149954",
+   "title": "Dialysis in the Treatment of Kidney Failure",
+   "observations": 1
+  },
+  "324": {
+   "sectionid": "296166791",
+   "title": "Interventional Nephrology",
+   "observations": 1
+  },
+  "325": {
+   "sectionid": "296166821",
+   "title": "Kidney Transplantation",
+   "observations": 1
+  },
+  "326": {
+   "sectionid": "296166906",
+   "title": "Glomerular Diseases",
+   "observations": 1
+  },
+  "327": {
+   "sectionid": "296167086",
+   "title": "Polycystic Kidney Disease and Other Inherited Disorders of Tubule Growth and Development",
+   "observations": 1
+  },
+  "328": {
+   "sectionid": "296167169",
+   "title": "Tubulointerstitial Diseases of the Kidney",
+   "observations": 1
+  },
+  "329": {
+   "sectionid": "296167261",
+   "title": "Thrombotic Renovascular Disorders",
+   "observations": 1
+  },
+  "330": {
+   "sectionid": "296167311",
+   "title": "Nephrolithiasis",
+   "observations": 1
+  },
+  "331": {
+   "sectionid": "296167416",
+   "title": "Urinary Tract Obstruction",
+   "observations": 1
+  },
+  "332": {
+   "sectionid": "295621354",
+   "title": "Approach to the Patient with Gastrointestinal Disease",
+   "observations": 1
+  },
+  "333": {
+   "sectionid": "295621455",
+   "title": "Gastrointestinal Endoscopy",
+   "observations": 1
+  },
+  "334": {
+   "sectionid": "295695032",
+   "title": "Diseases of the Esophagus",
+   "observations": 1
+  },
+  "335": {
+   "sectionid": "296167454",
+   "title": "Peptic Ulcer Disease and Related Disorders",
+   "observations": 1
+  },
+  "336": {
+   "sectionid": "295621647",
+   "title": "Disorders of Absorption",
+   "observations": 1
+  },
+  "337": {
+   "sectionid": "295621825",
+   "title": "Inflammatory Bowel Disease",
+   "observations": 1
+  },
+  "338": {
+   "sectionid": "295622072",
+   "title": "Irritable Bowel Syndrome",
+   "observations": 1
+  },
+  "339": {
+   "sectionid": "295695163",
+   "title": "Diverticular Disease and Common Anorectal Disorders",
+   "observations": 1
+  },
+  "340": {
+   "sectionid": "295622158",
+   "title": "Mesenteric Vascular Insufficiency",
+   "observations": 1
+  },
+  "341": {
+   "sectionid": "295622188",
+   "title": "Acute Intestinal Obstruction",
+   "observations": 1
+  },
+  "342": {
+   "sectionid": "295622244",
+   "title": "Acute Appendicitis and Peritonitis",
+   "observations": 1
+  },
+  "343": {
+   "sectionid": "295695281",
+   "title": "Nutrient Requirements and Dietary Assessment",
+   "observations": 1
+  },
+  "344": {
+   "sectionid": "295622308",
+   "title": "Vitamin and Trace Mineral Deficiency and Excess",
+   "observations": 1
+  },
+  "345": {
+   "sectionid": "295695349",
+   "title": "Malnutrition and Nutritional Assessment",
+   "observations": 1
+  },
+  "346": {
+   "sectionid": "295622466",
+   "title": "Enteral and Parenteral Nutrition",
+   "observations": 1
+  },
+  "347": {
+   "sectionid": "295622626",
+   "title": "Approach to the Patient with Liver Disease",
+   "observations": 1
+  },
+  "348": {
+   "sectionid": "295622693",
+   "title": "Evaluation of Liver Function",
+   "observations": 1
+  },
+  "349": {
+   "sectionid": "295622747",
+   "title": "The Hyperbilirubinemias",
+   "observations": 1
+  },
+  "350": {
+   "sectionid": "295695386",
+   "title": "Acute Viral Hepatitis",
+   "observations": 1
+  },
+  "351": {
+   "sectionid": "295622809",
+   "title": "Toxic and Drug-Induced Hepatitis",
+   "observations": 1
+  },
+  "352": {
+   "sectionid": "295622860",
+   "title": "Chronic Hepatitis",
+   "observations": 1
+  },
+  "353": {
+   "sectionid": "295623105",
+   "title": "Alcohol-Associated Liver Disease",
+   "observations": 1
+  },
+  "354": {
+   "sectionid": "295623131",
+   "title": "Metabolic Dysfunction–Associated Steatotic Liver Disease and Steatohepatitis",
+   "observations": 1
+  },
+  "355": {
+   "sectionid": "295695569",
+   "title": "Cirrhosis and Its Complications",
+   "observations": 1
+  },
+  "356": {
+   "sectionid": "295695714",
+   "title": "Liver Transplantation",
+   "observations": 1
+  },
+  "357": {
+   "sectionid": "295623210",
+   "title": "Diseases of the Gallbladder and Bile Ducts",
+   "observations": 1
+  },
+  "358": {
+   "sectionid": "296167724",
+   "title": "Approach to the Patient with Pancreatic Disease",
+   "observations": 1
+  },
+  "359": {
+   "sectionid": "296167757",
+   "title": "Acute and Chronic Pancreatitis",
+   "observations": 1
+  },
+  "360": {
+   "sectionid": "296167895",
+   "title": "Introduction to the Immune System",
+   "observations": 1
+  },
+  "361": {
+   "sectionid": "296168068",
+   "title": "Mechanisms of Regulation and Dysregulation of the Immune System",
+   "observations": 1
+  },
+  "362": {
+   "sectionid": "293947529",
+   "title": "Primary Immune Deficiency Diseases",
+   "observations": 1
+  },
+  "363": {
+   "sectionid": "293947666",
+   "title": "Urticaria, Angioedema, and Allergic Rhinitis",
+   "observations": 1
+  },
+  "364": {
+   "sectionid": "294355058",
+   "title": "Anaphylaxis",
+   "observations": 1
+  },
+  "365": {
+   "sectionid": "296168113",
+   "title": "Desensitization",
+   "observations": 1
+  },
+  "366": {
+   "sectionid": "294821856",
+   "title": "Mastocytosis",
+   "observations": 1
+  },
+  "367": {
+   "sectionid": "294355089",
+   "title": "Autoimmunity and Autoimmune Diseases",
+   "observations": 1
+  },
+  "368": {
+   "sectionid": "296168175",
+   "title": "Systemic Lupus Erythematosus",
+   "observations": 1
+  },
+  "369": {
+   "sectionid": "296168272",
+   "title": "Antiphospholipid Syndrome",
+   "observations": 1
+  },
+  "370": {
+   "sectionid": "294355163",
+   "title": "Rheumatoid Arthritis",
+   "observations": 1
+  },
+  "371": {
+   "sectionid": "296168299",
+   "title": "Acute Rheumatic Fever",
+   "observations": 1
+  },
+  "372": {
+   "sectionid": "294355278",
+   "title": "Systemic Sclerosis (Scleroderma) and Related Disorders",
+   "observations": 1
+  },
+  "373": {
+   "sectionid": "294821879",
+   "title": "Sjögren’s Disease",
+   "observations": 1
+  },
+  "374": {
+   "sectionid": "294616475",
+   "title": "Spondyloarthritis",
+   "observations": 1
+  },
+  "375": {
+   "sectionid": "294355419",
+   "title": "The Vasculitis Syndromes",
+   "observations": 1
+  },
+  "376": {
+   "sectionid": "294355615",
+   "title": "Behçet Syndrome",
+   "observations": 1
+  },
+  "377": {
+   "sectionid": "294355637",
+   "title": "Inflammatory Myopathies",
+   "observations": 1
+  },
+  "378": {
+   "sectionid": "294355736",
+   "title": "Relapsing Polychondritis",
+   "observations": 1
+  },
+  "379": {
+   "sectionid": "296168376",
+   "title": "Sarcoidosis",
+   "observations": 1
+  },
+  "380": {
+   "sectionid": "295623363",
+   "title": "IgG4-Related Disease",
+   "observations": 1
+  },
+  "381": {
+   "sectionid": "294616630",
+   "title": "Familial Mediterranean Fever and Other Hereditary Autoinflammatory Diseases",
+   "observations": 1
+  },
+  "382": {
+   "sectionid": "294616679",
+   "title": "Approach to Articular and Musculoskeletal Disorders",
+   "observations": 1
+  },
+  "383": {
+   "sectionid": "296168478",
+   "title": "Osteoarthritis",
+   "observations": 1
+  },
+  "384": {
+   "sectionid": "294821913",
+   "title": "Gout and Other Crystal-Associated Arthropathies",
+   "observations": 1
+  },
+  "385": {
+   "sectionid": "294616756",
+   "title": "Fibromyalgia",
+   "observations": 1
+  },
+  "386": {
+   "sectionid": "294821990",
+   "title": "Arthritis Associated with Systemic Disease, and Other Arthritides",
+   "observations": 1
+  },
+  "387": {
+   "sectionid": "296168596",
+   "title": "Periarticular Disorders of the Extremities",
+   "observations": 1
+  },
+  "388": {
+   "sectionid": "295623398",
+   "title": "Approach to the Patient with Endocrine Disorders",
+   "observations": 1
+  },
+  "389": {
+   "sectionid": "295623432",
+   "title": "Mechanisms of Hormone Action",
+   "observations": 1
+  },
+  "390": {
+   "sectionid": "295623506",
+   "title": "Physiology of Anterior Pituitary Hormones",
+   "observations": 1
+  },
+  "391": {
+   "sectionid": "295623578",
+   "title": "Hypopituitarism",
+   "observations": 1
+  },
+  "392": {
+   "sectionid": "296168634",
+   "title": "Pituitary Tumor Syndromes",
+   "observations": 1
+  },
+  "393": {
+   "sectionid": "296168820",
+   "title": "Disorders of the Neurohypophysis",
+   "observations": 1
+  },
+  "394": {
+   "sectionid": "295623682",
+   "title": "Thyroid Gland Physiology and Testing",
+   "observations": 1
+  },
+  "395": {
+   "sectionid": "294822084",
+   "title": "Hypothyroidism",
+   "observations": 1
+  },
+  "396": {
+   "sectionid": "295623762",
+   "title": "Hyperthyroidism and Other Causes of Thyrotoxicosis",
+   "observations": 1
+  },
+  "397": {
+   "sectionid": "296168890",
+   "title": "Thyroid Nodular Disease and Thyroid Cancer",
+   "observations": 1
+  },
+  "398": {
+   "sectionid": "295623854",
+   "title": "Disorders of the Adrenal Cortex",
+   "observations": 1
+  },
+  "399": {
+   "sectionid": "295624011",
+   "title": "Pheochromocytoma",
+   "observations": 1
+  },
+  "400": {
+   "sectionid": "295624069",
+   "title": "Multiple Endocrine Neoplasia Syndromes",
+   "observations": 1
+  },
+  "401": {
+   "sectionid": "295624197",
+   "title": "Autoimmune Polyendocrine Syndromes",
+   "observations": 1
+  },
+  "402": {
+   "sectionid": "295624252",
+   "title": "Sex Development",
+   "observations": 1
+  },
+  "403": {
+   "sectionid": "295624340",
+   "title": "Disorders of the Testes and Male Reproductive System",
+   "observations": 1
+  },
+  "404": {
+   "sectionid": "296169003",
+   "title": "Disorders of the Female Reproductive System",
+   "observations": 1
+  },
+  "405": {
+   "sectionid": "295624554",
+   "title": "Menstrual Disorders and Pelvic Pain",
+   "observations": 1
+  },
+  "406": {
+   "sectionid": "295624617",
+   "title": "Hirsutism",
+   "observations": 1
+  },
+  "407": {
+   "sectionid": "296169077",
+   "title": "Menopause and Postmenopausal Hormone Therapy",
+   "observations": 1
+  },
+  "408": {
+   "sectionid": "295624655",
+   "title": "Infertility and Contraception",
+   "observations": 1
+  },
+  "409": {
+   "sectionid": "295624727",
+   "title": "Sexual Dysfunction",
+   "observations": 1
+  },
+  "410": {
+   "sectionid": "296169154",
+   "title": "Women’s Health",
+   "observations": 1
+  },
+  "411": {
+   "sectionid": "295624829",
+   "title": "Men’s Health",
+   "observations": 1
+  },
+  "412": {
+   "sectionid": "296169220",
+   "title": "Lesbian, Gay, Bisexual, Transgender, Queer or Questioning, Intersex, Asexual, and More (LGBTQIA+) Health",
+   "observations": 1
+  },
+  "413": {
+   "sectionid": "295624914",
+   "title": "Pathobiology of Obesity",
+   "observations": 1
+  },
+  "414": {
+   "sectionid": "296169245",
+   "title": "Evaluation and Management of Obesity",
+   "observations": 1
+  },
+  "415": {
+   "sectionid": "296169323",
+   "title": "Diabetes Mellitus: Diagnosis, Classification, and Pathophysiology",
+   "observations": 1
+  },
+  "416": {
+   "sectionid": "296169425",
+   "title": "Diabetes Mellitus: Management and Therapies",
+   "observations": 1
+  },
+  "417": {
+   "sectionid": "296169594",
+   "title": "Diabetes Mellitus: Complications",
+   "observations": 1
+  },
+  "418": {
+   "sectionid": "296169692",
+   "title": "Hypoglycemia",
+   "observations": 1
+  },
+  "419": {
+   "sectionid": "295624998",
+   "title": "Disorders of Lipoprotein Metabolism",
+   "observations": 1
+  },
+  "420": {
+   "sectionid": "296169781",
+   "title": "The Metabolic Syndrome",
+   "observations": 1
+  },
+  "421": {
+   "sectionid": "295625185",
+   "title": "Bone and Mineral Metabolism in Health and Disease",
+   "observations": 1
+  },
+  "422": {
+   "sectionid": "296169882",
+   "title": "Disorders of the Parathyroid Gland and Calcium Homeostasis",
+   "observations": 1
+  },
+  "423": {
+   "sectionid": "296170171",
+   "title": "Osteoporosis",
+   "observations": 1
+  },
+  "424": {
+   "sectionid": "295625301",
+   "title": "Paget’s Disease and Other Dysplasias of Bone",
+   "observations": 1
+  },
+  "425": {
+   "sectionid": "296170391",
+   "title": "Heritable Disorders of Connective Tissue",
+   "observations": 1
+  },
+  "426": {
+   "sectionid": "295625420",
+   "title": "Hemochromatosis",
+   "observations": 1
+  },
+  "427": {
+   "sectionid": "295625485",
+   "title": "Wilson’s Disease",
+   "observations": 1
+  },
+  "428": {
+   "sectionid": "295625532",
+   "title": "The Porphyrias",
+   "observations": 1
+  },
+  "429": {
+   "sectionid": "295625664",
+   "title": "Lysosomal Storage Diseases",
+   "observations": 1
+  },
+  "430": {
+   "sectionid": "296170518",
+   "title": "Glycogen Storage Diseases and Other Inherited Disorders of Carbohydrate Metabolism",
+   "observations": 1
+  },
+  "431": {
+   "sectionid": "295625711",
+   "title": "Inherited Disorders of Amino Acid Metabolism in Adults",
+   "observations": 1
+  },
+  "432": {
+   "sectionid": "295625743",
+   "title": "Inherited Defects of Membrane Transport",
+   "observations": 1
+  },
+  "433": {
+   "sectionid": "295695781",
+   "title": "Approach to the Patient with Neurologic Disease",
+   "observations": 1
+  },
+  "434": {
+   "sectionid": "295695876",
+   "title": "Neuroimaging in Neurologic Disorders",
+   "observations": 1
+  },
+  "435": {
+   "sectionid": "296170598",
+   "title": "Pathobiology of Neurologic Diseases",
+   "observations": 1
+  },
+  "436": {
+   "sectionid": "295695978",
+   "title": "Seizures and Epilepsy",
+   "observations": 1
+  },
+  "437": {
+   "sectionid": "295696171",
+   "title": "Introduction to Cerebrovascular Diseases",
+   "observations": 1
+  },
+  "438": {
+   "sectionid": "295696263",
+   "title": "Ischemic Stroke",
+   "observations": 1
+  },
+  "439": {
+   "sectionid": "295696405",
+   "title": "Intracerebral Hemorrhage",
+   "observations": 1
+  },
+  "440": {
+   "sectionid": "296170725",
+   "title": "Subarachnoid Hemorrhage",
+   "observations": 1
+  },
+  "441": {
+   "sectionid": "296170774",
+   "title": "Migraine and Other Primary Headache Disorders",
+   "observations": 1
+  },
+  "442": {
+   "sectionid": "295696466",
+   "title": "Alzheimer’s Disease",
+   "observations": 1
+  },
+  "443": {
+   "sectionid": "295696552",
+   "title": "Frontotemporal Dementia",
+   "observations": 1
+  },
+  "444": {
+   "sectionid": "295696579",
+   "title": "Vascular Dementia",
+   "observations": 1
+  },
+  "445": {
+   "sectionid": "295696605",
+   "title": "Dementia with Lewy Bodies",
+   "observations": 1
+  },
+  "446": {
+   "sectionid": "296170923",
+   "title": "Parkinson’s Disease",
+   "observations": 1
+  },
+  "447": {
+   "sectionid": "295696631",
+   "title": "Tremor, Chorea, and Other Movement Disorders",
+   "observations": 1
+  },
+  "448": {
+   "sectionid": "295696758",
+   "title": "Amyotrophic Lateral Sclerosis and Other Motor Neuron Diseases",
+   "observations": 1
+  },
+  "449": {
+   "sectionid": "295696822",
+   "title": "Prion Diseases",
+   "observations": 1
+  },
+  "450": {
+   "sectionid": "295696913",
+   "title": "Ataxic Disorders",
+   "observations": 1
+  },
+  "451": {
+   "sectionid": "296171042",
+   "title": "Disorders of the Autonomic Nervous System",
+   "observations": 1
+  },
+  "452": {
+   "sectionid": "295696998",
+   "title": "Trigeminal Neuralgia, Bell’s Palsy, and Other Cranial Nerve Disorders",
+   "observations": 1
+  },
+  "453": {
+   "sectionid": "295697079",
+   "title": "Diseases of the Spinal Cord",
+   "observations": 1
+  },
+  "454": {
+   "sectionid": "295697232",
+   "title": "Concussion and Other Traumatic Brain Injuries",
+   "observations": 1
+  },
+  "455": {
+   "sectionid": "295697321",
+   "title": "Multiple Sclerosis",
+   "observations": 1
+  },
+  "456": {
+   "sectionid": "296171157",
+   "title": "Neuromyelitis Optica",
+   "observations": 1
+  },
+  "457": {
+   "sectionid": "296171209",
+   "title": "Peripheral Neuropathy",
+   "observations": 1
+  },
+  "458": {
+   "sectionid": "296171499",
+   "title": "Guillain-Barré Syndrome and Other Immune-Mediated Neuropathies",
+   "observations": 1
+  },
+  "459": {
+   "sectionid": "296171572",
+   "title": "Myasthenia Gravis and Other Diseases of the Neuromuscular Junction",
+   "observations": 1
+  },
+  "460": {
+   "sectionid": "296171661",
+   "title": "Muscular Dystrophies and Other Muscle Diseases",
+   "observations": 1
+  },
+  "461": {
+   "sectionid": "295697454",
+   "title": "Myalgic Encephalomyelitis/Chronic Fatigue Syndrome",
+   "observations": 1
+  },
+  "462": {
+   "sectionid": "295697485",
+   "title": "Biology of Psychiatric Disorders",
+   "observations": 1
+  },
+  "463": {
+   "sectionid": "296171886",
+   "title": "Psychiatric Disorders",
+   "observations": 1
+  },
+  "464": {
+   "sectionid": "295697524",
+   "title": "Alcohol and Alcohol Use Disorders",
+   "observations": 1
+  },
+  "465": {
+   "sectionid": "295697615",
+   "title": "Nicotine Addiction",
+   "observations": 1
+  },
+  "466": {
+   "sectionid": "295697688",
+   "title": "Cannabis and Cannabis Use Disorder",
+   "observations": 1
+  },
+  "467": {
+   "sectionid": "295697722",
+   "title": "Opioid-Related Disorders",
+   "observations": 1
+  },
+  "468": {
+   "sectionid": "295697771",
+   "title": "Cocaine, Other Psychostimulants, and Hallucinogens",
+   "observations": 1
+  },
+  "469": {
+   "sectionid": "293066480",
+   "title": "Heavy Metal Poisoning",
+   "observations": 1
+  },
+  "470": {
+   "sectionid": "293066525",
+   "title": "Poisoning and Drug Overdose",
+   "observations": 1
+  },
+  "471": {
+   "sectionid": "293066566",
+   "title": "Disorders Caused by Venomous Snakebites and Marine Animal Exposures",
+   "observations": 1
+  },
+  "472": {
+   "sectionid": "293066668",
+   "title": "Ectoparasite Infestations and Arthropod Injuries",
+   "observations": 1
+  },
+  "473": {
+   "sectionid": "296172061",
+   "title": "Health Effects of Climate Change",
+   "observations": 1
+  },
+  "474": {
+   "sectionid": "296172116",
+   "title": "Climate Change and Infectious Disease",
+   "observations": 1
+  },
+  "475": {
+   "sectionid": "293066791",
+   "title": "Altitude Illness",
+   "observations": 1
+  },
+  "476": {
+   "sectionid": "296172208",
+   "title": "Hyperbaric and Diving Medicine",
+   "observations": 1
+  },
+  "477": {
+   "sectionid": "293066880",
+   "title": "Hypothermia and Peripheral Cold Injuries",
+   "observations": 1
+  },
+  "478": {
+   "sectionid": "293066931",
+   "title": "Heat-Related Illnesses",
+   "observations": 1
+  },
+  "479": {
+   "sectionid": "296172298",
+   "title": "Principles of Human Genetics",
+   "observations": 1
+  },
+  "480": {
+   "sectionid": "293067047",
+   "title": "The Integration of Inherited Genetics into Clinical Practice",
+   "observations": 1
+  },
+  "481": {
+   "sectionid": "296172486",
+   "title": "Mitochondrial DNA and Heritable Traits and Diseases",
+   "observations": 1
+  },
+  "482": {
+   "sectionid": "293067105",
+   "title": "Telomere Disease",
+   "observations": 1
+  },
+  "483": {
+   "sectionid": "293067152",
+   "title": "Gene and Cell-Based Therapy in Clinical Medicine",
+   "observations": 1
+  },
+  "484": {
+   "sectionid": "293067221",
+   "title": "The Human Microbiome in Health and Disease",
+   "observations": 1
+  },
+  "485": {
+   "sectionid": "293067343",
+   "title": "Global Issues in Medicine",
+   "observations": 1
+  },
+  "486": {
+   "sectionid": "296172565",
+   "title": "Emerging and Re-Emerging Infectious Diseases",
+   "observations": 1
+  },
+  "487": {
+   "sectionid": "293067451",
+   "title": "Primary Care and Global Health",
+   "observations": 1
+  },
+  "488": {
+   "sectionid": "293336130",
+   "title": "Biology of Aging",
+   "observations": 1
+  },
+  "489": {
+   "sectionid": "296172615",
+   "title": "Caring for the Geriatric Patient",
+   "observations": 1
+  },
+  "490": {
+   "sectionid": "292624341",
+   "title": "Approach to Medical Consultation",
+   "observations": 1
+  },
+  "491": {
+   "sectionid": "292624368",
+   "title": "Medical Disorders During Pregnancy",
+   "observations": 1
+  },
+  "492": {
+   "sectionid": "292624474",
+   "title": "Medical Evaluation of the Patient Undergoing Noncardiac Surgery",
+   "observations": 1
+  },
+  "493": {
+   "sectionid": "296172790",
+   "title": "Point-of-Care Ultrasound",
+   "observations": 1
+  },
+  "494": {
+   "sectionid": "295150003",
+   "title": "Improving Health and Health Care Using Behavioral Economics",
+   "observations": 1
+  },
+  "495": {
+   "sectionid": "295150113",
+   "title": "Complementary and Integrative Therapies and Practices",
+   "observations": 1
+  },
+  "496": {
+   "sectionid": "295150204",
+   "title": "Placebo and Nocebo Effects",
+   "observations": 1
+  },
+  "497": {
+   "sectionid": "295150263",
+   "title": "The Role of Epigenetics in Disease and Treatment",
+   "observations": 1
+  },
+  "498": {
+   "sectionid": "295150329",
+   "title": "The Role of Circadian Biology in Health and Disease",
+   "observations": 1
+  },
+  "499": {
+   "sectionid": "295697846",
+   "title": "Network Medicine and Multiomic Approaches to Health and Disease",
+   "observations": 1
+  },
+  "500": {
+   "sectionid": "296172866",
+   "title": "Emerging Neurotherapeutic Technologies",
+   "observations": 1
+  },
+  "501": {
+   "sectionid": "295150423",
+   "title": "Machine Learning and Augmented Intelligence in Clinical Medicine",
+   "observations": 1
+  },
+  "502": {
+   "sectionid": "295150467",
+   "title": "Metabolomics",
+   "observations": 1
+  },
+  "503": {
+   "sectionid": "295150550",
+   "title": "Circulating Nucleic Acids as Liquid Biopsies and Noninvasive Disease Biomarkers",
+   "observations": 1
+  },
+  "504": {
+   "sectionid": "295150645",
+   "title": "Protein Folding Disorders",
+   "observations": 1
+  },
+  "505": {
+   "sectionid": "295150692",
+   "title": "Novel Approaches to Diseases of Unknown Etiology",
+   "observations": 1
+  }
+ }
+}

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Faculty Studio · 새 문항 만들기 — P:accine</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="./faculty-studio.css?v=20260716-1" />
+</head>
+<body>
+  <div class="fs2-shell">
+    <header class="fs2-topbar">
+      <div class="fs2-brand">
+        <span class="fs2-logo">P</span>
+        <div>
+          <strong>P:accine</strong>
+          <span class="fs2-brand-sub">Faculty Studio V2</span>
+        </div>
+      </div>
+      <nav class="fs2-topnav" aria-label="Faculty Studio 상단">
+        <a class="fs2-nav-active" href="./" aria-current="page">새 문항 만들기</a>
+        <a href="./sources.html">자료 보관함</a>
+        <a href="./review.html">검토·승인</a>
+        <a href="./evidence-media.html">근거·미디어</a>
+        <a href="./archive.html">내보내기</a><a href="/faculty-review-console/" title="AI 생성 문항 확정 · 가입 승인 · 세트 리포트">검토 콘솔</a>
+      </nav>
+      <a class="fs2-home-link" href="/#faculty-dashboard">교수 홈</a>
+    </header>
+
+    <main class="fs2-main" id="fs2-create">
+      <div class="fs2-head">
+        <div>
+          <h1>새 문항 만들기</h1>
+          <p class="fs2-sub">출제 근거와 평가 축을 먼저 정하고, 검토 가능한 문항 초안을 만듭니다.</p>
+        </div>
+        <div class="fs2-head-state" aria-label="배포 상태">
+          <span class="fs2-state-dot" aria-hidden="true"></span>
+          <span><strong>교수 검토용 초안</strong><small>학생에게 자동 공개되지 않음</small></span>
+        </div>
+      </div>
+
+      <ol class="fs2-workflow-strip" aria-label="문항 제작 단계">
+        <li class="is-active"><span>01</span><b>출제 설계</b></li>
+        <li><span>02</span><b>초안 생성</b></li>
+        <li><span>03</span><b>검토·승인</b></li>
+        <li><span>04</span><b>내보내기</b></li>
+      </ol>
+
+      <div class="fs2-layout">
+        <div class="fs2-flow">
+          <!-- 1. 출처 -->
+          <section class="fs2-step" aria-labelledby="fs2-step1">
+            <h2 id="fs2-step1"><span class="fs2-step-no">1</span> 무엇을 바탕으로 만들까요?</h2>
+            <div class="fs2-chips" role="radiogroup" aria-label="출처 선택" id="fs2-source-chips">
+              <button type="button" class="fs2-chip fs2-chip-lg" role="radio" aria-checked="true" data-source="topic">주제로 만들기</button>
+              <button type="button" class="fs2-chip fs2-chip-lg" role="radio" aria-checked="false" data-source="lecture">강의자료 업로드</button>
+              <button type="button" class="fs2-chip fs2-chip-lg" role="radio" aria-checked="false" data-source="evidence">저장된 근거로 만들기</button>
+            </div>
+
+            <div class="fs2-source-body" data-source-body="topic">
+              <label class="fs2-field">
+                <span>출제 주제 <b class="fs2-req">*</b></span>
+                <textarea id="fs2-topic" rows="2" placeholder="예: 급성 심근경색의 초기 진단과 처치 / ECG 판독 감별"></textarea>
+              </label>
+              <label class="fs2-field">
+                <span>교수 강조점 / 출제 의도 <span class="fs2-opt">(선택)</span></span>
+                <textarea id="fs2-teaching" rows="2" placeholder="예: 진단 후 재관류 적응증과 금기를 묻고 싶음. leukostasis 감별도."></textarea>
+              </label>
+              <label class="fs2-field">
+                <span>참고 교재 페이지 <span class="fs2-opt">(선택 · 학생 열람용, 원문 미복사)</span></span>
+                <input id="fs2-textbook" type="text" placeholder="예: Harrison's 22e Ch.109 (부산대 도서관 AccessMedicine)" />
+              </label>
+            </div>
+
+            <div class="fs2-source-body" data-source-body="lecture" hidden>
+              <label class="fs2-file">
+                <input id="fs2-lecture-file" type="file" accept=".pdf,.docx,.pptx,.hwp,.txt,.md" />
+                <span class="fs2-file-label" id="fs2-lecture-label">강의자료 선택 (PDF · PPTX · DOCX · HWP · TXT)</span>
+              </label>
+              <label class="fs2-field">
+                <span>출제 주제 / 강조점 <span class="fs2-opt">(선택 · 출제 범위 좁히기)</span></span>
+                <input id="fs2-lecture-topic" type="text" placeholder="예: 뇌출혈 초기 처치 중심" />
+              </label>
+              <p class="fs2-note">강의자료는 출제 범위와 교수 강조점을 잡는 기준으로 사용합니다. 교재 원문은 문항에 복사되지 않습니다.</p>
+            </div>
+
+            <div class="fs2-source-body" data-source-body="evidence" hidden>
+              <label class="fs2-field">
+                <span>출제 주제 <b class="fs2-req">*</b></span>
+                <input id="fs2-evidence-topic" type="text" placeholder="예: 급성 골수성 백혈병의 진단과 초기 치료" />
+              </label>
+              <div class="fs2-inline-pick">
+                <span>선택한 근거 <b id="fs2-evidence-count">0개</b></span>
+                <button type="button" class="fs2-btn-sm" data-open-drawer="evidence">근거 추가</button>
+              </div>
+              <p class="fs2-note">승인·비식별화된 저장 근거만 선택할 수 있습니다. 선택한 근거를 바탕으로 주제 문항을 생성합니다.</p>
+            </div>
+          </section>
+
+          <!-- 2. 평가 -->
+          <section class="fs2-step" aria-labelledby="fs2-step2">
+            <h2 id="fs2-step2"><span class="fs2-step-no">2</span> 무엇을 평가할까요?</h2>
+            <div class="fs2-concept-row">
+              <label class="fs2-field fs2-grow">
+                <span>Ontology 개념 <span class="fs2-opt">(선택 · 연결 시 근거·감별 상속)</span></span>
+                <input id="fs2-concept" type="text" placeholder="예: 다발골수종 · 심근경색" />
+              </label>
+              <button type="button" class="fs2-btn-sm" id="fs2-concept-check">개념 확인</button>
+            </div>
+            <p class="fs2-concept-state" id="fs2-concept-state" aria-live="polite"></p>
+
+            <p class="fs2-label-row">평가할 임상 축 <b class="fs2-req">*</b> <span class="fs2-opt">문항이 실제로 평가할 한 축</span></p>
+            <div class="fs2-chips" role="radiogroup" aria-label="평가 축" id="fs2-axis-chips">
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="symptom">증상·임상 소견</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="diagnosis">진단</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="pathophysiology">병태생리</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="etiology">원인</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="risk_factor">위험요인</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="prognosis">예후</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="epidemiology">역학</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="treatment">치료</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="indication">적응증</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-axis="contraindication">금기</button>
+            </div>
+          </section>
+
+          <!-- 3. 문항 형태 -->
+          <section class="fs2-step" aria-labelledby="fs2-step3">
+            <h2 id="fs2-step3"><span class="fs2-step-no">3</span> 어떤 문항으로 만들까요?</h2>
+            <div class="fs2-chips" role="radiogroup" aria-label="문항 형태" id="fs2-qtype-chips">
+              <button type="button" class="fs2-chip" role="radio" aria-checked="true" data-qtype="clinical_case">임상 증례</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-qtype="basic_concept">개념 확인</button>
+              <button type="button" class="fs2-chip" role="radio" aria-checked="false" data-qtype="image_based">이미지·자료 해석</button>
+            </div>
+            <div class="fs2-inline-controls">
+              <div class="fs2-stepper" role="group" aria-label="문항 수">
+                <span class="fs2-stepper-label">문항 수</span>
+                <button type="button" class="fs2-step-btn" data-count="-1" aria-label="문항 수 감소">−</button>
+                <output id="fs2-count">3</output>
+                <button type="button" class="fs2-step-btn" data-count="1" aria-label="문항 수 증가">+</button>
+              </div>
+              <label class="fs2-field fs2-inline-field">
+                <span>난이도</span>
+                <select id="fs2-difficulty">
+                  <option value="보통">중</option>
+                  <option value="쉬움">쉬움</option>
+                  <option value="어려움">어려움</option>
+                  <option value="국가고시형">국시형</option>
+                </select>
+              </label>
+              <label class="fs2-toggle">
+                <input type="checkbox" id="fs2-fast" />
+                <span>빠른 미리보기 <span class="fs2-opt">(항상 1문항)</span></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- 4. 자료 -->
+          <section class="fs2-step" aria-labelledby="fs2-step4">
+            <h2 id="fs2-step4"><span class="fs2-step-no">4</span> 사용할 자료 <span class="fs2-opt">(선택)</span></h2>
+            <div class="fs2-inline-pick">
+              <span>이미지 <b id="fs2-image-count">0개</b> <span class="fs2-opt">승인·비식별 자료만</span></span>
+              <button type="button" class="fs2-btn-sm" data-open-drawer="image">이미지 추가</button>
+            </div>
+          </section>
+
+          <!-- 고급 설정 -->
+          <details class="fs2-advanced">
+            <summary>고급 설정 <span class="fs2-opt">(기본값을 그대로 써도 됩니다)</span></summary>
+            <div class="fs2-adv-grid">
+              <label class="fs2-field">
+                <span>추론 단계 (hops)</span>
+                <select id="fs2-hops">
+                  <option value="">자동</option>
+                  <option value="1">1 · 진단</option>
+                  <option value="2">2 · 진단→처치/예후</option>
+                  <option value="3">3 · 진단→합병증→처치</option>
+                </select>
+              </label>
+              <label class="fs2-field">
+                <span>option domain</span>
+                <input id="fs2-option-domain" type="text" placeholder="자동" />
+              </label>
+              <label class="fs2-field">
+                <span>참고 범위</span>
+                <select id="fs2-reference-policy">
+                  <option value="local_open">로컬 자유 참고</option>
+                  <option value="uploaded_only">업로드 자료 중심</option>
+                </select>
+              </label>
+              <label class="fs2-field">
+                <span>이미지 사용 정책</span>
+                <select id="fs2-image-policy">
+                  <option value="none">이미지 삽입 안 함</option>
+                  <option value="clinical_visuals">환자/영상/병리 자료만</option>
+                  <option value="allow_slide_fallback">슬라이드 캡처도 허용</option>
+                </select>
+              </label>
+              <div class="fs2-field fs2-engine-note">
+                <span>생성 엔진</span>
+                <strong>P:accine 자동 선택</strong>
+                <small>외부 도구를 고르지 않아도 현재 연결 상태에 맞춰 내부에서 처리합니다.</small>
+              </div>
+              <label class="fs2-toggle fs2-adv-toggle">
+                <input type="checkbox" id="fs2-reveal-specialty" />
+                <span>분과·진단명 노출 허용 <span class="fs2-opt">(끄면 미분화)</span></span>
+              </label>
+              <label class="fs2-toggle fs2-adv-toggle">
+                <input type="checkbox" id="fs2-include-tables" />
+                <span>표 자료 생성 허용</span>
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <!-- 설계 요약 (sticky) -->
+        <aside class="fs2-summary" aria-label="출제 설계 요약">
+          <div class="fs2-summary-inner">
+            <div class="fs2-summary-kicker">
+              <span>LIVE BLUEPRINT</span>
+              <span class="fs2-draft-badge">Draft</span>
+            </div>
+            <h2>출제 설계</h2>
+            <p class="fs2-summary-line" id="fs2-summary-line">평가 축을 먼저 선택하세요.</p>
+            <dl class="fs2-summary-grid">
+              <div><dt>출처</dt><dd id="fs2-summary-source">주제 입력</dd></div>
+              <div><dt>개념</dt><dd id="fs2-summary-concept">미연결</dd></div>
+              <div><dt>평가 축</dt><dd id="fs2-summary-axis">선택 필요</dd></div>
+              <div><dt>문항 형태</dt><dd id="fs2-summary-type">임상 증례</dd></div>
+              <div><dt>문항 수</dt><dd id="fs2-summary-count">3문항</dd></div>
+              <div><dt>제시자료</dt><dd id="fs2-summary-media">선택 안 함</dd></div>
+            </dl>
+            <p class="fs2-summary-draft">생성 결과는 검토 큐에만 저장됩니다. 승인 전에는 학생 화면과 배포 파일에 포함되지 않습니다.</p>
+            <p class="fs2-preflight" id="fs2-preflight" aria-live="polite"></p>
+            <div class="fs2-cta-row">
+              <button type="button" class="fs2-btn-secondary" id="fs2-preflight-btn">출제 설계 확인</button>
+              <button type="button" class="fs2-btn-primary" id="fs2-generate-btn" disabled>문항 초안 생성</button>
+            </div>
+            <p class="fs2-hint" id="fs2-cta-hint">다음: 평가 축을 선택하세요.</p>
+          </div>
+        </aside>
+      </div>
+
+      <!-- 진행/결과 -->
+      <section class="fs2-status-card" id="fs2-status-card" hidden aria-live="polite">
+        <p class="fs2-status-text" id="fs2-status-text"></p>
+        <div class="fs2-result" id="fs2-result" hidden></div>
+      </section>
+    </main>
+
+    <!-- 자료 선택 drawer -->
+    <div class="fs2-drawer-backdrop" id="fs2-drawer" hidden>
+      <div class="fs2-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="fs2-drawer-title">
+        <div class="fs2-drawer-head">
+          <h3 id="fs2-drawer-title">자료 선택</h3>
+          <button type="button" class="fs2-drawer-close" id="fs2-drawer-close" aria-label="닫기">✕</button>
+        </div>
+        <input type="search" id="fs2-drawer-search" class="fs2-drawer-search" placeholder="진단·단원·소견 검색" />
+        <div class="fs2-drawer-grid" id="fs2-drawer-grid">불러오는 중…</div>
+        <div class="fs2-drawer-foot">
+          <span id="fs2-drawer-selected">0개 선택</span>
+          <button type="button" class="fs2-btn-primary" id="fs2-drawer-done">선택 완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./faculty-studio.js?v=20260716-2"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>맞춤 세트 구성 · P:accine</title>
+  <link rel="stylesheet" href="/student-v2/student.css?v=20260716-nav-1">
+</head>
+<body data-student-page="builder">
+  <div class="app-shell">
+    <aside class="rail" aria-label="주요 메뉴">
+      <a class="brand" href="/student-v2/home.html"><span class="brand-mark">P</span><span><strong>P:accine</strong><small>부산의대 학습 OS</small></span></a>
+      <div class="student-role-switch" aria-label="사용자 역할 선택"><a href="/#faculty-dashboard">교수</a><a class="is-active" href="/student-v2/home.html" aria-current="page">학생</a></div>
+      <nav class="rail-nav">
+        <span class="rail-label">학습</span>
+        <a href="/student-v2/home.html">학습 홈</a>
+        <a href="/student-v2/">나의 서재</a>
+        <a class="is-active" href="/student-v2/builder.html">문제 풀기</a>
+        <a href="/student-v2/home.html#study-tools">개념 노트</a>
+        <a href="/student-v2/result.html">학습 리포트</a>
+        <span class="rail-label rail-label-secondary">실기</span>
+        <a href="/cpx-osce/">CPX/OSCE</a>
+      </nav>
+      <div class="rail-profile"><span class="avatar">의</span><span><strong>부산의대 학습자</strong><small>학습 문항 라이브러리</small></span></div>
+    </aside>
+
+    <div class="app-area">
+      <header class="topbar">
+        <a class="mobile-brand" href="/student-v2/home.html"><span class="brand-mark">P</span><strong>P:accine</strong></a>
+        <div><p>문제 풀기</p><h1>맞춤 세트 구성</h1></div>
+        <div class="topbar-actions"><span class="autosave-dot">●</span><span>조건 자동 저장</span><button id="start-original" type="button">기출 그대로 풀기</button></div>
+      </header>
+
+      <main class="page-content builder-page">
+        <section class="page-intro compact-intro">
+          <div><span class="eyebrow">CUSTOM PRACTICE</span><h2>원하는 범위만 골라 풀어보세요</h2><p>현재 학습 가능한 문항에서 검색합니다. 정답·해설·핵심 진단 정보는 제출 전까지 서버에서 제외됩니다.</p></div>
+          <div class="library-stat"><strong id="available-count">—</strong><span>풀이 가능 문항</span></div>
+        </section>
+
+        <button id="mobile-filter-toggle" class="mobile-filter-toggle" type="button">범위 필터 열기 <span>＋</span></button>
+        <div id="builder-status" class="notice" role="status">학습 문항을 불러오는 중입니다.</div>
+
+        <div class="builder-grid" id="builder-grid" hidden>
+          <aside class="filter-card" id="filter-card" aria-label="문항 범위 필터">
+            <div class="filter-title"><div><span class="eyebrow">FILTERS</span><h3>범위 좁히기</h3></div><button id="reset-filters" type="button">초기화</button></div>
+            <label class="filter-field filter-field-wide"><span>과목</span><select id="filter-subject"><option value="">전체 과목</option></select></label>
+            <div class="filter-pair">
+              <label class="filter-field"><span>시험 연도</span><select id="filter-year"><option value="">전체 연도</option></select></label>
+              <label class="filter-field"><span>교수자</span><select id="filter-instructor"><option value="">전체 교수자</option></select></label>
+            </div>
+            <div class="filter-pair">
+              <label class="filter-field"><span>대분류</span><select id="filter-major"><option value="">전체</option></select></label>
+              <label class="filter-field"><span>세부 주제</span><select id="filter-topic"><option value="">전체</option></select></label>
+            </div>
+            <label class="filter-field filter-field-wide"><span>평가 영역</span><select id="filter-domain"><option value="">전체 영역</option></select></label>
+            <fieldset class="filter-group"><legend>문항 유형</legend><div id="type-chips" class="choice-chips">
+              <button class="is-selected" type="button" data-filter-value="all">전체</button>
+              <button type="button" data-filter-value="single">단일 정답</button>
+              <button type="button" data-filter-value="multiple">복수 정답</button>
+              <button type="button" data-filter-value="media">자료 해석</button>
+            </div></fieldset>
+            <fieldset class="filter-group"><legend>난이도</legend><div id="difficulty-chips" class="choice-chips">
+              <button class="is-selected" type="button" data-filter-value="all">전체</button>
+              <button type="button" data-filter-value="쉬움">쉬움</button>
+              <button type="button" data-filter-value="보통">보통</button>
+              <button type="button" data-filter-value="어려움">어려움</button>
+              <button type="button" data-filter-value="국시형">국시형</button>
+            </div></fieldset>
+            <label class="toggle-row"><span><b>이미지 문항만</b><small>제시자료가 포함된 문항으로 제한</small></span><input id="filter-media" type="checkbox" role="switch"></label>
+            <div class="count-range"><div><span>문항 수</span><strong><span id="question-count">1</span>문항</strong></div><input id="question-count-range" type="range" min="1" max="50" value="10"><div class="range-labels"><span>1</span><span id="range-max">50</span></div></div>
+            <button id="mobile-filter-apply" class="primary-button mobile-filter-apply" type="button">이 조건 적용</button>
+          </aside>
+
+          <section class="set-preview-card">
+            <div id="construction-tabs" class="construction-tabs" role="tablist" aria-label="세트 구성 방식">
+              <button class="is-selected" type="button" data-construction="random"><b>무작위 구성</b><small>범위 내 랜덤</small></button>
+              <button type="button" data-construction="exam"><b>시험지 단위</b><small>기출 한 세트</small></button>
+              <button type="button" data-construction="weakness"><b>취약 영역 보강</b><small>최근 오답 우선</small></button>
+            </div>
+            <div class="preview-summary">
+              <div><span class="eyebrow">SELECTED</span><h3 id="set-title">학습 문항 맞춤 세트</h3><p id="set-description">필터를 선택하면 구성 정보가 표시됩니다.</p></div>
+              <div class="summary-count"><strong id="summary-count">1</strong><span>문항</span></div>
+            </div>
+            <div class="preview-body">
+              <div class="preview-heading"><div><h3>미리보기</h3><span id="preview-scope">전체 학습 문항</span></div><span id="preview-approved">사용 가능</span></div>
+              <div id="question-preview" class="question-preview"></div>
+              <div id="builder-empty-actions" class="builder-empty-actions" hidden><button id="disable-media-filter" type="button">이미지 조건 끄기</button><button id="reset-empty-filters" type="button">필터 초기화</button></div>
+            </div>
+            <div class="start-panel builder-start-panel">
+              <div class="start-summary"><strong><span id="start-count">1</span>문항 · 약 <span id="summary-time">2분</span></strong><span id="start-label">선택한 조건으로 세트를 만듭니다</span></div>
+              <div id="solution-mode" class="solution-mode" role="radiogroup" aria-label="풀이 모드"><button class="is-selected" type="button" data-mode="learning">학습</button><button type="button" data-mode="exam">시험</button></div>
+              <button class="primary-button" id="start-set" type="button">이 세트 시작 <span>→</span></button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+  <nav class="mobile-tabbar" aria-label="모바일 학습 메뉴"><a href="/student-v2/home.html">홈</a><a href="/student-v2/">서재</a><a class="is-active" href="/student-v2/builder.html">문제 풀기</a><a href="/student-v2/result.html">리포트</a></nav>
+  <script src="/student-v2/student.js?v=20260716-nav-1" defer></script>
+</body>
+</html>

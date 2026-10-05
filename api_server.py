@@ -5,16 +5,17 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 import fcntl
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from functools import lru_cache
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -66,6 +67,7 @@ from src.services.guideline_agent_map import (
     route_guideline_sources,
 )
 from src.services.medical_copilot import (
+    _default_entailment_judge,
     build_medical_copilot_response,
     get_medical_copilot_status,
 )
@@ -95,6 +97,8 @@ from src.services.faculty_item_intents import (
     recommend_item_intents,
     target_axis_for_task,
 )
+# 교수 확정·가입 승인·학생 신뢰 배지 (docs/api/Faculty_Student_Ops_API_Contract_20260906.md)
+from src.services import faculty_adjudication, signup_requests, textbook_evidence, trust_badges
 from scripts.extract_course_exam_hwp import (
     extract_file as extract_course_exam_hwp_file,
     render_markdown as render_course_exam_markdown,
@@ -102,6 +106,7 @@ from scripts.extract_course_exam_hwp import (
 )
 from scripts.extract_course_exam_pdf import extract_file as extract_course_exam_pdf_file
 from scripts.render_course_exam_preview import render_record as render_course_exam_preview
+from scripts.validate_full_demo_env import validate_environment
 from scripts.extract_answer_key_xlsx import (
     apply_answer_key_to_record,
     parse_answer_key_xlsx,
@@ -186,6 +191,26 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
+def _enforce_deployment_environment(
+    environment: dict[str, str] | None = None,
+) -> None:
+    """Refuse an externally deployed process with an incomplete safety gate."""
+
+    errors = validate_environment(
+        environment if environment is not None else dict(os.environ)
+    )
+    if errors:
+        raise RuntimeError(
+            "P:accine deployment environment is incomplete: " + "; ".join(errors)
+        )
+
+
+@app.on_event("startup")
+def _validate_deployment_environment_on_startup() -> None:
+    _enforce_deployment_environment()
+
+
 _DEFAULT_ALLOWED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"]
 _EXTRA_ALLOWED_ORIGINS = [
     origin.strip()
@@ -207,6 +232,11 @@ app.add_middleware(
 # 배포 시 APP_ALLOWED_EMAIL / APP_AUTH_PASSWORD 를 설정하면 전체 앱에 로그인이 걸린다.
 _ALLOWED_EMAIL = os.getenv("APP_ALLOWED_EMAIL", "").strip().lower()
 _AUTH_PASSWORD = os.getenv("APP_AUTH_PASSWORD", "")
+_FACULTY_EMAILS = frozenset(
+    email.strip().lower()
+    for email in os.getenv("APP_FACULTY_EMAILS", "").split(",")
+    if email.strip()
+)
 # 세션 서명 비밀키. 미설정 시 프로세스 시작할 때마다 새로 생성(재시작하면 기존 세션 무효 — 배포 시엔
 # 명시적으로 설정 권장, DEPLOYMENT_NOTES.md 참고).
 _SESSION_SECRET = os.getenv("APP_SESSION_SECRET") or hashlib.sha256(os.urandom(32)).hexdigest()
@@ -217,51 +247,149 @@ _COOKIE_SECURE = os.getenv("APP_COOKIE_SECURE", "").strip().lower() in {"1", "tr
 _AUTH_PUBLIC_PATHS = {
     "/login",
     "/api/auth/login",
+    "/api/auth/signup",
+    "/signup",
     "/api/health",
     "/sw.js",
     "/manifest.webmanifest",
 }
 
 
-def _sign_session_token(email: str, expires_at: int) -> str:
-    payload = f"{email}:{expires_at}"
+def _sign_session_token(email: str, role: str, expires_at: int) -> str:
+    normalized_role = "faculty" if str(role or "").strip().lower() == "faculty" else "student"
+    payload = f"{email}:{normalized_role}:{expires_at}"
     signature = hmac.new(_SESSION_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{payload}:{signature}"
 
 
-def _verify_session_token(token: str) -> str | None:
+def _verify_session_token(token: str) -> dict[str, object] | None:
     try:
-        email, expires_at_str, signature = token.split(":", 2)
+        email, role, expires_at_str, signature = token.split(":", 3)
         expires_at = int(expires_at_str)
     except (ValueError, AttributeError):
         return None
-    expected = _sign_session_token(email, expires_at)
+    if role not in {"student", "faculty"}:
+        return None
+    expected = _sign_session_token(email, role, expires_at)
     if not hmac.compare_digest(expected, token):
         return None
     if time.time() > expires_at:
         return None
-    return email
+    return {"email": email, "role": role, "expires_at": expires_at}
+
+
+# 검수 참여자(학생) 다계정 로그인.
+#   APP_ROSTER_EMAILS  쉼표 구분 허용 이메일 명단
+#   APP_ROSTER_SECRET  비밀번호 파생 시크릿
+# 비밀번호는 저장하지 않고 (시크릿, 이메일)에서 매번 결정론적으로 계산한다.
+# 명단과 시크릿만 있으면 배포용 표를 언제든 재생성할 수 있고, 서버는 평문을 보관하지 않는다.
+_ROSTER_EMAILS = frozenset(
+    email.strip().lower()
+    for email in os.getenv("APP_ROSTER_EMAILS", "").split(",")
+    if email.strip()
+)
+_ROSTER_SECRET = os.getenv("APP_ROSTER_SECRET", "")
+# 사람이 받아적기 쉬운 알파벳 — 혼동 문자(0/O, 1/I/L) 제외
+_ROSTER_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def derive_roster_password(email: str, secret: str = "", length: int = 8) -> str:
+    """(시크릿, 이메일) → 결정론적 비밀번호. 서버·배포표가 같은 값을 계산한다."""
+
+    key = (secret or _ROSTER_SECRET).encode("utf-8")
+    if not key:
+        return ""
+    digest = hmac.new(key, str(email or "").strip().lower().encode("utf-8"),
+                      hashlib.sha256).digest()
+    n = int.from_bytes(digest, "big")
+    out = []
+    for _ in range(length):
+        n, rem = divmod(n, len(_ROSTER_ALPHABET))
+        out.append(_ROSTER_ALPHABET[rem])
+    return "".join(out)
+
+
+def _roster_login_allowed_email(email: str) -> bool:
+    """env 로스터 명단 또는 교수 승인 계정(approved_accounts.json)에 있는 이메일인지.
+
+    승인 계정은 signup_requests가 파일 서명 캐시로 읽으며 파일이 없거나 깨지면 False(fail-closed).
+    반려(승인 취소) 시 approved_accounts에서 제거되므로 세션이 남아 있어도 즉시 차단된다.
+    """
+    normalized = signup_requests.normalize_email(email)
+    if not normalized:
+        return False
+    return normalized in _ROSTER_EMAILS or signup_requests.is_approved_email(normalized)
+
+
+def _roster_login_valid(email: str, password: str) -> bool:
+    # 시크릿이 없으면 비밀번호를 파생할 수 없으므로 로스터/승인 계정 로그인 자체가 불가.
+    if not _ROSTER_SECRET:
+        return False
+    if not _roster_login_allowed_email(email):
+        return False
+    return hmac.compare_digest(password, derive_roster_password(email))
 
 
 def _auth_gate_enabled() -> bool:
-    return bool(_ALLOWED_EMAIL and _AUTH_PASSWORD)
+    return bool((_ALLOWED_EMAIL and _AUTH_PASSWORD) or (_ROSTER_EMAILS and _ROSTER_SECRET))
+
+
+def _authenticated_role(email: str, requested_role: object) -> str:
+    """Resolve role from server-owned identity policy, never from the body alone."""
+
+    wants_faculty = str(requested_role or "").strip().lower() == "faculty"
+    normalized_email = str(email or "").strip().lower()
+    if wants_faculty and normalized_email in _FACULTY_EMAILS:
+        return "faculty"
+    return "student"
+
+
+def _path_requires_faculty(path: str) -> bool:
+    normalized = str(path or "")
+    return bool(
+        normalized.startswith("/faculty-studio-v2")
+        or normalized.startswith("/faculty-studio-v3")
+        or normalized.startswith("/faculty-review-console")
+        or normalized.startswith("/api/faculty/")
+        or normalized == "/api/practice/analytics/faculty"
+    )
 
 
 def _request_identity(request: Request) -> str | None:
     if not _auth_gate_enabled():
         return None
     token = request.cookies.get(_SESSION_COOKIE, "")
-    return _verify_session_token(token) if token else None
+    claims = _verify_session_token(token) if token else None
+    return str(claims.get("email") or "") if claims else None
+
+
+def _request_role(request: Request) -> str | None:
+    """Return only a signed role in deployed auth mode.
+
+    The legacy role cookie remains a local-development navigation preference,
+    but it is never an authorization source once the login gate is enabled.
+    """
+
+    if not _auth_gate_enabled():
+        role = str(request.cookies.get(_ROLE_COOKIE, "") or "").strip().lower()
+        return role if role in {"student", "faculty"} else None
+    token = request.cookies.get(_SESSION_COOKIE, "")
+    claims = _verify_session_token(token) if token else None
+    return str(claims.get("role") or "") if claims else None
 
 
 def _require_faculty_reviewer(request: Request) -> str:
     """교수 검수 API를 학생 workspace에서 호출하지 못하게 한다."""
-    if request.cookies.get(_ROLE_COOKIE, "") != "faculty":
-        raise HTTPException(status_code=403, detail="교수 스튜디오 로그인이 필요합니다.")
+    if not _auth_gate_enabled():
+        if _request_role(request) != "faculty":
+            raise HTTPException(status_code=403, detail="교수 스튜디오 로그인이 필요합니다.")
+        return "faculty:local-reviewer"
     identity = _request_identity(request)
-    if _auth_gate_enabled() and not identity:
+    if not identity:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    return f"faculty:{identity}" if identity else "faculty:local-reviewer"
+    if _request_role(request) != "faculty":
+        raise HTTPException(status_code=403, detail="교수 스튜디오 로그인이 필요합니다.")
+    return f"faculty:{identity}"
 
 
 _LOGIN_PAGE_HTML = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -297,6 +425,7 @@ input:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,124,
 .submit{min-height:50px;margin-top:2px;border:0;border-radius:12px;background:var(--deep);color:#fff;font:inherit;font-weight:800;cursor:pointer}
 .submit:hover{background:#16413e}.submit:disabled{opacity:.65;cursor:wait}.err{min-height:20px;margin:0;color:var(--danger);font-size:12px}
 .boundary{margin:18px 0 0;padding-top:17px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.6}
+.signup-link{color:var(--teal);font-weight:800;text-decoration:none}.signup-link:hover{text-decoration:underline}
 @media(max-width:820px){.shell{display:block}.brand-panel{min-height:245px;padding:28px 24px;gap:46px}.brand-copy h1{font-size:30px}.brand-copy p{display:none}
   .capabilities{display:none}.form-panel{padding:34px 22px}.card{max-width:480px}}
 </style></head><body>
@@ -317,7 +446,7 @@ input:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,124,
       <label>비밀번호<input type="password" id="password" autocomplete="current-password" required></label>
       <p class="err" id="err" role="alert"></p><button class="submit" id="submit" type="submit">학생 화면으로 로그인</button>
     </form>
-    <p class="boundary">시연용 단일 계정입니다. 학생 화면과 교수 화면은 로그인 이후 서로 다른 주소와 내비게이션으로 분리됩니다.</p>
+    <p class="boundary">계정이 없나요? <a class="signup-link" href="/signup">가입 신청</a> — 담당 교수가 승인하면 안내받은 초기 비밀번호로 로그인할 수 있습니다.<br>학생 화면과 교수 화면은 로그인 이후 서로 다른 주소와 내비게이션으로 분리됩니다.</p>
   </div></section>
 </main>
 <script>
@@ -376,12 +505,17 @@ def _safe_next_path(value: object) -> str:
 async def auth_login(payload: Annotated[dict, Body()]) -> JSONResponse:
     email = str(payload.get("email") or "").strip().lower()
     password = str(payload.get("password") or "")
-    role = "faculty" if str(payload.get("role") or "").strip().lower() == "faculty" else "student"
-    requested_next = _safe_next_path(payload.get("next"))
-    redirect_to = requested_next if requested_next and requested_next != "/" else (
-        "/faculty-studio-v2/" if role == "faculty" else "/student/"
+    requested_role = (
+        "faculty"
+        if str(payload.get("role") or "").strip().lower() == "faculty"
+        else "student"
     )
+    requested_next = _safe_next_path(payload.get("next"))
     if not _auth_gate_enabled():
+        role = requested_role
+        redirect_to = requested_next if requested_next and requested_next != "/" else (
+            "/faculty-studio-v2/" if role == "faculty" else "/student/"
+        )
         response = JSONResponse({"ok": True, "note": "게이트 비활성(로컬 개발)", "redirect_to": redirect_to, "role": role})
         response.set_cookie(
             _ROLE_COOKIE,
@@ -392,11 +526,24 @@ async def auth_login(payload: Annotated[dict, Body()]) -> JSONResponse:
             secure=_COOKIE_SECURE,
         )
         return response
-    valid = hmac.compare_digest(email, _ALLOWED_EMAIL) and hmac.compare_digest(password, _AUTH_PASSWORD)
+    owner_valid = bool(_ALLOWED_EMAIL and _AUTH_PASSWORD) and (
+        hmac.compare_digest(email, _ALLOWED_EMAIL)
+        and hmac.compare_digest(password, _AUTH_PASSWORD)
+    )
+    valid = owner_valid or _roster_login_valid(email, password)
     if not valid:
         return JSONResponse({"ok": False, "detail": "이메일 또는 비밀번호가 올바르지 않습니다."}, status_code=401)
+    role = _authenticated_role(email, requested_role)
+    requested_next_allowed = bool(
+        requested_next
+        and requested_next != "/"
+        and (role == "faculty" or not _path_requires_faculty(requested_next))
+    )
+    redirect_to = requested_next if requested_next_allowed else (
+        "/faculty-studio-v2/" if role == "faculty" else "/student/"
+    )
     expires_at = int(time.time()) + _SESSION_TTL_SECONDS
-    token = _sign_session_token(email, expires_at)
+    token = _sign_session_token(email, role, expires_at)
     response = JSONResponse({"ok": True, "redirect_to": redirect_to, "role": role})
     response.set_cookie(
         _SESSION_COOKIE,
@@ -425,6 +572,137 @@ def auth_logout() -> JSONResponse:
     return response
 
 
+# ---------------------------------------------------------------------------
+# 계약 §A. 가입 신청 → 교수 승인 (src/services/signup_requests)
+# 저장: data_private/student/signup_requests.json · approved_accounts.json
+# 비밀번호는 저장하지 않고 승인 응답에서만 derive_roster_password(email)로 파생해 돌려준다.
+# ---------------------------------------------------------------------------
+def _signup_http_error(exc: Exception) -> HTTPException:
+    """signup_requests 예외 → HTTP 상태. DuplicateEmailError가 ValueError 하위이므로 먼저 본다."""
+    if isinstance(exc, signup_requests.DuplicateEmailError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, signup_requests.RequestNotFoundError):
+        return HTTPException(status_code=404, detail="가입 신청을 찾을 수 없습니다.")
+    if isinstance(exc, signup_requests.SignupQueueFullError):
+        return HTTPException(status_code=503, detail="가입 신청 대기열이 가득 찼습니다. 담당 교수에게 직접 문의하세요.")
+    if isinstance(exc, signup_requests.SignupStoreError):
+        return HTTPException(status_code=500, detail="가입 신청 저장소를 읽을 수 없습니다.")
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=400, detail=str(exc))
+    raise exc
+
+
+_SIGNUP_RATE_LIMIT = int(os.getenv("PACCINE_SIGNUP_RATE_LIMIT", "20") or 20)
+_SIGNUP_RATE_WINDOW_SECONDS = int(os.getenv("PACCINE_SIGNUP_RATE_WINDOW", "600") or 600)
+_signup_hits: dict[str, deque] = {}
+_signup_hits_lock = threading.Lock()
+
+
+def _signup_client_key(request: Request) -> str:
+    # uvicorn --proxy-headers 가 X-Forwarded-For 첫 홉을 request.client 로 옮겨 둔다(Railway 프록시 뒤).
+    return str(request.client.host if request.client else "unknown")
+
+
+def _signup_rate_limited(key: str, now: float | None = None) -> bool:
+    """공개 엔드포인트 남용 가드 — 프로세스 내 슬라이딩 윈도우(IP별 N회/창). 한도 초과면 True."""
+    current = time.time() if now is None else now
+    with _signup_hits_lock:
+        hits = _signup_hits.setdefault(key, deque())
+        while hits and current - hits[0] > _SIGNUP_RATE_WINDOW_SECONDS:
+            hits.popleft()
+        if len(hits) >= max(1, _SIGNUP_RATE_LIMIT):
+            return True
+        hits.append(current)
+        return False
+
+
+@app.post("/api/auth/signup")
+async def auth_signup(request: Request, payload: Annotated[dict, Body()]) -> dict:
+    """공개 가입 신청 접수 → {request_id, status:"pending", submitted_at}. 중복 이메일 409, 남용 429, 대기열 초과 503."""
+    if _signup_rate_limited(_signup_client_key(request)):
+        raise HTTPException(status_code=429, detail="가입 신청이 너무 잦습니다. 잠시 후 다시 시도하세요.")
+    try:
+        return signup_requests.submit_request(
+            str(payload.get("name") or ""),
+            str(payload.get("student_id") or ""),
+            str(payload.get("email") or ""),
+            str(payload.get("note") or ""),
+        )
+    except (signup_requests.SignupStoreError, signup_requests.SignupQueueFullError, ValueError) as exc:
+        raise _signup_http_error(exc) from exc
+
+
+@app.get("/api/faculty/signups")
+def faculty_signups(request: Request, status: str = "pending") -> dict:
+    """가입 신청 목록(교수). status=pending|approved|rejected|all, counts는 전체 집계."""
+    _require_faculty_reviewer(request)
+    try:
+        return signup_requests.list_requests(status)
+    except (signup_requests.SignupStoreError, ValueError) as exc:
+        raise _signup_http_error(exc) from exc
+
+
+@app.post(
+    "/api/faculty/signups/bulk-approve",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
+def faculty_signups_bulk_approve(
+    request: Request,
+    payload: Annotated[dict | None, Body()] = None,
+) -> dict:
+    """체크리스트 일괄 승인(pending만) → {approved:[{request_id,login_email,initial_password}], skipped:[...]}."""
+    actor = _require_faculty_reviewer(request)
+    body = payload if isinstance(payload, dict) else {}
+    request_ids = body.get("request_ids") or []
+    if not isinstance(request_ids, list):
+        raise HTTPException(status_code=400, detail="request_ids는 배열이어야 합니다.")
+    try:
+        return signup_requests.bulk_approve(request_ids, actor, derive_roster_password)
+    except (signup_requests.SignupStoreError, ValueError) as exc:
+        raise _signup_http_error(exc) from exc
+
+
+@app.post(
+    "/api/faculty/signups/{request_id}/approve",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
+def faculty_signup_approve(
+    request_id: str,
+    request: Request,
+    payload: Annotated[dict | None, Body()] = None,
+) -> dict:
+    """단건 승인 → {request_id, status:"approved", login_email, initial_password}. 교수가 학생에게 전달."""
+    actor = _require_faculty_reviewer(request)
+    body = payload if isinstance(payload, dict) else {}
+    try:
+        return signup_requests.approve_request(
+            request_id,
+            actor,
+            str(body.get("note") or ""),
+            derive_password=derive_roster_password,
+        )
+    except (signup_requests.SignupStoreError, KeyError, ValueError) as exc:
+        raise _signup_http_error(exc) from exc
+
+
+@app.post(
+    "/api/faculty/signups/{request_id}/reject",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
+def faculty_signup_reject(
+    request_id: str,
+    request: Request,
+    payload: Annotated[dict | None, Body()] = None,
+) -> dict:
+    """단건 반려/승인 취소 → {request_id, status:"rejected"}. approved였다면 approved_accounts에서 제거."""
+    actor = _require_faculty_reviewer(request)
+    body = payload if isinstance(payload, dict) else {}
+    try:
+        return signup_requests.reject_request(request_id, actor, str(body.get("reason") or ""))
+    except (signup_requests.SignupStoreError, KeyError, ValueError) as exc:
+        raise _signup_http_error(exc) from exc
+
+
 @app.middleware("http")
 async def _email_login_gate(request: Request, call_next):
     if not _auth_gate_enabled():
@@ -433,8 +711,22 @@ async def _email_login_gate(request: Request, call_next):
         return await call_next(request)
 
     token = request.cookies.get(_SESSION_COOKIE, "")
-    email = _verify_session_token(token) if token else None
-    if email and hmac.compare_digest(email, _ALLOWED_EMAIL):
+    claims = _verify_session_token(token) if token else None
+    email = str(claims.get("email") or "") if claims else ""
+    # 서명 세션의 이메일이 (a) 허용 계정 (b) env 로스터 (c) 교수 승인 계정 중 하나면 통과.
+    # (b)(c)는 매 요청 재확인하므로 승인 취소(반려)가 세션 만료를 기다리지 않고 바로 반영된다.
+    session_allowed = bool(email) and (
+        hmac.compare_digest(email, _ALLOWED_EMAIL) or (bool(_ROSTER_SECRET) and _roster_login_allowed_email(email))
+    )
+    if session_allowed:
+        if _path_requires_faculty(request.url.path) and claims.get("role") != "faculty":
+            accepts_html = "text/html" in request.headers.get("accept", "")
+            if accepts_html:
+                return RedirectResponse(url="/student/", status_code=303)
+            return JSONResponse(
+                {"detail": "교수 스튜디오 로그인이 필요합니다."},
+                status_code=403,
+            )
         return await call_next(request)
 
     accepts_html = "text/html" in request.headers.get("accept", "")
@@ -643,7 +935,8 @@ def aggregate_student_weakness(events: list[dict]) -> list[dict]:
     for label_path, items in grouped.items():
         attempts = len(items)
         correct = sum(1 for item in items if item.get("is_correct"))
-        avg_time_ms = sum(safe_int(item.get("time_ms"), 0) or 0 for item in items) / max(attempts, 1)
+        _time_samples = [t for t in (_question_scoped_time_ms(item) for item in items) if t is not None]
+        avg_time_ms = sum(_time_samples) / len(_time_samples) if _time_samples else 0
         rows.append(
             {
                 "label_path": label_path,
@@ -665,6 +958,7 @@ def aggregate_student_ontology_weakness(events: list[dict]) -> list[dict]:
     omitted from this ontology-specific view.
     """
     grouped: dict[tuple[str, str, str], dict] = {}
+    registered_axis_ids = _registered_axis_ids()
     for event in events:
         snapshot = event.get("ontology_snapshot") if isinstance(event.get("ontology_snapshot"), dict) else {}
         if event.get("ontology_snapshot_status") != "resolved_from_stored_question":
@@ -701,6 +995,18 @@ def aggregate_student_ontology_weakness(events: list[dict]) -> list[dict]:
             or blueprint.get("target_axis_ids")
             or target.get("axis_ids")
         )
+        had_explicit_axis_ids = bool(axis_ids)
+        if registered_axis_ids is not None:
+            axis_ids = [
+                axis_id
+                for axis_id in axis_ids
+                if axis_id in registered_axis_ids
+            ]
+            if had_explicit_axis_ids and not axis_ids:
+                # An explicit but unknown identifier must not be converted into
+                # an axis-type-only statistic, because that would preserve the
+                # forged event under a less precise label.
+                continue
         if not axis_ids:
             axis_ids = [""]
 
@@ -740,7 +1046,10 @@ def aggregate_student_ontology_weakness(events: list[dict]) -> list[dict]:
             bucket["events"] += 1
             if event.get("is_correct"):
                 bucket["correct"] += 1
-            bucket["time_ms"] += safe_int(event.get("time_ms"), 0) or 0
+            _t = _question_scoped_time_ms(event) if isinstance(event, dict) else None
+            if _t is not None:
+                bucket["time_ms"] += _t
+                bucket["time_samples"] = bucket.get("time_samples", 0) + 1
             bucket["misconceptions"].update(event_misconceptions)
             bucket["distractor_sources"].update(event_sources)
             if assessment_domain:
@@ -762,7 +1071,7 @@ def aggregate_student_ontology_weakness(events: list[dict]) -> list[dict]:
                 "correct_count": bucket["correct"],
                 "incorrect_count": sample_size - bucket["correct"],
                 "correct_rate_pct": round(bucket["correct"] / sample_size * 100, 1) if sample_size else 0,
-                "avg_time_sec": round(bucket["time_ms"] / max(sample_size, 1) / 1000, 1),
+                "avg_time_sec": round(bucket["time_ms"] / bucket["time_samples"] / 1000, 1) if bucket.get("time_samples") else 0,
                 "misconceptions": [
                     {"misconception_id": item_id, "count": count}
                     for item_id, count in bucket["misconceptions"].most_common()
@@ -880,7 +1189,8 @@ def aggregate_faculty_items(events: list[dict], exam_id: str | None) -> tuple[li
                     "selected_pct": round(selected_count / attempts * 100, 1) if attempts else 0,
                 }
             )
-        avg_time_ms = sum(safe_int(item.get("time_ms"), 0) or 0 for item in items) / max(attempts, 1)
+        _time_samples = [t for t in (_question_scoped_time_ms(item) for item in items) if t is not None]
+        avg_time_ms = sum(_time_samples) / len(_time_samples) if _time_samples else 0
         wrong_choices = [choice for choice in choices if not choice["is_correct"]]
         top_wrong = max(wrong_choices, key=lambda item: item["selected_count"], default=None)
         rows.append(
@@ -1208,6 +1518,38 @@ def _axis_type_from_id(axis_id: str | None) -> str:
     return parts[1] if len(parts) == 3 and parts[0] == "a" else ""
 
 
+def _registered_axis_ids() -> set[str] | None:
+    """Return registry membership, or ``None`` when the registry is unavailable.
+
+    Missing/unreadable registries intentionally preserve legacy analytics
+    (fail-open). Once a valid registry exists, explicit axis identifiers must
+    be members of its node set.
+    """
+
+    if not ONTOLOGY_AXIS_REGISTRY_PATH.is_file():
+        return None
+    try:
+        payload = json.loads(ONTOLOGY_AXIS_REGISTRY_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    raw_nodes = payload.get("nodes")
+    if isinstance(raw_nodes, dict):
+        rows = [
+            {"axis_id": axis_id, **(value if isinstance(value, dict) else {})}
+            for axis_id, value in raw_nodes.items()
+        ]
+    elif isinstance(raw_nodes, list):
+        rows = raw_nodes
+    else:
+        return None
+    return {
+        str(row.get("axis_id") or row.get("id") or "").strip()
+        for row in rows
+        if isinstance(row, dict)
+        and str(row.get("axis_id") or row.get("id") or "").strip()
+    }
+
+
 def course_exam_question_blueprint(question: dict) -> dict:
     """Return the authored blueprint unchanged so it remains schema-valid."""
     raw = question.get("question_blueprint") or question.get("QuestionBlueprint") or {}
@@ -1479,7 +1821,7 @@ def approved_set_attempt_question(set_id: str, question_id: str) -> dict:
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="문항 세트를 찾을 수 없습니다.") from None
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="문항 세트를 불러오는 중 내부 오류가 발생했습니다.") from exc
 
     metadata = packet.get("metadata") if isinstance(packet.get("metadata"), dict) else {}
     questions = packet.get("questions") if isinstance(packet.get("questions"), list) else []
@@ -2019,7 +2361,10 @@ def faculty_item_intent_departments() -> dict:
     return build_department_catalog(concepts)
 
 
-@app.post("/api/faculty/item-intents/recommendations")
+@app.post(
+    "/api/faculty/item-intents/recommendations",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def faculty_item_intent_recommendations(payload: Annotated[dict, Body()]) -> dict:
     """Recommend review-gated item intents after a professor chooses a department."""
 
@@ -2365,6 +2710,7 @@ def student_medical_copilot(payload: Annotated[dict, Body()]) -> dict:
             specialty=str(payload.get("specialty") or "").strip(),
             case_text=str(payload.get("case_text") or ""),
             history=history,
+            entailment_judge=_default_entailment_judge,
             generate_answer=form_bool(payload.get("generate_answer", True)),
         )
     except FileNotFoundError as exc:
@@ -2503,7 +2849,10 @@ def faculty_guideline_claim_source_document(task_id: str, attachment_id: str) ->
     return FileResponse(path, media_type="application/pdf", content_disposition_type="inline")
 
 
-@app.post("/api/faculty/guideline-claims/drafts")
+@app.post(
+    "/api/faculty/guideline-claims/drafts",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def faculty_create_guideline_claim_draft(payload: Annotated[dict, Body()]) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="요청 객체가 필요합니다.")
@@ -2521,7 +2870,10 @@ def faculty_create_guideline_claim_draft(payload: Annotated[dict, Body()]) -> di
     }
 
 
-@app.post("/api/faculty/guideline-claims/{claim_id}/decision")
+@app.post(
+    "/api/faculty/guideline-claims/{claim_id}/decision",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def faculty_decide_guideline_claim(claim_id: str, payload: Annotated[dict, Body()]) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="요청 객체가 필요합니다.")
@@ -2592,7 +2944,10 @@ def media_asset_file(filename: str) -> FileResponse:
     return FileResponse(asset_path)
 
 
-@app.delete("/api/media/{asset_id}")
+@app.delete(
+    "/api/media/{asset_id}",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def remove_media_asset(asset_id: str) -> dict:
     try:
         return {"deleted": delete_media_asset(asset_id)}
@@ -2682,7 +3037,10 @@ def course_exam_detail(exam_id: str, limit: int | None = None) -> dict:
     }
 
 
-@app.post("/api/course-exams/{exam_id}/review-set")
+@app.post(
+    "/api/course-exams/{exam_id}/review-set",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def ensure_course_exam_review_set(exam_id: str) -> dict:
     try:
         _, record = load_course_exam_record(exam_id)
@@ -2745,16 +3103,132 @@ def student_practice_question_list(exam_id: str, limit: int | None = None) -> di
     }
 
 
-@lru_cache(maxsize=1)
-def load_student_qbank() -> dict:
-    """Load the canonical student question bank supplied with the UI handoff."""
+@lru_cache(maxsize=2)
+def _load_student_qbank_cached(signature: tuple[object, ...]) -> dict:
+    """Parse the qbank file. Keyed on the file signature so edits invalidate the cache."""
 
+    del signature  # cache key only
     if not STUDENT_QBANK_PATH.exists():
         raise FileNotFoundError(STUDENT_QBANK_PATH)
     payload = json.loads(STUDENT_QBANK_PATH.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("questions"), list):
         raise ValueError("학생 문항 데이터 형식이 올바르지 않습니다.")
     return payload
+
+
+_GENERATED_CHOICE_KEYS = ("1", "2", "3", "4", "5")
+
+
+def _generated_sets_signature() -> tuple[object, ...]:
+    """professor_items/generated/set_*.json + review/item_actions.json 파일 서명 — 교수 콘솔 편집·결정의 캐시 키."""
+    generated_dir = Path(trust_badges._resolve_path(None, trust_badges.ENV_GENERATED_DIR, trust_badges.GENERATED_DIR))
+    sets = (
+        tuple(_cache_file_signature(path) for path in sorted(generated_dir.glob("set_*.json")))
+        if generated_dir.is_dir()
+        else ()
+    )
+    actions = _cache_file_signature(
+        Path(trust_badges._resolve_path(None, trust_badges.ENV_ITEM_ACTIONS_PATH, trust_badges.ITEM_ACTIONS_PATH))
+    )
+    return (sets, actions)
+
+
+def _generated_choice_rows(item: dict) -> list[dict]:
+    """set_N.json 의 choices{'1'..'5'} + choice_explanations → qbank 형식 [{n, text, expl}] (publish 스크립트와 같은 규칙)."""
+    choices = item.get("choices") if isinstance(item.get("choices"), dict) else {}
+    explanations = item.get("choice_explanations") if isinstance(item.get("choice_explanations"), dict) else {}
+    rows = []
+    for key in _GENERATED_CHOICE_KEYS:
+        if key not in choices:
+            continue
+        expl = explanations.get(key) if isinstance(explanations.get(key), dict) else {}
+        rows.append(
+            {
+                "n": key,
+                "text": str(choices[key] or ""),
+                "expl": str(expl.get("why_correct") or expl.get("why_attractive") or "").strip(),
+            }
+        )
+    return rows
+
+
+def _apply_faculty_overlay(question: dict, generated: dict[str, dict]) -> dict:
+    """AIGEN 문항에 교수 검토 콘솔 상태를 겹친다.
+
+    - 항상: 내부 필드 `faculty_status`(approve|revise|discard|undecided). 공개 허용목록(public_qbank_question)에는
+      실리지 않고, practice readiness 가 discard 를 학생 큐에서 제외하는 데 쓴다.
+    - faculty_edited 인 문항: 콘솔에서 고친 문두·선지·정답·해설·검사표를 qbank 사본 위에 덮는다 — 학생 채점(answer_keys)과
+      화면이 재발행 없이도 교수 편집본을 따른다(감사 2026-09-05: 편집 전 정답으로 채점되던 결함).
+    """
+    qid = str(question.get("id") or "")
+    item = generated.get(qid)
+    if not isinstance(item, dict):
+        return question
+    merged = dict(question)
+    decision = item.get("faculty_decision") if isinstance(item.get("faculty_decision"), dict) else {}
+    merged["faculty_status"] = str(decision.get("decision") or "") or "undecided"
+    tier = _public_difficulty_tier(item.get("difficulty_tier"))
+    if tier and not merged.get("difficulty_tier"):
+        merged["difficulty_tier"] = tier
+    if item.get("faculty_edited") is not True:
+        return merged
+    if str(item.get("stem") or "").strip():
+        merged["stem"] = str(item["stem"])
+    rows = _generated_choice_rows(item)
+    if len(rows) == len(_GENERATED_CHOICE_KEYS):
+        merged["choices"] = rows
+    if str(item.get("answer") or "").strip():
+        merged["answer"] = str(item["answer"]).strip()
+    if str(item.get("explanation") or "").strip():
+        merged["explanation"] = str(item["explanation"])
+    if "lab_box" in item:
+        stimulus = str(item.get("lab_box") or "")
+        if not merged.get("imgs"):
+            stimulus = re.sub(r"<그림>|<사진>|<영상>", "", stimulus).strip()
+        merged["stimulus"] = stimulus
+    merged["faculty_edited_at"] = item.get("faculty_edited_at")
+    return merged
+
+
+@lru_cache(maxsize=2)
+def _overlaid_student_qbank(qbank_signature: tuple[object, ...], generated_signature: tuple[object, ...]) -> dict:
+    """qbank.json 파싱본 + 교수 콘솔 오버레이. 두 서명 중 하나라도 바뀌면 다시 만든다."""
+
+    del generated_signature  # cache key only
+    payload = _load_student_qbank_cached(qbank_signature)
+    try:
+        generated = trust_badges.load_generated_items()
+    except Exception:
+        generated = {}
+    if not generated:
+        return payload
+    questions = [
+        _apply_faculty_overlay(question, generated) if isinstance(question, dict) else question
+        for question in payload.get("questions") or []
+    ]
+    return {**payload, "questions": questions}
+
+
+def load_student_qbank() -> dict:
+    """Load the canonical student question bank supplied with the UI handoff.
+
+    Keyed on mtime/size: an unkeyed lru_cache pinned the first parse for the life of
+    the process, so a rewritten qbank.json served a *fresh* ETag (the ETag already
+    hashes the file signature) with stale content — clients cached the old body as
+    if it were current. 2026-09-05부터 교수 콘솔 편집·결정(set_*.json)을 겹친 사본을 돌려준다.
+    """
+
+    return _overlaid_student_qbank(_cache_file_signature(STUDENT_QBANK_PATH), _generated_sets_signature())
+
+
+def _clear_student_qbank_caches() -> None:
+    _load_student_qbank_cached.cache_clear()
+    _overlaid_student_qbank.cache_clear()
+
+
+# 호출부·테스트가 써 온 lru_cache 인터페이스 유지
+load_student_qbank.cache_clear = _clear_student_qbank_caches
+load_student_qbank.cache_info = _overlaid_student_qbank.cache_info
 
 
 def canonical_student_course(question: dict) -> str:
@@ -2960,6 +3434,75 @@ def resolve_student_qbank_image(image: object) -> tuple[str, bool]:
     return raw, True
 
 
+def _connected_media_local_path(url: str) -> Path | None:
+    parsed = urlsplit(url)
+    if parsed.scheme in {"http", "https"}:
+        return None
+    raw_path = unquote(parsed.path or str(url or "")).replace("\\", "/")
+    media_prefix = "/api/course-exams/media/"
+    if raw_path.startswith(media_prefix):
+        relative = raw_path[len(media_prefix):]
+        parts = [part for part in relative.split("/") if part]
+        if len(parts) != 2 or any(part in {".", ".."} for part in parts):
+            return Path()
+        source_exam, filename = parts
+        if Path(source_exam).name != source_exam or Path(filename).name != filename:
+            return Path()
+        candidate = (COURSE_EXAM_MEDIA_DIR / source_exam / filename).resolve()
+        try:
+            candidate.relative_to(COURSE_EXAM_MEDIA_DIR.resolve())
+        except ValueError:
+            return Path()
+        return candidate
+
+    relative = raw_path.lstrip("/")
+    if not relative:
+        return Path()
+    candidate = (ROOT / relative).resolve()
+    try:
+        candidate.relative_to(ROOT.resolve())
+    except ValueError:
+        return Path()
+    return candidate
+
+
+def connected_qbank_media_is_verified(item: object) -> bool:
+    """Verify local media bytes; require a manifest checksum for remote media."""
+
+    if not isinstance(item, dict):
+        return False
+    url = str(item.get("url") or "").strip()
+    checksum = str(item.get("checksum") or "").strip().lower()
+    if not url or not checksum:
+        return False
+    parsed = urlsplit(url)
+    if parsed.scheme in {"http", "https"}:
+        # Remote artifacts cannot be re-fetched on every student request. The
+        # signed release manifest must at least bind them to a checksum.
+        return True
+    if checksum.startswith("sha256:"):
+        checksum = checksum.split(":", 1)[1]
+    if not re.fullmatch(r"[0-9a-f]{64}", checksum):
+        return False
+    local_path = _connected_media_local_path(url)
+    if local_path is None or not local_path.is_file():
+        return False
+    try:
+        return hmac.compare_digest(file_sha256(local_path).lower(), checksum)
+    except (OSError, ValueError):
+        return False
+
+
+def _verified_connected_qbank_media(enrichment_release: dict | None) -> list[dict]:
+    if not isinstance(enrichment_release, dict):
+        return []
+    return [
+        dict(item)
+        for item in (enrichment_release.get("connected_media") or [])
+        if connected_qbank_media_is_verified(item)
+    ]
+
+
 def _visible_qbank_enrichment_releases() -> dict[str, dict]:
     try:
         from src.services import qbank_enrichment
@@ -2973,17 +3516,21 @@ def qbank_question_practice_readiness(
     question: dict,
     enrichment_release: dict | None = None,
 ) -> dict[str, object]:
-    """Fail closed when a question requires a visual that is not connected."""
+    """Fail closed when a question requires a visual that is not connected — or when faculty discarded it."""
 
+    if str(question.get("faculty_status") or "") == "discard":
+        return {
+            "practice_ready": False,
+            "readiness_reason": "faculty_discarded",
+            "media_requirement": "not_required",
+        }
     images = [item for item in (question.get("imgs") or []) if item]
     resolved_images = [resolve_student_qbank_image(item) for item in images]
     connected_images = [url for url, connected in resolved_images if url and connected]
-    if isinstance(enrichment_release, dict):
-        connected_images.extend(
-            str(item.get("url") or "").strip()
-            for item in (enrichment_release.get("connected_media") or [])
-            if isinstance(item, dict) and str(item.get("url") or "").strip()
-        )
+    connected_images.extend(
+        str(item.get("url") or "").strip()
+        for item in _verified_connected_qbank_media(enrichment_release)
+    )
     stimulus = str(question.get("stimulus") or "")
     stem = str(question.get("stem") or "")
     requires_visual = any(token in stimulus for token in ("<그림>", "<사진>", "<영상>")) or bool(
@@ -3013,15 +3560,13 @@ def public_qbank_question(question: dict, enrichment_release: dict | None = None
         for resolved, connected in (resolved_pair,)
         if resolved and connected
     ]
-    if isinstance(enrichment_release, dict):
-        images.extend(
-            {
-                "url": str(item.get("url") or ""),
-                "caption": str(item.get("caption") or "제시자료"),
-            }
-            for item in (enrichment_release.get("connected_media") or [])
-            if isinstance(item, dict) and str(item.get("url") or "").strip()
-        )
+    images.extend(
+        {
+            "url": str(item.get("url") or ""),
+            "caption": str(item.get("caption") or "제시자료"),
+        }
+        for item in _verified_connected_qbank_media(enrichment_release)
+    )
 
     return {
         "id": question.get("id"),
@@ -3047,8 +3592,29 @@ def public_qbank_question(question: dict, enrichment_release: dict | None = None
             if isinstance(choice, dict)
         ],
         "imgs": images,
+        # 골든 스키마 difficulty_tier(하/중/상). 없으면 None — 학생 UI는 '미분류'로 다루고 '전체'에서 절대 빼지 않는다.
+        "difficulty_tier": _public_difficulty_tier(question.get("difficulty_tier")),
+        # 답 전에도 안전한 신뢰 배지(근거 검증 수준·검토 통과·교수 승인 — 정답·해설·근거 위치 없음).
+        "trust_badges": _pre_answer_trust_badges(question.get("id")),
         **qbank_question_practice_readiness(question, enrichment_release),
     }
+
+
+_PUBLIC_DIFFICULTY_TIERS = {"하", "중", "상"}
+
+
+def _public_difficulty_tier(value: object) -> str | None:
+    tier = str(value or "").strip()
+    return tier if tier in _PUBLIC_DIFFICULTY_TIERS else None
+
+
+def _pre_answer_trust_badges(question_id: object) -> dict | None:
+    """AIGEN 문항의 배지 블록만(evidence locator·revision_note 제외). 실패·비대상은 None — 카탈로그는 여기서 안 죽는다."""
+    try:
+        payload = trust_badges.student_trust_payload(str(question_id or "").strip())
+    except Exception:
+        return None
+    return payload.get("trust_badges") if payload else None
 
 
 @app.get("/api/faculty/qbank-enrichment/review-queue")
@@ -3060,7 +3626,10 @@ def faculty_qbank_enrichment_review_queue(request: Request) -> dict:
     return qbank_enrichment.build_faculty_review_queue()
 
 
-@app.post("/api/faculty/qbank-enrichment/{question_id}/review")
+@app.post(
+    "/api/faculty/qbank-enrichment/{question_id}/review",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def faculty_qbank_enrichment_review(
     question_id: str,
     request: Request,
@@ -3092,6 +3661,102 @@ def faculty_qbank_enrichment_review(
     }
 
 
+# ---------------------------------------------------------------------------
+# 계약 §B. 교수 문항 확정(adjudication) + 편집 (src/services/faculty_adjudication)
+# 원천: data_private/professor_items/generated/set_{n}.json · 이력: review/faculty_edits.jsonl
+# 저장 경로는 서비스 모듈 상수(환경변수 PACCINE_ADJ_* 로 오버라이드) — 호출 시점에 해석된다.
+# ---------------------------------------------------------------------------
+def _adjudication_http_error(exc: faculty_adjudication.AdjudicationError) -> HTTPException:
+    """ItemNotFoundError→404, 그 외 AdjudicationError(InvalidChangeError 포함)→400."""
+    if isinstance(exc, faculty_adjudication.ItemNotFoundError):
+        return HTTPException(status_code=404, detail="문항을 찾을 수 없습니다.")
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/faculty/adjudication/queue")
+def faculty_adjudication_queue(request: Request, filter: str = "all") -> dict:  # noqa: A002
+    """확정 큐. filter=all|needs_review|revise|discard|answer_changed, 우선순위 정렬 + 탭 counts."""
+    _require_faculty_reviewer(request)
+    try:
+        return faculty_adjudication.build_queue(filter)
+    except faculty_adjudication.AdjudicationError as exc:
+        raise _adjudication_http_error(exc) from exc
+
+
+@app.get("/api/faculty/adjudication/summary")
+def faculty_adjudication_summary(request: Request) -> dict:
+    """확정 진행 요약 {total, decided:{approve,revise,discard}, pending, answer_changed, hard_rule_failures, ...}."""
+    _require_faculty_reviewer(request)
+    return faculty_adjudication.summary()
+
+
+@app.get("/api/faculty/adjudication/items/{qid}")
+def faculty_adjudication_item(qid: str, request: Request) -> dict:
+    """문항 전체 + review 상세 + edit_history + available_books."""
+    _require_faculty_reviewer(request)
+    try:
+        return faculty_adjudication.get_item(qid)
+    except faculty_adjudication.AdjudicationError as exc:
+        raise _adjudication_http_error(exc) from exc
+
+
+@app.get("/api/faculty/adjudication/items/{qid}/source-text")
+def faculty_adjudication_source_text(qid: str, request: Request, context: int = 1) -> dict:
+    """교수 전용 '원문 보기': 인용 Harrison 쪽(±context) 텍스트 발췌 + 인용문·하이라이트 + 열람 링크.
+
+    학생 API·학생 화면 어디에도 이 응답을 싣지 않는다(학생에게는 근거 위치만). 쪽 이미지는 만들지 않는다.
+    """
+    _require_faculty_reviewer(request)
+    try:
+        item = faculty_adjudication.get_item(qid)
+    except faculty_adjudication.AdjudicationError as exc:
+        raise _adjudication_http_error(exc) from exc
+    return textbook_evidence.source_texts_for_item(item, context=max(0, min(int(context), textbook_evidence.MAX_CONTEXT_PAGES)))
+
+
+@app.put(
+    "/api/faculty/adjudication/items/{qid}",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
+def faculty_adjudication_update_item(
+    qid: str,
+    request: Request,
+    payload: Annotated[dict, Body()],
+) -> dict:
+    """허용 필드만 편집. 변경 필드만 diff 기록, 저장 후 하드룰 재계산 gate 반환(실패해도 저장은 유지)."""
+    editor = _require_faculty_reviewer(request)
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="변경 객체가 필요합니다.")
+    try:
+        return faculty_adjudication.update_item(qid, payload, editor)
+    except faculty_adjudication.AdjudicationError as exc:
+        raise _adjudication_http_error(exc) from exc
+
+
+@app.post(
+    "/api/faculty/adjudication/items/{qid}/decision",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
+def faculty_adjudication_decision(
+    qid: str,
+    request: Request,
+    payload: Annotated[dict, Body()],
+) -> dict:
+    """{decision:approve|revise|discard, note?} → faculty_decision 기록. approve면 medical_approval 스탬프."""
+    by = _require_faculty_reviewer(request)
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="요청 객체가 필요합니다.")
+    try:
+        return faculty_adjudication.record_decision(
+            qid,
+            str(payload.get("decision") or ""),
+            by,
+            str(payload.get("note") or ""),
+        )
+    except faculty_adjudication.AdjudicationError as exc:
+        raise _adjudication_http_error(exc) from exc
+
+
 def _cache_file_signature(path: Path) -> tuple[str, int, int]:
     try:
         stat = path.stat()
@@ -3111,6 +3776,7 @@ def _student_qbank_cache_key() -> tuple[object, ...]:
         _cache_file_signature(STUDENT_QBANK_PATH),
         _cache_file_signature(qbank_enrichment.RELEASES_PATH),
         media_signatures,
+        _generated_sets_signature(),
     )
 
 
@@ -3604,6 +4270,27 @@ def submit_student_qbank_answer(question_id: str, request: Request, payload: Ann
     event["answer_keys"] = answer_keys
     event["is_correct"] = is_correct
     event["ontology_snapshot_status"] = "qbank_server_verified"
+    # 2026-09-27 시도 스키마 v2: 어떤 모드에서, 문항 단위 시간인지, 어떤 신뢰 상태의 문항이었는지를 이벤트에 고정한다
+    # (데이터가 쌓인 뒤에는 소급 불가 — 논문 2차 분석·난이도 티어 실측의 전제). 모두 additive, 실패해도 저장은 계속.
+    event["client_meta"] = {
+        "schema_version": 2,
+        "mode": "exam" if str(payload.get("mode") or "").strip().lower() == "exam" else "study",
+        "time_scope": "question" if str(payload.get("time_scope") or "").strip().lower() == "question" else "session",
+        "difficulty_tier": _public_difficulty_tier(question.get("difficulty_tier")),
+        "review_pass": bool(payload.get("review_pass")),
+    }
+    try:
+        _trust = trust_badges.student_trust_payload(question_id)
+    except Exception:
+        _trust = None
+    if _trust:
+        _badges = _trust.get("trust_badges") or {}
+        event["trust_snapshot"] = {
+            "evidence_level": str(((_badges.get("evidence_verified") or {}).get("level")) or "none"),
+            "student_reviewed": bool(_badges.get("student_reviewed")),
+            "faculty_approved": bool(_badges.get("faculty_approved")),
+            "faculty_status": str(question.get("faculty_status") or "undecided"),
+        }
     try:
         from src.services import qbank_enrichment
 
@@ -3638,10 +4325,35 @@ def submit_student_qbank_answer(question_id: str, request: Request, payload: Ann
             for choice in (question.get("choices") or [])
             if isinstance(choice, dict)
         },
+        # 문항과 함께 저작된 Anki 카드는 explanation·points와 같은 층이다
+        # (뒤늦은 교수 보강물인 enrichment release와는 다른 경로).
+        # release가 있으면 아래 _apply_qbank_enrichment_release가 덮어쓴다.
+        "anki_cards": question.get("anki_cards") or [],
         "learning_context": _student_learning_context(question_id),
     }
     _apply_qbank_enrichment_release(response, question_id)
+    _apply_student_trust_payload(response, question_id)
     return response
+
+
+def _apply_student_trust_payload(response: dict, question_id: str) -> None:
+    """계약 §C: 답안 응답에 trust_badges·evidence·revision_note를 싣는다.
+
+    qbank 문항 id == AIGEN qid(예: "AIGEN_2_001")이므로 trust_badges 서비스가 생성 문항과 직접 조인한다.
+    AIGEN이 아니거나 생성 파일·조치 캐시를 읽지 못하면 배지 None으로 폴백 — 학생 답안 API는 여기서
+    절대 실패하지 않는다. evidence는 AIGEN 문항일 때만 계약 블록({locators, badge})으로 채우고,
+    아니면 enrichment release가 넣어 둔 값을 그대로 둔다.
+    """
+    try:
+        payload = trust_badges.student_trust_payload(question_id)
+    except Exception:
+        payload = None
+    if payload:
+        response.update(payload)
+        return
+    response["trust_badges"] = None
+    response["revision_note"] = None
+    response.setdefault("evidence", None)
 
 
 @app.get("/api/practice/catalog")
@@ -3708,7 +4420,7 @@ def student_approved_set_question_list(set_id: str, limit: int | None = None) ->
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="문항 세트를 찾을 수 없습니다.") from None
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="문항 세트를 불러오는 중 내부 오류가 발생했습니다.") from exc
     raw_questions = packet.get("questions") if isinstance(packet.get("questions"), list) else []
     questions = []
     for index, raw_question in enumerate(raw_questions, start=1):
@@ -3952,7 +4664,10 @@ def evidence_review_list(status: str = "all", limit: int = 60, offset: int = 0) 
     return {"total": total, "counts": counts, "items": items[offset:offset + max(1, limit)]}
 
 
-@app.post("/api/evidence/review")
+@app.post(
+    "/api/evidence/review",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def evidence_review_update(payload: Annotated[dict, Body()]) -> dict:
     """근거 검토 액션. action: approve | reject | flag | edit."""
     exam_id = str(payload.get("exam_id") or "").strip()
@@ -4168,7 +4883,7 @@ def export_practice_session_anki(request: Request, payload: Annotated[dict, Body
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Anki export 생성 실패: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Anki 내보내기 생성 중 내부 오류가 발생했습니다.") from exc
     return artifact
 
 
@@ -4296,22 +5011,61 @@ def build_question_history(events: list[dict], limit: int = 40) -> list[dict]:
     return rows[:limit]
 
 
+@app.get("/api/student/attempt-summary")
+def student_attempt_summary(request: Request) -> dict:
+    """학생 본인의 문항별 시도 요약 {qid: {attempts, correct, last_correct, last_answered_at}}.
+
+    빌더의 '미응답/오답' 필터와 홈 '오늘 세트'가 쓴다. 정답·해설은 싣지 않는다(답 전 안전).
+    analytics의 question_history(최근 40건)와 달리 전체 문항을 돌려준다.
+    """
+    user_id = _student_identity(request)
+    by_question: dict[str, dict] = {}
+    for event in iter_attempt_events(user_id=user_id):
+        qid = str(event.get("question_id") or "")
+        if not qid:
+            continue
+        row = by_question.setdefault(qid, {"attempts": 0, "correct": 0, "last_correct": None, "last_answered_at": None})
+        row["attempts"] += 1
+        if event.get("is_correct"):
+            row["correct"] += 1
+        row["last_correct"] = bool(event.get("is_correct"))
+        row["last_answered_at"] = event.get("answered_at") or row["last_answered_at"]
+    return {
+        "user_id": user_id,
+        "question_count": len(by_question),
+        "attempt_count": sum(row["attempts"] for row in by_question.values()),
+        "by_question": by_question,
+    }
+
+
+def _question_scoped_time_ms(event: dict) -> int | None:
+    """스키마 v2(client_meta.time_scope=question) 이벤트의 time_ms만 풀이 시간 표본으로 인정한다.
+
+    구 클라이언트는 세션 누적 초를 보냈으므로(2026-09-27 이전) 섞어 평균을 내면 문항당 시간이 수백 초로 부풀려진다.
+    """
+    meta = event.get("client_meta") if isinstance(event.get("client_meta"), dict) else {}
+    if str(meta.get("time_scope") or "").lower() != "question":
+        return None
+    return safe_int(event.get("time_ms"), 0) or 0
+
+
 @app.get("/api/practice/analytics/student")
 def student_practice_analytics(request: Request, user_id: str = "local_student") -> dict:
     user_id = _request_identity(request) or user_id
     events = iter_attempt_events(user_id=user_id)
     total = len(events)
     correct = sum(1 for event in events if event.get("is_correct"))
+    time_samples = [t for t in (_question_scoped_time_ms(event) for event in events) if t is not None]
     return {
         "user_id": user_id,
         "summary": {
             "attempt_count": total,
             "correct_count": correct,
             "correct_rate_pct": round(correct / total * 100, 1) if total else 0,
-            "avg_time_sec": round(
-                sum(safe_int(event.get("time_ms"), 0) or 0 for event in events) / max(total, 1) / 1000,
-                1,
-            ),
+            # 문항 단위 표본이 하나도 없으면(전부 구 이벤트) 0 — 세션 누적값으로 평균을 내지 않는다
+            "avg_time_sec": round(sum(time_samples) / len(time_samples) / 1000, 1) if time_samples else 0,
+            "avg_time_sample_count": len(time_samples),
+            "avg_time_scope": "question" if time_samples else "unavailable",
         },
         "weakness": aggregate_student_weakness(events),
         "ontology_weakness": aggregate_student_ontology_weakness(events),
@@ -4353,7 +5107,10 @@ def build_distractor_analysis(events: list[dict], *, min_attempts: int = 1, limi
         entry["attempts"] += 1
         if event.get("is_correct"):
             entry["correct"] += 1
-        entry["time_ms_sum"] += safe_int(event.get("time_ms"), 0) or 0
+        _t = _question_scoped_time_ms(event)
+        if _t is not None:
+            entry["time_ms_sum"] += _t
+            entry["time_samples"] = entry.get("time_samples", 0) + 1
         # 선지 텍스트는 가장 완전한 것으로 갱신
         texts = event.get("choice_texts") or {}
         if isinstance(texts, dict) and len(texts) > len(entry["choice_texts"]):
@@ -4393,7 +5150,7 @@ def build_distractor_analysis(events: list[dict], *, min_attempts: int = 1, limi
             "attempt_count": attempts,
             "correct_count": entry["correct"],
             "correct_rate_pct": round(entry["correct"] / attempts * 100, 1) if attempts else 0,
-            "avg_time_sec": round(entry["time_ms_sum"] / attempts / 1000, 1) if attempts else 0,
+            "avg_time_sec": round(entry["time_ms_sum"] / entry["time_samples"] / 1000, 1) if entry.get("time_samples") else 0,
             "choices": choices,
             "top_distractor": top_wrong,
             "distractor_concentration_pct": top_wrong["pct"] if top_wrong else 0,
@@ -4546,7 +5303,7 @@ def course_exam_media_file(source_exam: str, filename: str) -> FileResponse:
     return FileResponse(media_path)
 
 
-@app.post("/api/course-exams/import")
+@app.post("/api/course-exams/import", dependencies=[Depends(_require_faculty_reviewer)])
 async def import_course_exam(
     exam_file: Annotated[UploadFile, File(description="기출/과정시험 HWP 또는 PDF")],
     answer_key_file: Annotated[UploadFile | None, File(description="정답지 XLSX")] = None,
@@ -4591,7 +5348,7 @@ async def import_course_exam(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"시험지 구조화 실패: {exc}") from exc
+        raise HTTPException(status_code=500, detail="시험지 구조화 중 내부 오류가 발생했습니다.") from exc
 
     output_name = f"{course_exam_slugify(record['exam']['source_exam'])}.json"
     markdown_name = f"{course_exam_slugify(record['exam']['source_exam'])}.md"
@@ -4624,7 +5381,10 @@ async def import_course_exam(
     }
 
 
-@app.post("/api/media")
+@app.post(
+    "/api/media",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 async def upload_media_asset(
     media_file: Annotated[UploadFile, File(description="환자 사진/영상/병리/검사 이미지")],
     asset_type: Annotated[str, Form()] = "clinical_photo",
@@ -4670,10 +5430,13 @@ def question_set_detail(set_id: str) -> dict:
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="문항 세트를 찾을 수 없습니다.") from None
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="문항 세트를 불러오는 중 내부 오류가 발생했습니다.") from exc
 
 
-@app.post("/api/notebooklm/import")
+@app.post(
+    "/api/notebooklm/import",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def import_notebooklm(payload: Annotated[dict, Body()]) -> dict:
     try:
         return import_notebooklm_question_set(payload)
@@ -4693,7 +5456,7 @@ def medlegal_case_detail(case_id: str) -> dict:
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="의료법/EMR 교육 케이스를 찾을 수 없습니다.") from None
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="교육 케이스를 불러오는 중 내부 오류가 발생했습니다.") from exc
 
 
 @app.post("/api/medlegal/cases/{case_id}/submit")
@@ -4722,7 +5485,10 @@ def medlegal_submission_detail(submission_id: str) -> dict:
         raise HTTPException(status_code=404, detail="제출 기록을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/question-sets/{set_id}/export/anki")
+@app.post(
+    "/api/question-sets/{set_id}/export/anki",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def export_question_set_anki(
     set_id: str,
     payload: Annotated[dict | None, Body()] = None,
@@ -4739,10 +5505,13 @@ def export_question_set_anki(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Anki export 생성 실패: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Anki 내보내기 생성 중 내부 오류가 발생했습니다.") from exc
 
 
-@app.post("/api/question-sets/{set_id}/export/cbt-hwp")
+@app.post(
+    "/api/question-sets/{set_id}/export/cbt-hwp",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def export_question_set_cbt_hwp(
     set_id: str,
     payload: Annotated[dict | None, Body()] = None,
@@ -4761,10 +5530,13 @@ def export_question_set_cbt_hwp(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"CBT HWP 양식 생성 실패: {exc}") from exc
+        raise HTTPException(status_code=500, detail="CBT HWP 양식 생성 중 내부 오류가 발생했습니다.") from exc
 
 
-@app.post("/api/question-sets/{set_id}/export/cbt-docx")
+@app.post(
+    "/api/question-sets/{set_id}/export/cbt-docx",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def export_question_set_cbt_docx(
     set_id: str,
     payload: Annotated[dict | None, Body()] = None,
@@ -4783,7 +5555,7 @@ def export_question_set_cbt_docx(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"의학교육실 HWP(.docx) 양식 생성 실패: {exc}") from exc
+        raise HTTPException(status_code=500, detail="HWP(.docx) 양식 생성 중 내부 오류가 발생했습니다.") from exc
 
 
 @app.get("/api/exports/{filename}")
@@ -4806,7 +5578,10 @@ def anki_export_file(filename: str) -> FileResponse:
     return FileResponse(export_path, filename=safe_name, media_type="application/octet-stream")
 
 
-@app.patch("/api/question-sets/{set_id}/questions/{question_id}")
+@app.patch(
+    "/api/question-sets/{set_id}/questions/{question_id}",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def update_question_detail(
     set_id: str,
     question_id: str,
@@ -4832,7 +5607,10 @@ def update_question_detail(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.post("/api/question-sets/{set_id}/questions/{question_id}/approve")
+@app.post(
+    "/api/question-sets/{set_id}/questions/{question_id}/approve",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def approve_question(
     set_id: str,
     question_id: str,
@@ -4854,7 +5632,10 @@ def approve_question(
         raise HTTPException(status_code=404, detail="문항을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/question-sets/{set_id}/questions/{question_id}/reject")
+@app.post(
+    "/api/question-sets/{set_id}/questions/{question_id}/reject",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def reject_question(
     set_id: str,
     question_id: str,
@@ -4876,7 +5657,10 @@ def reject_question(
         raise HTTPException(status_code=404, detail="문항을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/generate-from-topic")
+@app.post(
+    "/api/generate-from-topic",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def generate_questions_from_topic(payload: Annotated[dict, Body()]) -> dict:
     """강의파일 없이 '주제 + 교수 강조점'만으로 문항 생성.
 
@@ -4962,8 +5746,16 @@ def generate_questions_from_topic(payload: Annotated[dict, Body()]) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        print("[studio.generate_topic.error]", datetime.now().isoformat(timespec="seconds"), repr(exc), flush=True)
-        raise HTTPException(status_code=500, detail=f"주제 기반 생성 실패: {exc}") from exc
+        print(
+            "[studio.generate_topic.error]",
+            datetime.now().isoformat(timespec="seconds"),
+            type(exc).__name__,
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="문항 생성 중 내부 오류가 발생했습니다.",
+        ) from exc
 
 
 def normalized_generation_job_request(payload: dict) -> dict:
@@ -5097,7 +5889,10 @@ def normalized_faculty_intent_generation_request(payload: dict) -> dict:
     }
 
 
-@app.post("/api/generation-jobs")
+@app.post(
+    "/api/generation-jobs",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def create_studio_generation_job(payload: Annotated[dict, Body()]) -> dict:
     """다문항을 한 문항씩 안전하게 생성하는 지속형 작업을 시작한다."""
     request = normalized_generation_job_request(payload)
@@ -5105,7 +5900,10 @@ def create_studio_generation_job(payload: Annotated[dict, Body()]) -> dict:
     return {"job": job, "duplicate": duplicate}
 
 
-@app.post("/api/faculty/item-intents/generation-jobs")
+@app.post(
+    "/api/faculty/item-intents/generation-jobs",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def create_faculty_item_intent_generation_job(payload: Annotated[dict, Body()]) -> dict:
     """Create one review set from 2-3 distinct faculty-selected item intents."""
 
@@ -5130,7 +5928,10 @@ def read_studio_generation_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="생성 작업을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/generation-jobs/{job_id}/retry")
+@app.post(
+    "/api/generation-jobs/{job_id}/retry",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def retry_studio_generation_job(job_id: str) -> dict:
     try:
         return retry_failed_generation_job(job_id)
@@ -5138,7 +5939,10 @@ def retry_studio_generation_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="생성 작업을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/generation-jobs/{job_id}/cancel")
+@app.post(
+    "/api/generation-jobs/{job_id}/cancel",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def cancel_studio_generation_job(job_id: str) -> dict:
     try:
         return cancel_generation_job(job_id)
@@ -5146,7 +5950,10 @@ def cancel_studio_generation_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="생성 작업을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/generation-jobs/{job_id}/resume")
+@app.post(
+    "/api/generation-jobs/{job_id}/resume",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 def resume_studio_generation_job(job_id: str) -> dict:
     try:
         return resume_generation_job(job_id)
@@ -5154,7 +5961,20 @@ def resume_studio_generation_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="생성 작업을 찾을 수 없습니다.") from None
 
 
-@app.post("/api/generate")
+def _private_generation_input_label(filename: object = "", topic: object = "") -> str:
+    raw_filename = str(filename or "").strip()
+    if raw_filename:
+        digest = hashlib.sha256(raw_filename.encode("utf-8")).hexdigest()[:12]
+        return f"file:{digest}"
+    raw_topic = str(topic or "").strip()
+    digest = hashlib.sha256(raw_topic.encode("utf-8")).hexdigest()[:12]
+    return f"topic:{digest}"
+
+
+@app.post(
+    "/api/generate",
+    dependencies=[Depends(_require_faculty_reviewer)],
+)
 async def generate_questions(
     lecture_file: Annotated[UploadFile | None, File(description="강의자료 PDF/DOCX/PPTX/HWP/TXT/MD")] = None,
     topic: Annotated[str, Form()] = "",
@@ -5191,7 +6011,10 @@ async def generate_questions(
             "[studio.generate.start]",
             started_at,
             {
-                "lecture": lecture_file.filename if (lecture_file and lecture_file.filename) else f"topic:{topic.strip()[:40]}",
+                "lecture": _private_generation_input_label(
+                    lecture_file.filename if lecture_file else "",
+                    topic,
+                ),
                 "style_count": len([f for f in (style_files or []) if f and f.filename]),
                 "evidence_count": len([f for f in (evidence_files or []) if f and f.filename]),
                 "image_count": len([f for f in (image_files or []) if f and f.filename]),
@@ -5301,14 +6124,22 @@ async def generate_questions(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        print("[studio.generate.error]", datetime.now().isoformat(timespec="seconds"), repr(exc), flush=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        print(
+            "[studio.generate.error]",
+            datetime.now().isoformat(timespec="seconds"),
+            type(exc).__name__,
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="문항 생성 중 내부 오류가 발생했습니다.",
+        ) from exc
 
 
 @app.get("/")
 @app.get("/index.html")
 def index(request: Request) -> RedirectResponse:
-    destination = "/faculty-studio-v2/" if request.cookies.get(_ROLE_COOKIE) == "faculty" else "/student/"
+    destination = "/faculty-studio-v2/" if _request_role(request) == "faculty" else "/student/"
     return RedirectResponse(url=destination, status_code=307)
 
 
@@ -5334,6 +6165,28 @@ def faculty_studio_v2_index() -> FileResponse:
 @app.get("/faculty-studio-v3/index.html")
 def faculty_studio_v3_index() -> RedirectResponse:
     return RedirectResponse(url="/faculty-studio-v2/", status_code=307)
+
+
+@app.get("/faculty-review-console")
+@app.get("/faculty-review-console/")
+@app.get("/faculty-review-console/index.html")
+def faculty_review_console_index() -> FileResponse:
+    """교수 검토 콘솔(문항 확정·가입 승인·세트 리포트) — 격리 entrypoint, 교수 세션 전용(_path_requires_faculty)."""
+
+    return FileResponse(
+        FRONTEND_DIR / "faculty-review-console" / "index.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
+
+
+@app.get("/signup")
+def signup_page() -> FileResponse:
+    """공개 가입 신청 페이지(계약 §A S5). 정적 자산을 참조하지 않는 단일 파일이라 게이트 밖에서도 완전히 렌더된다."""
+
+    return FileResponse(
+        FRONTEND_DIR / "signup.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 
 @app.get("/faculty-studio-v2/legacy")

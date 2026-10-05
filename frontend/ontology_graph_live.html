@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>P:accine Ontology Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#1e1e1e;--panel:#242424;--panel2:#2b2b2b;--line:#3a3a3a;--text:#e7e7e7;--muted:#9b9b9b;--accent:#8b5cf6;--green:#39c879;--blue:#50a5d8;--orange:#f0a11b}
+    *{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:13px -apple-system,BlinkMacSystemFont,"Pretendard","Malgun Gothic",sans-serif;overflow:hidden}
+    button,input,select{font:inherit}.app{height:100%;display:grid;grid-template-rows:50px 1fr}.top{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:#202020}
+    .brand{font-weight:600;white-space:nowrap}.live{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px}.live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+    .search{flex:1;max-width:420px;margin-left:auto;position:relative}.search input{width:100%;background:#171717;border:1px solid #444;color:var(--text);border-radius:7px;padding:8px 32px 8px 10px;outline:none}.search input:focus{border-color:var(--accent)}
+    .btn{border:1px solid #454545;background:#2c2c2c;color:var(--text);padding:7px 10px;border-radius:7px;cursor:pointer}.btn:hover{background:#363636}.shell{min-height:0;display:grid;grid-template-columns:270px 1fr 320px}
+    .side,.detail{background:var(--panel);min-height:0;overflow:auto}.side{border-right:1px solid var(--line);padding:14px}.detail{border-left:1px solid var(--line);padding:16px}.graph{position:relative;min-width:0}.cy{position:absolute;inset:0}
+    h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 9px}h2:first-child{margin-top:0}.row{display:flex;align-items:center;gap:8px;margin:7px 0}.row label{cursor:pointer}.row input{accent-color:var(--accent)}
+    select{width:100%;background:#1b1b1b;color:var(--text);border:1px solid #444;border-radius:6px;padding:7px}.stat{color:var(--muted);font-size:12px;line-height:1.6}.legend{display:grid;grid-template-columns:12px 1fr auto;gap:7px 8px;align-items:center}.swatch{width:9px;height:9px;border-radius:50%}.count{color:var(--muted)}
+    .status{position:absolute;left:12px;bottom:12px;background:rgba(30,30,30,.88);border:1px solid #444;border-radius:7px;padding:7px 9px;color:var(--muted);font-size:12px;pointer-events:none}.detail .empty{color:var(--muted);line-height:1.7;margin-top:30px}.node-title{font-size:18px;font-weight:600;margin-bottom:4px}.mono{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#9ac7e8;word-break:break-all}.badge{display:inline-block;border:1px solid #4b4b4b;background:#303030;border-radius:999px;padding:3px 7px;margin:7px 4px 7px 0;color:#cfcfcf;font-size:11px}.warn{color:#f4bb60}.kv{display:grid;grid-template-columns:84px 1fr;gap:8px;padding:8px 0;border-top:1px solid #363636}.kv b{color:var(--muted);font-weight:400}.links{margin:6px 0 0;padding:0;list-style:none}.links li{padding:5px 0;border-bottom:1px solid #333;cursor:pointer}.links li:hover{color:#b9a5ff}
+    .tabs{display:flex;gap:5px}.tabs button{flex:1}.tabs button.active{border-color:var(--accent);background:#3a2f58}.tip{color:var(--muted);font-size:11px;line-height:1.5;margin-top:10px}
+    .review-actions{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px}.review-actions select{min-width:0}.review-card{border:1px solid #3d3d3d;background:#292929;border-radius:8px;padding:10px;margin:8px 0;cursor:pointer}.review-card:hover{border-color:#6b5a98}.review-card h3{font-size:13px;margin:5px 0}.review-card p{color:#b8b8b8;font-size:11px;line-height:1.5;margin:5px 0}.review-card .mono{font-size:10px}.priority{display:inline-block;font-weight:700;border-radius:4px;padding:2px 5px;font-size:10px}.priority.p0{background:#6b2525;color:#ffd2d2}.priority.p1{background:#654a1d;color:#ffe3a1}.priority.p2{background:#29455a;color:#cdeaff}.safety-box{border:1px solid #725724;background:#332b1e;color:#f4c979;border-radius:8px;padding:10px;font-size:11px;line-height:1.55;margin:10px 0}.queue-filters{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin:9px 0}.queue-filters .btn.active{border-color:var(--accent);background:#3a2f58}.queue-empty{color:var(--muted);line-height:1.65;padding:18px 0}
+    .queue-pagination{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;margin:10px 0}.queue-pagination span{text-align:center;color:var(--muted);font-size:11px}.queue-pagination button:disabled{opacity:.35;cursor:not-allowed}
+    @media(max-width:900px){.shell{grid-template-columns:210px 1fr}.detail{display:none}}@media(max-width:650px){.shell{grid-template-columns:1fr}.side{display:none}.top .brand,.top .live{display:none}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">P:accine Ontology</div>
+    <div class="live"><i></i><span id="sync">실시간 연결</span></div>
+    <div class="search"><input id="search" placeholder="질환·분류·소견·MONDO 검색"></div>
+    <button class="btn" id="fit">전체 보기</button>
+    <button class="btn" id="layout">재배치</button>
+  </header>
+  <main class="shell">
+    <aside class="side">
+      <h2>보기</h2>
+      <div class="tabs"><button class="btn active" data-mode="global">전체</button><button class="btn" data-mode="local">로컬</button></div>
+      <div class="row"><label for="depth">로컬 깊이</label></div>
+      <select id="depth"><option value="1">1단계</option><option value="2" selected>2단계</option><option value="3">3단계</option></select>
+      <div class="row"><input id="orphans" type="checkbox" checked><label for="orphans">고립 노드 표시</label></div>
+      <div class="row"><input id="external-overlay" type="checkbox"><label for="external-overlay">PrimeKG 2차 검증 후보</label></div>
+      <select id="external-profile"><option value="core20">핵심 20 파일럿</option><option value="heme_onc_full">혈액종양 전체 감사</option></select>
+      <div class="review-actions"><button class="btn" id="open-review">사람 검토 큐 보기</button><span class="badge" id="review-count">—</span></div>
+      <div class="tip">외부 후보는 기본적으로 불러오지 않습니다. 켜도 최대 500개이며 승인 지식으로 합쳐지지 않습니다.</div>
+      <h2>노드</h2>
+      <div class="row"><input class="kind" id="kind-disease" value="disease" type="checkbox" checked><label for="kind-disease">질환</label></div>
+      <div class="row"><input class="kind" id="kind-classification" value="classification" type="checkbox" checked><label for="kind-classification">로컬 질환 분류</label></div>
+      <div class="row"><input class="kind" id="kind-taxonomy" value="taxonomy" type="checkbox" checked><label for="kind-taxonomy">MONDO 분류</label></div>
+      <div class="row"><input class="kind" id="kind-finding" value="finding" type="checkbox"><label for="kind-finding">증상/소견(HPO)</label></div>
+      <div class="row"><input class="kind" id="kind-symptom" value="symptom" type="checkbox"><label for="kind-symptom">증상(P2)</label></div>
+      <div class="row"><input class="kind" id="kind-external-candidate" value="external_candidate" type="checkbox" checked><label for="kind-external-candidate">외부 검증 후보</label></div>
+      <h2>비질환 타입</h2>
+      <div class="row"><input class="kind" id="kind-intervention" value="intervention" type="checkbox"><label for="kind-intervention">검사·중재</label></div>
+      <div class="row"><input class="kind" id="kind-exposure" value="exposure" type="checkbox"><label for="kind-exposure">노출</label></div>
+      <div class="row"><input class="kind" id="kind-clinical-context" value="clinical_context" type="checkbox"><label for="kind-clinical-context">임상 맥락</label></div>
+      <div class="row"><input class="kind" id="kind-health-system" value="health_system" type="checkbox"><label for="kind-health-system">보건의료·법</label></div>
+      <div class="row"><input class="kind" id="kind-metric" value="metric" type="checkbox"><label for="kind-metric">지표</label></div>
+      <div class="row"><input class="kind" id="kind-category" value="category" type="checkbox"><label for="kind-category">용어 분류</label></div>
+      <div class="row"><input class="kind" id="kind-content-format" value="content_format" type="checkbox"><label for="kind-content-format">콘텐츠 형식</label></div>
+      <h2>임상 축</h2>
+      <div class="row"><input class="kind" id="kind-pathophysiology" value="pathophysiology" type="checkbox"><label for="kind-pathophysiology">병태생리</label></div>
+      <div class="row"><input class="kind" id="kind-etiology" value="etiology" type="checkbox"><label for="kind-etiology">원인/병인</label></div>
+      <div class="row"><input class="kind" id="kind-risk-factor" value="risk_factor" type="checkbox"><label for="kind-risk-factor">위험인자</label></div>
+      <div class="row"><input class="kind" id="kind-prognosis" value="prognosis" type="checkbox"><label for="kind-prognosis">예후</label></div>
+      <div class="row"><input class="kind" id="kind-epidemiology" value="epidemiology" type="checkbox"><label for="kind-epidemiology">역학</label></div>
+      <div class="row"><input class="kind" id="kind-diagnosis" value="diagnosis" type="checkbox"><label for="kind-diagnosis">진단</label></div>
+      <div class="row"><input class="kind" id="kind-treatment" value="treatment" type="checkbox"><label for="kind-treatment">치료</label></div>
+      <div class="row"><input class="kind" id="kind-indication" value="indication" type="checkbox"><label for="kind-indication">적응증</label></div>
+      <div class="row"><input class="kind" id="kind-contraindication" value="contraindication" type="checkbox"><label for="kind-contraindication">금기</label></div>
+      <h2>관계</h2>
+      <div id="relations"></div>
+      <h2>색상</h2>
+      <select id="color"><option value="group">진료과/Harrison</option><option value="kind">노드 종류</option><option value="review">검토 상태</option></select>
+      <h2>현재 데이터</h2>
+      <div class="stat" id="stats">불러오는 중…</div>
+      <div class="tip">레지스트리 파일이 바뀌면 자동으로 다시 읽습니다. 원문 문항은 포함되지 않습니다.</div>
+    </aside>
+    <section class="graph"><div class="cy" id="cy"></div><div class="status" id="status">그래프 준비 중…</div></section>
+    <aside class="detail" id="detail"><div class="empty">노드를 클릭하면 Harrison·MONDO·관계와 검토 상태를 볼 수 있습니다.</div></aside>
+  </main>
+</div>
+<script>
+const COLORS=['#39c879','#50a5d8','#b56cff','#f0a11b','#e96767','#4ec9b0','#6ea8fe','#d99dd0','#a9c35b','#cf8f5b','#69b4c9','#a890d3'];
+const KIND_COLORS={disease:'#39c879',classification:'#a78bfa',finding:'#50a5d8',symptom:'#43b8d5',taxonomy:'#b56cff',external_candidate:'#f59e0b',intervention:'#22c55e',exposure:'#f97316',clinical_context:'#eab308',health_system:'#ec4899',metric:'#14b8a6',category:'#8b5cf6',content_format:'#64748b',pathophysiology:'#d99dd0',etiology:'#cf8f5b',risk_factor:'#e96767',prognosis:'#c6a15b',epidemiology:'#a9c35b',diagnosis:'#6ea8fe',treatment:'#4ec9b0',indication:'#f0a11b',contraindication:'#ef6b73'};
+const DEFAULT_REL=new Set(['differential_of','is_a','presents_with','diagnosed_by','treated_with','has_pathophysiology','has_pathophysiology_step','has_etiology','has_causative_agent','has_risk_factor','has_prognostic_factor','has_stage_or_grade','has_natural_history','has_epidemiology','has_diagnostic_feature','has_diagnostic_evidence','has_treatment_principle','has_indication','has_contraindication','EXTERNAL_CANDIDATE']);
+let cy=null, payload=null, version=null, mode='global', selected=null, firstLayout=true, reviewPriority='', reviewOffset=0;
+const REVIEW_PAGE_SIZE=50;
+
+function hashColor(text){let h=0;for(const ch of text)h=(h*31+ch.charCodeAt(0))>>>0;return COLORS[h%COLORS.length];}
+function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function nodeColor(n){const mode=document.getElementById('color').value;if(mode==='kind')return KIND_COLORS[n.data('kind')]||'#888';if(mode==='review')return n.data('medical_approval')?'#39c879':n.data('review_status')==='rejected'?'#e96767':'#f0a11b';return hashColor(n.data('group')||'기타');}
+function styleGraph(){if(!cy)return;cy.nodes().forEach(n=>n.style('background-color',nodeColor(n)));}
+function layoutGraph(){if(!cy)return;document.getElementById('status').textContent='배치 계산 중…';const visible=cy.elements(':visible');visible.layout({name:'cose',animate:false,randomize:firstLayout,nodeRepulsion:9000,idealEdgeLength:70,edgeElasticity:90,gravity:.35,numIter:700,fit:true,padding:40}).run();firstLayout=false;setTimeout(updateStatus,30);}
+function allowedKinds(){return new Set([...document.querySelectorAll('.kind:checked')].map(x=>x.value));}
+function allowedRelations(){return new Set([...document.querySelectorAll('.rel:checked')].map(x=>x.value));}
+function applyFilters(relayout=false){if(!cy)return;const kinds=allowedKinds(), rels=allowedRelations();cy.elements().show();cy.nodes().forEach(n=>{if(!kinds.has(n.data('kind')))n.hide();});cy.edges().forEach(e=>{if(!rels.has(e.data('relation'))||!e.source().visible()||!e.target().visible())e.hide();});
+  if(!document.getElementById('orphans').checked){cy.nodes(':visible').forEach(n=>{if(n.connectedEdges(':visible').length===0)n.hide();});cy.edges().forEach(e=>{if(!e.source().visible()||!e.target().visible())e.hide();});}
+  if(mode==='local'&&selected)applyLocal();styleGraph();updateStatus();if(relayout)layoutGraph();}
+function applyLocal(){const depth=Number(document.getElementById('depth').value);const root=cy.getElementById(selected);if(!root.length)return;let keep=root;let frontier=root;for(let i=0;i<depth;i++){frontier=frontier.closedNeighborhood(':visible');keep=keep.union(frontier);}cy.elements(':visible').difference(keep).hide();cy.edges().forEach(e=>{if(!e.source().visible()||!e.target().visible())e.hide();});setTimeout(()=>cy.fit(keep,60),20);}
+function updateStatus(){if(!cy)return;const n=cy.nodes(':visible').length,e=cy.edges(':visible').length;document.getElementById('status').textContent=`표시 ${n.toLocaleString()} 노드 · ${e.toLocaleString()} 관계`;}
+function buildRelationControls(){const box=document.getElementById('relations');box.innerHTML='';const rels=Object.entries(payload.stats.relations).sort((a,b)=>b[1]-a[1]);for(const [rel,count] of rels){const id='rel-'+rel;const row=document.createElement('div');row.className='row';row.innerHTML=`<input class="rel" id="${id}" value="${rel}" type="checkbox" ${DEFAULT_REL.has(rel)?'checked':''}><label for="${id}">${rel} <span class="count">${count}</span></label>`;box.appendChild(row);}box.querySelectorAll('input').forEach(x=>x.addEventListener('change',()=>applyFilters(true)));}
+function showDetail(n){selected=n.id();const d=n.data();const rels={};const externalEdges=[];n.connectedEdges().forEach(e=>{const other=e.source().id()===n.id()?e.target():e.source();const relation=e.data('relation')==='EXTERNAL_CANDIDATE'&&e.data('candidate_predicate')?`EXTERNAL_CANDIDATE · ${e.data('candidate_predicate')}`:e.data('relation');(rels[relation]??=[]).push(other);if(e.data('relation')==='EXTERNAL_CANDIDATE')externalEdges.push({edge:e,other});});let html=`<div class="node-title">${esc(d.label)}</div><div class="mono">${esc(d.concept_id)}</div><span class="badge">${esc(d.kind)}</span><span class="badge">${esc(d.group||'기타')}</span>${d.clinical_axes?'<span class="badge">clinical axes</span>':''}${d.medical_approval?'<span class="badge">medically approved</span>':'<span class="badge warn">needs review</span>'}${d.external_candidate?'<span class="badge warn">2차 검증 후보 · canonical 아님</span>':''}<div class="kv"><b>Claim ID</b><span class="mono">${esc(d.claim_id||'미물질화')}</span></div><div class="kv"><b>검토상태</b><span>${esc(d.review_status||'draft_unreviewed')}</span></div><div class="kv"><b>근거검증</b><span>${esc(d.claim_entailment||'unverified')}</span></div><div class="kv"><b>적용성</b><span>${esc(d.applicability||'unknown')}</span></div><div class="kv"><b>Harrison</b><span>${esc(d.harrison||'미연결')}</span></div><div class="kv"><b>Ontology ID</b><span class="mono">${esc(d.mondo||'미연결')}</span></div><div class="kv"><b>전문분야</b><span>${esc(d.specialty||'미지정')}</span></div><div class="kv"><b>축/차원</b><span>${esc(d.dimension||d.kind)}</span></div><div class="kv"><b>출처</b><span>${esc(d.source||'ontology')}</span></div>`;
+  if(externalEdges.length){html+='<h2>PrimeKG 2차 검증 provenance</h2>'+externalEdges.slice(0,20).map(({edge:e,other})=>`<div class="kv"><b>${esc(other.data('label'))}</b><span>${esc(e.data('candidate_predicate')||'external candidate')} · polarity ${esc(e.data('polarity')||'unknown')} · ${e.data('undirected')?'undirected':esc(e.data('direction')||'unknown')}<br><span class="mono">snapshot ${esc(e.data('snapshot_id')||'missing')}<br>artifact ${esc(e.data('artifact_sha256')||'missing')}<br>record ${esc(e.data('source_record_sha256')||'missing')}</span><br>${esc(e.data('license')||'license unknown')} · redistribution ${esc(e.data('redistribution_status')||'unknown')}</span></div>`).join('');}
+  for(const [rel,nodes] of Object.entries(rels).sort((a,b)=>b[1].length-a[1].length)){html+=`<h2>${esc(rel)} · ${nodes.length}</h2><ul class="links">`+nodes.slice(0,20).map(x=>`<li data-id="${esc(x.id())}">${esc(x.data('label'))}</li>`).join('')+'</ul>';}
+  document.getElementById('detail').innerHTML=html;document.querySelectorAll('.links li').forEach(li=>li.onclick=()=>{const x=cy.getElementById(li.dataset.id);x.select();showDetail(x);cy.animate({center:{eles:x},zoom:Math.max(cy.zoom(),1.4)},{duration:250});});if(mode==='local')applyFilters(false);}
+function focusReviewConcept(conceptId){if(!cy||!conceptId)return;const n=cy.getElementById('d:'+conceptId);if(!n.length)return;n.show();n.select();showDetail(n);cy.animate({center:{eles:n},zoom:Math.max(cy.zoom(),1.5)},{duration:250});}
+function reviewLabel(value){return ({externally_concordant:'외부와 일치',external_conflict_candidate:'충돌 후보',local_only_not_disproven:'로컬만 있음(반증 아님)',external_new_candidate:'외부 신규 후보',evaluated_exact_mapping:'정확 MONDO 매핑',not_evaluable_grouped_mapping:'그룹 매핑·평가 제외',not_evaluable_missing_mapping:'매핑 없음·평가 제외',negated_external_new_candidate:'부재(negated) 신규 후보'})[value]||value||'—';}
+async function loadReviewQueue(priority=reviewPriority,offset=0){
+  reviewPriority=priority;reviewOffset=Math.max(0,Number(offset)||0);
+  const detail=document.getElementById('detail');detail.innerHTML='<div class="empty">검토 큐를 검증하는 중…</div>';
+  const profile=document.getElementById('external-profile').value;
+  const params=new URLSearchParams({profile,limit:String(REVIEW_PAGE_SIZE),offset:String(reviewOffset)});if(priority)params.set('priority',priority);
+  try{
+    const res=await fetch('/api/external-validation?'+params.toString(),{cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.detail||'invalid request');
+    if(data.status!=='review_only_available'){detail.innerHTML=`<div class="node-title">외부 KG 검토 큐</div><div class="safety-box">검토 산출물이 없거나 검증에 실패해 fail-closed로 숨겼습니다. 문항 생성과 학생 화면에는 영향이 없습니다.</div><div class="queue-empty">${esc(data.unavailable_reason||'unavailable')}</div>`;document.getElementById('review-count').textContent='미준비';return;}
+    const s=data.summary||{},counts=s.counts_by_priority||{},page=data.page||{};document.getElementById('review-count').textContent=`P0 ${Number(counts.P0||0).toLocaleString()}`;
+    const start=page.total?Number(page.offset||0)+1:0,end=Number(page.offset||0)+Number(page.returned||0);
+    const pager=`<div class="queue-pagination"><button class="btn queue-page" data-offset="${Math.max(0,Number(page.offset||0)-REVIEW_PAGE_SIZE)}" ${Number(page.offset||0)<=0?'disabled':''}>이전</button><span>${start.toLocaleString()}–${end.toLocaleString()} / ${Number(page.total||0).toLocaleString()}</span><button class="btn queue-page" data-offset="${Number(page.offset||0)+REVIEW_PAGE_SIZE}" ${page.has_more?'':'disabled'}>다음</button></div>`;
+    let html=`<div class="node-title">${esc(data.profile_label)} 검토 큐</div><div class="mono">${esc(data.source.worklist_id)}</div><div class="safety-box">교수자 검토용 외부 후보입니다. P0/P1/P2는 임상 중증도가 아니라 검증 오류 방지 순서입니다. 검토 결과도 자동 의학승인·Ontology 편입·문항 생성·학생 노출로 이어지지 않습니다.</div><div class="stat">전체 ${Number(s.item_count||0).toLocaleString()} · P0 ${Number(counts.P0||0).toLocaleString()} · P1 ${Number(counts.P1||0).toLocaleString()} · P2 ${Number(counts.P2||0).toLocaleString()} · 현재 필터 ${Number(s.filtered_item_count||0).toLocaleString()}</div><div class="queue-filters">${['','P0','P1','P2'].map(x=>`<button class="btn queue-priority ${x===priority?'active':''}" data-priority="${x}">${x||'전체'}</button>`).join('')}</div>${pager}`;
+    if(!(data.items||[]).length)html+='<div class="queue-empty">이 필터에 해당하는 검토 항목이 없습니다.</div>';
+    for(const item of data.items||[]){const local=item.local||{},external=item.external||{},p=(item.polarities||[]).join(', ')||'없음';const records=((item.provenance||{}).source_records||[]);const findingLabel=local.finding_label||external.object_label||local.hpo_curie||external.object_curie||'외부 소견';html+=`<article class="review-card" data-concept="${esc(local.concept_id||'')}"><span class="priority ${String(item.priority||'').toLowerCase()}">${esc(item.priority)}</span><span class="badge">${esc(reviewLabel(item.classification))}</span><h3>${esc(local.concept_id||external.subject_label||external.subject_curie||'매핑 대상 없음')} → ${esc(findingLabel)}</h3><p>${esc(reviewLabel(item.priority_reason))} · ${esc(reviewLabel(item.evaluation_status))}<br>${esc(local.hpo_curie||external.object_curie||'')} · predicate ${esc(external.predicate||'—')} · polarity ${esc(p)} · source records ${records.length}</p><div class="mono">${esc(item.review_task_id)}<br>${esc((item.provenance||{}).validation_item_sha256||'')}</div></article>`;}
+    html+=pager;detail.innerHTML=html;
+    detail.querySelectorAll('.queue-priority').forEach(btn=>btn.onclick=()=>loadReviewQueue(btn.dataset.priority,0));
+    detail.querySelectorAll('.queue-page:not(:disabled)').forEach(btn=>btn.onclick=()=>loadReviewQueue(reviewPriority,Number(btn.dataset.offset)));
+    detail.querySelectorAll('.review-card').forEach(card=>card.onclick=()=>focusReviewConcept(card.dataset.concept));
+  }catch(err){detail.innerHTML=`<div class="node-title">외부 KG 검토 큐</div><div class="queue-empty">불러오지 못했습니다: ${esc(err.message)}</div>`;}
+}
+async function refreshReviewCount(){const profile=document.getElementById('external-profile').value;try{const res=await fetch('/api/external-validation?profile='+encodeURIComponent(profile)+'&limit=1',{cache:'no-store'});const data=await res.json();const counts=(data.summary||{}).counts_by_priority||{};document.getElementById('review-count').textContent=data.status==='review_only_available'?`P0 ${Number(counts.P0||0).toLocaleString()}`:'미준비';}catch(_){document.getElementById('review-count').textContent='재시도';}}
+function createGraph(){if(cy)cy.destroy();cy=cytoscape({container:document.getElementById('cy'),elements:[...payload.nodes,...payload.edges],minZoom:.08,maxZoom:4,wheelSensitivity:.18,selectionType:'single',style:[
+  {selector:'node',style:{'label':'data(label)','font-size':9,'color':'#d8d8d8','text-opacity':0,'text-background-opacity':0,'width':el=>Math.min(22,7+Math.sqrt(el.degree())*1.4),'height':el=>Math.min(22,7+Math.sqrt(el.degree())*1.4),'border-width':1,'border-color':'#1e1e1e'}},
+  {selector:'node:selected',style:{'border-width':3,'border-color':'#ffffff','text-opacity':1,'font-size':12,'text-background-color':'#1e1e1e','text-background-opacity':.85,'text-background-padding':4,'text-valign':'bottom','text-margin-y':7}},
+  {selector:'edge',style:{'width':.7,'line-color':'#777','opacity':.35,'curve-style':'bezier','target-arrow-shape':'triangle','target-arrow-color':'#777','arrow-scale':.45}},
+  {selector:'edge[relation="differential_of"]',style:{'line-color':'#55aa82','target-arrow-color':'#55aa82'}},
+  {selector:'edge[relation="is_a"]',style:{'line-color':'#9271cc','target-arrow-color':'#9271cc'}},
+  {selector:'edge[relation="EXTERNAL_CANDIDATE"]',style:{'line-style':'dashed','line-color':'#f59e0b','target-arrow-color':'#f59e0b','opacity':.7}},
+  {selector:'edge[relation="EXTERNAL_CANDIDATE"][?undirected]',style:{'target-arrow-shape':'none'}},
+  {selector:'.faded',style:{'opacity':.08,'text-opacity':0}}
+]});cy.on('tap','node',e=>showDetail(e.target));cy.on('tap',e=>{if(e.target===cy){selected=null;if(mode==='local')applyFilters(false);}});buildRelationControls();applyFilters(false);layoutGraph();}
+function updateStats(){const s=payload.stats;const axis=Number(s.axis_nodes||0);const typed=Number(s.typed_entities||0);const external=s.external_overlay;const externalLine=external?`<br><span class="warn">${esc(external.profile_label||'외부 후보')}<br>${Number(external.candidate_nodes||0).toLocaleString()} 노드 · ${Number(external.candidate_edges||0).toLocaleString()} 관계${external.available?'':' · 파일 없음'}${external.truncated?' · 500개 제한':''}</span>`:'';document.getElementById('stats').innerHTML=`질환 ${Number(s.diseases??s.concepts??0).toLocaleString()}<br>로컬 분류 ${Number(s.classification_nodes||0).toLocaleString()}<br>타입 전환 ${typed.toLocaleString()}<br>전체 노드 ${s.nodes.toLocaleString()}<br>관계 ${s.edges.toLocaleString()}<br>임상 축 노드 ${axis.toLocaleString()}<br>축 claim ${Number(s.axis_claims||0).toLocaleString()}<br>의학승인 claim ${Number(s.approved_axis_claims||0).toLocaleString()}<br>증상/소견 ${(Number(s.kinds.finding||0)+Number(s.kinds.symptom||0)).toLocaleString()}<br>MONDO 분류 ${Number(s.kinds.taxonomy||0).toLocaleString()}${externalLine}`;}
+async function loadGraph(force=false){try{const includeExternal=document.getElementById('external-overlay').checked;const profile=document.getElementById('external-profile').value;const url=includeExternal?'/api/graph?include_external=1&external_limit=500&external_profile='+encodeURIComponent(profile):'/api/graph';const res=await fetch(url,{cache:'no-store'});const next=await res.json();if(includeExternal!==document.getElementById('external-overlay').checked)return;if(!force&&next.version===version)return;payload=next;version=next.version;document.getElementById('sync').textContent='방금 동기화';updateStats();createGraph();setTimeout(()=>document.getElementById('sync').textContent='실시간 연결',1200);}catch(err){document.getElementById('sync').textContent='연결 재시도 중';}}
+document.getElementById('search').addEventListener('input',e=>{if(!cy)return;const q=e.target.value.trim().toLowerCase();cy.elements().removeClass('faded');if(!q)return;cy.nodes(':visible').forEach(n=>{const hit=(n.data('label')+' '+n.data('concept_id')+' '+n.data('mondo')).toLowerCase().includes(q);if(!hit)n.addClass('faded');});cy.edges(':visible').forEach(e=>{if(e.source().hasClass('faded')&&e.target().hasClass('faded'))e.addClass('faded');});});
+document.getElementById('search').addEventListener('keydown',e=>{if(e.key!=='Enter'||!cy)return;const q=e.target.value.trim().toLowerCase();const n=cy.nodes(':visible').filter(x=>(x.data('label')+' '+x.data('concept_id')).toLowerCase().includes(q))[0];if(n){n.select();showDetail(n);cy.animate({center:{eles:n},zoom:1.6},{duration:250});}});
+document.querySelectorAll('.kind').forEach(x=>x.addEventListener('change',()=>applyFilters(true)));document.getElementById('orphans').addEventListener('change',()=>applyFilters(true));document.getElementById('depth').addEventListener('change',()=>applyFilters(false));document.getElementById('color').addEventListener('change',styleGraph);document.getElementById('fit').onclick=()=>cy&&cy.fit(cy.elements(':visible'),50);document.getElementById('layout').onclick=layoutGraph;
+document.getElementById('external-overlay').addEventListener('change',()=>{version=null;document.getElementById('sync').textContent='후보층 전환 중';loadGraph(true);});
+document.getElementById('external-profile').addEventListener('change',()=>{version=null;refreshReviewCount();if(document.getElementById('external-overlay').checked)loadGraph(true);});document.getElementById('open-review').addEventListener('click',()=>loadReviewQueue(''));
+document.querySelectorAll('.tabs button').forEach(btn=>btn.onclick=()=>{mode=btn.dataset.mode;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===btn));applyFilters(false);});
+loadGraph(true);refreshReviewCount();setInterval(()=>loadGraph(false),2000);
+</script>
+</body>
+</html>

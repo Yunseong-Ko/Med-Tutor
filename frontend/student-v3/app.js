@@ -34,6 +34,7 @@ function defaultPracticeBuilder() {
     mode: "study",
     order: "random",
     openMajors: [],
+    tier: "all",          // S4 난이도 티어 필터: all|하|중|상 (미분류는 '전체'에서만)
   };
 }
 
@@ -46,7 +47,15 @@ function loadPracticeBuilder() {
   }
 }
 
+// 시험 D-day(본3 코호트 2026년 일정). 서버 설정으로 옮기기 전까지 여기서 관리한다.
+const EXAM_DATES = [
+  {key: "cpx", label: "CPX 실기", date: "2026-11-23"},
+  {key: "cce", label: "임상종합평가", date: "2026-11-26"},
+];
+const TODAY_SET_SIZE = 20;
+
 const state = {
+  attemptSummary: {by_question: {}},   // /api/student/attempt-summary — 문항별 시도(미응답·오답 필터, 오늘 세트)
   qbank: null,
   catalog: null,
   bookmarks: [],
@@ -450,8 +459,42 @@ function selectedBuilderQuestions() {
   if (builder.status === "bookmarked") {
     const bookmarked = new Set(state.bookmarks || []);
     items = items.filter((question) => bookmarked.has(question.id));
+  } else if (builder.status === "unanswered") {
+    items = items.filter(isUnanswered);
+  } else if (builder.status === "wrong") {
+    items = items.filter(isLastWrong);
+  }
+  if (builder.tier && builder.tier !== "all") {
+    items = items.filter((question) => question.difficulty_tier === builder.tier);
   }
   return items;
+}
+
+// S4. 난이도 티어 집계 — difficulty_tier 없는 문항은 '미분류'로 세고 '전체'에서 절대 빼지 않는다.
+const TIERS = ["하", "중", "상"];
+function tierCounts(items) {
+  const counts = {all: items.length, unclassified: 0};
+  TIERS.forEach((tier) => { counts[tier] = 0; });
+  items.forEach((question) => {
+    const tier = question.difficulty_tier;
+    if (TIERS.includes(tier)) counts[tier] += 1;
+    else counts.unclassified += 1;
+  });
+  return counts;
+}
+
+function tierFilterHtml(items, selected) {
+  const counts = tierCounts(items);
+  const hasAnyTier = TIERS.some((tier) => counts[tier] > 0);
+  if (!hasAnyTier) {
+    return `<div class="tier-filter"><p class="tier-note">이 범위의 문항에는 아직 난이도(하/중/상) 정보가 없습니다. 티어 라벨이 붙으면 여기서 고를 수 있습니다.</p></div>`;
+  }
+  const chips = [["all", "전체", counts.all], ...TIERS.map((tier) => [tier, tier, counts[tier]])]
+    .map(([id, label, n]) => `<button type="button" data-builder-tier="${esc(id)}" class="${selected === id ? "selected" : ""} tier-${esc(id)}">${esc(label)}<small>${n}</small></button>`).join("");
+  const note = selected === "all"
+    ? (counts.unclassified ? `미분류 ${counts.unclassified}문항 포함 (난이도 정보가 아직 없는 문항)` : "")
+    : (counts.unclassified ? `미분류 ${counts.unclassified}문항은 '전체'에서 표시됩니다` : "");
+  return `<div class="tier-filter"><div class="tier-chips">${chips}</div>${note ? `<p class="tier-note">${esc(note)}</p>` : ""}</div>`;
 }
 
 function shuffledOnce(items) {
@@ -461,6 +504,99 @@ function shuffledOnce(items) {
     [copy[index], copy[random]] = [copy[random], copy[index]];
   }
   return copy;
+}
+
+function attemptRow(questionId) {
+  return state.attemptSummary?.by_question?.[questionId] || null;
+}
+
+function isUnanswered(question) {
+  return !attemptRow(question.id);
+}
+
+function isLastWrong(question) {
+  return attemptRow(question.id)?.last_correct === false;
+}
+
+function practiceReadyQuestions() {
+  return (state.qbank?.questions || []).filter((question) => question.practice_ready !== false);
+}
+
+function daysUntil(dateText) {
+  const target = new Date(`${dateText}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
+// 로컬 날짜 키(YYYY-MM-DD) — UTC가 아니라 사용자 자정 기준으로 세트가 바뀐다
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// 날짜 기반 결정적 셔플 — 하루 동안은 같은 '오늘 세트'가 유지된다
+function seededShuffle(items, seedText) {
+  let seed = 0;
+  for (const char of seedText) seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
+  const random = () => {
+    seed = (seed + 0x6D2B79F5) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const j = Math.floor(random() * (index + 1));
+    [copy[index], copy[j]] = [copy[j], copy[index]];
+  }
+  return copy;
+}
+
+// 오늘 세트 = 기한 지난·오늘 복습(FSRS) 먼저 + 아직 안 푼 문항(날짜 시드 랜덤)으로 채움
+function todaySet(limit = TODAY_SET_SIZE) {
+  const ready = practiceReadyQuestions();
+  const readyIds = new Set(ready.map((question) => question.id));
+  const reviewIds = (state.review?.items || [])
+    .filter((item) => item.status === "overdue" || item.status === "due")
+    .map((item) => String(item.question_id || ""))
+    .filter((id) => readyIds.has(id));
+  // 전체 풀을 날짜 시드로 먼저 섞은 뒤 미풀이만 남긴다 → 풀다가 돌아와도 남은 문항의 순서가 유지된다(고정 순열의 앞부분)
+  const byId = new Map(ready.map((question) => [question.id, question]));
+  const fresh = seededShuffle(ready.map((question) => question.id), localDateKey()).filter((id) => isUnanswered(byId.get(id)));
+  const ids = [];
+  for (const id of [...reviewIds, ...fresh]) {
+    if (!ids.includes(id)) ids.push(id);
+    if (ids.length >= limit) break;
+  }
+  const reviewCount = ids.filter((id) => reviewIds.includes(id)).length;
+  return {ids, reviewCount, newCount: ids.length - reviewCount, unansweredTotal: fresh.length, readyTotal: ready.length};
+}
+
+function currentStreak(heatmap) {
+  const cells = [...(heatmap?.cells || [])].sort((a, b) => a.date.localeCompare(b.date));
+  let streak = 0;
+  for (let index = cells.length - 1; index >= 0; index -= 1) {
+    if (cells[index].attempts > 0) streak += 1;
+    else if (index === cells.length - 1) continue;   // 오늘 아직 안 풀었으면 어제까지의 연속을 센다
+    else break;
+  }
+  return streak;
+}
+
+function weekAttempts(heatmap) {
+  const cells = [...(heatmap?.cells || [])].sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
+  return cells.reduce((sum, cell) => sum + (cell.attempts || 0), 0);
+}
+
+function heatStripHtml(heatmap, weeks = 8) {
+  const cells = [...(heatmap?.cells || [])].sort((a, b) => a.date.localeCompare(b.date)).slice(-weeks * 7);
+  if (!cells.length) return "";
+  const max = Math.max(1, ...cells.map((cell) => cell.attempts || 0));
+  return `<div class="heat-strip" role="img" aria-label="최근 ${weeks}주 풀이 기록">${cells.map((cell) => {
+    const level = !cell.attempts ? 0 : Math.min(4, Math.ceil((cell.attempts / max) * 4));
+    return `<i class="l${level}" title="${esc(cell.date)} · ${cell.attempts}문항"></i>`;
+  }).join("")}</div>`;
 }
 
 function courseCard(course) {
@@ -490,26 +626,39 @@ function pageHead(eyebrow, title, description, action = "") {
 function renderHome() {
   const favoriteCourses = state.catalog.courses.filter((course) => course.is_favorite);
   const counts = state.review.counts;
-  const analyticsSummary = state.analytics?.summary || state.analytics || {};
+  const analytics = state.analytics || {};
+  const analyticsSummary = analytics.summary || analytics;
   const attemptCount = analyticsSummary.attempt_count || 0;
-  const todayTarget = Math.min(18, counts.overdue + counts.due + Math.min(12, counts.new));
-  const completed = Math.min(todayTarget, 0);
-  const hasDueReview = Number(counts.overdue || 0) + Number(counts.due || 0) > 0;
-  const primaryHref = hasDueReview ? "#review" : "#library";
-  const primaryLabel = hasDueReview ? `오늘 복습 ${counts.overdue + counts.due}개 시작 →` : "새 학습 시작 →";
+  const heatmap = analytics.heatmap || null;
+  const set = todaySet();
+  const streak = currentStreak(heatmap);
+  const week = weekAttempts(heatmap);
+  const aiPool = practiceReadyQuestions().filter((question) => /AI생성/.test(String(question.exam || "")));
+  const completionPool = aiPool.length ? aiPool : practiceReadyQuestions();
+  const completed = completionPool.filter((question) => attemptRow(question.id)).length;
+  const dueReview = Number(counts.overdue || 0) + Number(counts.due || 0);
+  const todayTarget = Math.min(18, dueReview + Math.min(12, counts.new));
+  const startHref = set.ids.length ? startUrl({mode: "study", count: set.ids.length, ids: set.ids.join(",")}) : "#library";
+  // 지난 시험은 표시하지 않는다(시험 뒤 D+N 칩이 무기한 남지 않도록)
+  const ddayChips = EXAM_DATES.map((exam) => ({...exam, days: daysUntil(exam.date)})).filter((exam) => exam.days >= 0).map((exam) => {
+    const label = exam.days > 0 ? `D-${exam.days}` : "D-day";
+    return `<span class="dday-chip ${exam.days <= 14 ? "soon" : ""}"><b>${label}</b>${esc(exam.label)}<small>${esc(exam.date.slice(5).replace("-", "/"))}</small></span>`;
+  }).join("");
   app.innerHTML = `
-    ${pageHead("Student Learning OS", "오늘의 학습", "실제 문항·복습 일정·개념 연결을 한 흐름에서 이어갑니다.", `<a class="button primary" href="${primaryHref}">${primaryLabel}</a>`)}
+    ${pageHead("Student Learning OS", "오늘의 학습", "시험까지 남은 날에 맞춰 오늘 풀 세트를 골라 둡니다.", `<a class="button primary" href="${startHref}">${set.ids.length ? `오늘 세트 ${set.ids.length}문항 시작 →` : "새 학습 시작 →"}</a>`)}
     <section class="hero-grid">
       <article class="card continue-card">
-        <span class="eyebrow">Live Question Bank</span>
-        <h2>${state.qbank.practice_ready_count ?? state.qbank.question_count}개 문항을 바로 학습할 수 있습니다</h2>
-        <p>전체 ${state.qbank.question_count}개 실제 문항이 연결됐습니다. 필수 제시자료가 없는 ${state.qbank.media_review_count || 0}개 문항은 검토가 끝날 때까지 자동으로 제외됩니다.</p>
-        <div class="continue-kpis"><span><b>${attemptCount}</b>누적 풀이</span><span><b>${favoriteCourses.length}</b>내 과목</span><span><b>${counts.overdue + counts.due}</b>복습 예정</span></div>
-        <a class="button secondary home-secondary-action" href="#library">나의 서재 열기 →</a>
+        ${ddayChips ? `<div class="dday-chips">${ddayChips}</div>` : ""}
+        <span class="eyebrow">Today's Set</span>
+        <h2>${set.ids.length ? `오늘 세트 ${set.ids.length}문항` : "오늘 풀 문항이 준비되지 않았습니다"}</h2>
+        <p>${set.ids.length ? `복습 ${set.reviewCount}문항 + 아직 안 푼 문항 ${set.newCount}개. 날짜가 바뀌기 전까지 같은 세트가 유지됩니다.` : "서재에서 과목이나 세트를 골라 시작하세요."} 남은 미풀이 ${set.unansweredTotal}/${set.readyTotal}문항.</p>
+        <div class="continue-kpis"><span><b>${streak}</b>연속 학습일</span><span><b>${week}</b>이번 주 풀이</span><span><b>${completed}/${completionPool.length}</b>${aiPool.length ? "AI 세트 완주" : "문항 완주"}</span><span><b>${attemptCount}</b>누적 풀이</span></div>
+        ${heatStripHtml(heatmap)}
+        <div class="home-actions"><a class="button primary" href="${startHref}">${set.ids.length ? "오늘 세트 시작 →" : "서재 열기 →"}</a><a class="button secondary home-secondary-action" href="#library">나의 서재 열기 →</a></div>
       </article>
       <article class="card today-card">
         <div><span class="eyebrow">FSRS-6 · 90% Retention</span><h2>오늘의 복습</h2></div>
-        <div class="ring-row"><div class="ring" style="--progress:${todayTarget ? (completed / todayTarget) * 360 : 0}deg" data-label="${completed}/${todayTarget}"></div>
+        <div class="ring-row"><div class="ring" style="--progress:${todayTarget ? Math.min(360, (set.reviewCount / Math.max(1, todayTarget)) * 360) : 0}deg" data-label="${set.reviewCount}/${todayTarget}"></div>
           <div class="metric-list"><div><span>기한 지남</span><b>${counts.overdue}</b></div><div><span>오늘 복습</span><b>${counts.due}</b></div><div><span>새 문항</span><b>${counts.new}</b></div></div>
         </div>
         <a class="button secondary" href="#review">복습 대기열 보기</a>
@@ -621,9 +770,11 @@ function renderBuilder() {
           <div class="builder-options status-options">
             <button type="button" data-builder-status="all" class="${builder.status === "all" ? "selected" : ""}"><b>전체</b><small>${sourceItems.length}문항</small></button>
             <button type="button" data-builder-status="bookmarked" class="${builder.status === "bookmarked" ? "selected" : ""}"><b>북마크</b><small>${bookmarkedCount}문항</small></button>
-            <button type="button" disabled><b>미응답</b><small>기록 연결 예정</small></button>
-            <button type="button" disabled><b>오답</b><small>기록 연결 예정</small></button>
+            <button type="button" data-builder-status="unanswered" class="${builder.status === "unanswered" ? "selected" : ""}"><b>미응답</b><small>${sourceItems.filter(isUnanswered).length}문항</small></button>
+            <button type="button" data-builder-status="wrong" class="${builder.status === "wrong" ? "selected" : ""}" ${sourceItems.some(isLastWrong) ? "" : "disabled"}><b>오답</b><small>${sourceItems.filter(isLastWrong).length}문항${sourceItems.some(isLastWrong) ? "" : " · 아직 없음"}</small></button>
           </div>
+          <div class="builder-subhead"><h3>난이도</h3><small>하 · 중 · 상 (골든 스키마 difficulty_tier)</small></div>
+          ${tierFilterHtml(sourceItems.filter((question) => builder.status !== "bookmarked" || (state.bookmarks || []).includes(question.id)), builder.tier || "all")}
         </article>
         <article class="card builder-section">
           <div class="builder-section-head"><div><span>3</span><h2>세션 설정</h2></div></div>
@@ -636,7 +787,7 @@ function renderBuilder() {
       </div>
       <aside class="card builder-summary">
         <span class="eyebrow">Session Summary</span><h2>설계 요약</h2>
-        <dl><div><dt>자료</dt><dd>${esc(builder.sourceName)}</dd></div><div><dt>범위</dt><dd>${allSelected ? "전체 범위" : `${selectedScopes.size}개 주제`}</dd></div><div><dt>상태</dt><dd>${builder.status === "bookmarked" ? "북마크" : "전체"}</dd></div><div><dt>모드</dt><dd>${builder.mode === "study" ? "학습" : "시험"}</dd></div><div><dt>순서</dt><dd>${builder.order === "random" ? "무작위" : "원본"}</dd></div></dl>
+        <dl><div><dt>자료</dt><dd>${esc(builder.sourceName)}</dd></div><div><dt>범위</dt><dd>${allSelected ? "전체 범위" : `${selectedScopes.size}개 주제`}</dd></div><div><dt>상태</dt><dd>${{bookmarked: "북마크", unanswered: "미응답", wrong: "오답"}[builder.status] || "전체"}</dd></div><div><dt>난이도</dt><dd>${builder.tier && builder.tier !== "all" ? esc(builder.tier) : "전체"}</dd></div><div><dt>모드</dt><dd>${builder.mode === "study" ? "학습" : "시험"}</dd></div><div><dt>순서</dt><dd>${builder.order === "random" ? "무작위" : "원본"}</dd></div></dl>
         <div class="builder-total"><span>시작할 문항</span><strong>${finalCount}</strong></div>
         <button type="button" class="button primary" data-start-practice ${finalCount ? "" : "disabled"}>${builder.mode === "study" ? "학습 시작" : "시험 시작"} →</button>
         ${selectedItems.length && requestedCount > selectedItems.length ? `<p class="builder-clamp">선택한 범위에 맞춰 ${selectedItems.length}문항으로 조정됩니다.</p>` : ""}
@@ -674,6 +825,11 @@ function renderBuilder() {
   }));
   document.querySelectorAll("[data-builder-status]").forEach((button) => button.addEventListener("click", () => {
     state.practiceBuilder.status = button.dataset.builderStatus;
+    savePracticeBuilder();
+    renderBuilder();
+  }));
+  document.querySelectorAll("[data-builder-tier]").forEach((button) => button.addEventListener("click", () => {
+    state.practiceBuilder.tier = button.dataset.builderTier;
     savePracticeBuilder();
     renderBuilder();
   }));
@@ -1568,7 +1724,7 @@ async function logout() {
 
 async function boot() {
   try {
-    const [qbank, catalog, bookmarks, review, claimReview, concepts, analytics] = await Promise.all([
+    const [qbank, catalog, bookmarks, review, claimReview, concepts, analytics, attemptSummary] = await Promise.all([
       api("/api/student/qbank"),
       api("/api/student/catalog"),
       api("/api/student/bookmarks"),
@@ -1576,8 +1732,9 @@ async function boot() {
       api("/api/student/medical-copilot/review?limit=30"),
       api("/api/student/concepts"),
       api("/api/practice/analytics/student"),
+      api("/api/student/attempt-summary").catch(() => ({by_question: {}})),
     ]);
-    Object.assign(state, {qbank, catalog, bookmarks: bookmarks.question_ids || [], review, claimReview, concepts, analytics});
+    Object.assign(state, {qbank, catalog, bookmarks: bookmarks.question_ids || [], review, claimReview, concepts, analytics, attemptSummary});
     if (!restoreActiveCopilotJob()) render();
     void Promise.allSettled([loadGuidelineCatalog(), loadCopilotStatus()]).then(() => {
       if (route() === "clinical" && !state.assistantBusy) renderClinical();

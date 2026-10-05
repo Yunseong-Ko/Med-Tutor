@@ -25,6 +25,8 @@ APP_PATHS = (
     # expose them through StaticFiles.
     "frontend/tokens.css",
     "frontend/student-v3",
+    "frontend/faculty-review-console",   # 교수 검토 콘솔(2026-09-06, 격리 entrypoint)
+    "frontend/signup.html",              # 공개 가입 신청 페이지
     "frontend/faculty-studio-v3",
     "frontend/cpx-osce",
     "frontend/faculty-studio-v2/archive.html",
@@ -58,6 +60,16 @@ DATA_PATHS = (
     "curriculum/ontology_query_map.json",
     "curriculum/ontology_trust_kernel_releases.json",
     "student/qbank.json",
+    "professor_items/generated/set_1.json",
+    "professor_items/generated/set_2.json",
+    "professor_items/generated/set_3.json",
+    "professor_items/generated/set_4.json",
+    # 교수 확정·학생 신뢰배지 런타임 파일 — review/ 폴더 통째 금지(roster_credentials.csv 포함)
+    "professor_items/review/item_actions.json",
+    "professor_items/review/reviews_1cha_normalized.json",
+    "professor_items/review/comments_1cha_coded.csv",
+    "professor_items/review/quality_metrics.json",    # F3 리포트 7지표(정적)
+    "curriculum/evidence_routing.json",
     # Enrichment overlays are deployable review data. Drafts stay in the
     # faculty queue; student visibility is decided by the API's explicit
     # faculty-approval or bounded full-demo release gates.
@@ -104,6 +116,23 @@ DATA_GLOBS = (
     "course_exams/extracted/*.json",
 )
 
+# 원본 기출(문항 전문·기출 이미지)에 해당하는 경로.
+# 교수 의뢰 보안 요건(원본 비유출)에서는 이것들이 클라우드로 나가면 안 된다.
+# --exclude-originals 로 빌드하면 DATA_PATHS/DATA_GLOBS에서 이 접두어가 제거된다.
+ORIGINAL_EXAM_PREFIXES = (
+    "course_exams/extracted",       # 기출 문항 JSON (실측 27파일·약 2,094문항)
+    "course_exams/markdown",        # 기출 전문 마크다운
+    "course_exams/previews",        # 기출 지면 미리보기
+    "course_exams/media/COURSE_",   # 과정시험 원본 이미지
+    "course_exams/media/PMA_",      # PMA 원본 시험 이미지
+    "studio/question_bank",         # 원본 기반 스튜디오 문항고
+    "studio/review_sets",
+)
+
+
+def _is_original_exam(relative: str) -> bool:
+    return any(str(relative).startswith(prefix) for prefix in ORIGINAL_EXAM_PREFIXES)
+
 # Small, persistent-volume update used after the full demo has already been
 # seeded once.  The start script still verifies the complete mounted volume;
 # this profile only avoids re-uploading unchanged Harrison/RAG/registry/media
@@ -135,6 +164,7 @@ def build_bundle(
     destination: Path,
     *,
     incremental: bool = False,
+    exclude_originals: bool = False,
 ) -> dict[str, object]:
     project_root = project_root.resolve()
     destination = destination.resolve()
@@ -157,6 +187,10 @@ def build_bundle(
         copied_bytes += size
 
     data_paths = INCREMENTAL_DATA_PATHS if incremental else DATA_PATHS
+    skipped_originals: list[str] = []
+    if exclude_originals:
+        skipped_originals = [r for r in data_paths if _is_original_exam(r)]
+        data_paths = tuple(r for r in data_paths if not _is_original_exam(r))
     for relative in data_paths:
         source = project_root / "data_private" / relative
         files, size = _copy(source, destination / "data_private" / relative)
@@ -166,13 +200,18 @@ def build_bundle(
     for pattern in (() if incremental else DATA_GLOBS):
         for source in sorted((project_root / "data_private").glob(pattern)):
             relative = source.relative_to(project_root / "data_private")
+            if exclude_originals and _is_original_exam(str(relative)):
+                skipped_originals.append(str(relative))
+                continue
             files, size = _copy(source, destination / "data_private" / relative)
             copied_files += files
             copied_bytes += size
 
     manifest = {
         "schema": "paccine.railway_bundle.v1",
-        "profile": "persistent_volume_incremental" if incremental else "full_seed",
+        "profile": ("persistent_volume_incremental" if incremental
+                    else "student_only_no_originals" if exclude_originals else "full_seed"),
+        "originals_excluded": sorted(skipped_originals),
         "built_at": datetime.now(timezone.utc).isoformat(),
         "source": str(project_root),
         "destination": str(destination),
@@ -191,12 +230,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--destination", type=Path, default=Path("/tmp/paccine-railway-bundle"))
     parser.add_argument("--incremental", action="store_true")
+    parser.add_argument("--exclude-originals", action="store_true",
+                        help="원본 기출(문항 전문·기출 이미지)을 번들에서 제외한다")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    print(json.dumps(build_bundle(args.project_root, args.destination, incremental=args.incremental), ensure_ascii=False))
+    print(json.dumps(build_bundle(args.project_root, args.destination, incremental=args.incremental,
+                            exclude_originals=args.exclude_originals), ensure_ascii=False))
     return 0
 
 

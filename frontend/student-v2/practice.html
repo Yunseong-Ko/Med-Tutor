@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>문항 풀이 · P:accine Reader</title>
+  <link rel="stylesheet" href="/student-v2/student.css?v=20260716-nav-1">
+</head>
+<body data-student-page="practice" class="reader-page">
+  <main class="reader-shell">
+    <header class="reader-toolbar">
+      <div class="reader-toolbar-main">
+        <button id="exit-session" class="reader-back" type="button">← <span>세트</span></button>
+        <button id="toggle-question-navigator" class="reader-progress-button" type="button" aria-label="문항 탐색 열기"><strong id="reader-progress">1 / 1</strong><span>▦</span></button>
+        <span id="practice-mode-badge" class="reader-mode-badge">학습 모드</span>
+        <span id="reported-badge" class="reported-badge" hidden>신고 접수됨</span>
+      </div>
+      <div class="reader-toolbar-tools">
+        <button id="timer-pill" class="reader-timer" type="button" aria-label="일시정지"><small id="timer-label">경과</small><strong id="session-timer">00:00</strong><span>Ⅱ</span></button>
+        <button id="open-reference" class="reference-button" type="button">참고치</button>
+        <button id="open-reader-menu" class="reader-menu-button" type="button" aria-label="문항 도구 메뉴">⋯</button>
+      </div>
+    </header>
+
+    <div id="practice-status" class="notice reader-notice" role="status" hidden></div>
+
+    <section class="reader-workspace">
+      <article class="reader-question-pane">
+        <div id="question-meta-chips" class="reader-meta-chips"></div>
+
+        <section id="reader-media-section" class="reader-section" hidden>
+          <div class="reader-section-label"><strong>제시자료</strong><span>탭하면 확대</span></div>
+          <div id="question-media" class="reader-media"></div>
+        </section>
+
+        <section class="reader-section stem-section">
+          <div class="reader-section-label"><strong>문항</strong><span>텍스트를 드래그해서 하이라이트</span></div>
+          <div id="question-stimulus" class="reader-stimulus" hidden></div>
+          <p id="question-stem" class="reader-stem">문항을 불러오는 중입니다.</p>
+          <button id="apply-highlight" class="highlight-popover" type="button" hidden>▨ 하이라이트</button>
+        </section>
+
+        <div id="choice-list" class="reader-choice-list" role="group" aria-label="선택지"></div>
+        <p id="selection-hint" class="selection-hint"></p>
+        <button id="submit-answer" class="reader-confirm" type="button">정답 확인</button>
+        <div id="result-banner" class="reader-result-banner" hidden></div>
+        <button id="retry-current-question" class="reader-retry-current" type="button" hidden>이 문항 다시 풀기</button>
+
+        <nav class="reader-question-nav" aria-label="문항 이동">
+          <button id="previous-question" type="button">← 이전 문항</button>
+          <button id="next-question" type="button">다음 문항 →</button>
+        </nav>
+      </article>
+
+      <aside class="reader-tools-pane">
+        <div id="reader-tabs" class="reader-tabs" role="tablist">
+          <button class="is-selected" type="button" data-reader-tab="expl">해설</button>
+          <button type="button" data-reader-tab="point">출제 포인트</button>
+          <button type="button" data-reader-tab="media">검사·자료</button>
+          <button type="button" data-reader-tab="note">개념 노트</button>
+          <button type="button" data-reader-tab="anki">Anki</button>
+        </div>
+        <div id="reader-panel" class="reader-panel"></div>
+      </aside>
+    </section>
+
+    <button id="resume-session" class="reader-pause-overlay" type="button" hidden>
+      <span>Ⅱ</span><strong>풀이가 일시정지되었습니다</strong><small>화면을 누르거나 Space 키를 눌러 계속합니다.</small>
+    </button>
+  </main>
+
+  <div id="image-overlay" class="reader-overlay" hidden>
+    <button id="close-image-overlay" class="overlay-close" type="button" aria-label="이미지 닫기">×</button>
+    <figure><img id="expanded-image" alt="확대된 문항 제시자료"><figcaption id="expanded-image-caption"></figcaption></figure>
+  </div>
+
+  <div id="reference-overlay" class="sheet-overlay" hidden>
+    <section class="reader-sheet" role="dialog" aria-modal="true" aria-labelledby="reference-title">
+      <div class="sheet-grip"></div><span class="eyebrow">REFERENCE</span><h2 id="reference-title">검사 참고치</h2>
+      <div id="reference-values" class="reference-values"></div>
+      <p class="reference-caution">기관·검사법에 따라 정상 범위가 다를 수 있습니다. 문항 풀이 참고용입니다.</p>
+      <button id="close-reference" class="primary-button" type="button">닫기</button>
+    </section>
+  </div>
+
+  <div id="reader-menu-overlay" class="sheet-overlay" hidden>
+    <section class="reader-sheet reader-menu-sheet" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <div class="sheet-grip"></div><span class="eyebrow">QUESTION TOOLS</span><h2 id="menu-title">문항 도구</h2>
+      <button id="toggle-timer" class="menu-row" type="button"><span><b>타이머 숨기기</b><small>경과 시간 기록은 계속됩니다.</small></span><i></i></button>
+      <button id="bookmark-question" class="menu-row" type="button"><span><b>북마크</b><small>나중에 다시 볼 문항으로 표시합니다.</small></span><strong>☆</strong></button>
+      <button id="report-question" class="menu-row" type="button"><span><b>문항 신고</b><small>오답·오타·이미지 문제를 전달합니다.</small></span><strong>→</strong></button>
+      <button id="finish-set-rail" class="menu-row" type="button"><span><b>세트 종료</b><small>현재 진행 상황을 결과로 정리합니다.</small></span><strong>→</strong></button>
+      <button id="close-reader-menu" class="secondary-button" type="button">닫기</button>
+    </section>
+  </div>
+
+  <div id="question-navigator-overlay" class="sheet-overlay navigator-overlay" hidden>
+    <section class="reader-sheet navigator-sheet" role="dialog" aria-modal="true" aria-labelledby="navigator-title">
+      <div class="sheet-grip"></div><span class="eyebrow">QUESTION MAP</span><h2 id="navigator-title">문항 탐색</h2>
+      <p>답안 상태와 북마크를 확인하고 원하는 문항으로 바로 이동합니다.</p>
+      <div id="reader-question-navigator" class="reader-question-navigator"></div>
+      <div class="navigator-legend"><span><i class="is-answered"></i>답변</span><span><i class="is-current"></i>현재</span><span><i class="is-bookmarked"></i>북마크</span></div>
+      <button id="close-question-navigator" class="secondary-button" type="button">닫기</button>
+    </section>
+  </div>
+
+  <div id="exit-overlay" class="sheet-overlay" hidden>
+    <section class="reader-sheet" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+      <div class="sheet-grip"></div><span class="eyebrow">세션 종료</span><h2 id="exit-title">지금까지 풀이를 저장할까요?</h2><p id="exit-summary">진행 상황은 이 기기에 안전하게 보관됩니다.</p>
+      <button id="save-and-exit" class="primary-button" type="button">저장하고 나가기</button><button id="continue-session" class="secondary-button" type="button">계속 풀기</button><button id="discard-session" class="danger-text-button" type="button">기록 삭제하고 나가기</button>
+    </section>
+  </div>
+  <script src="/student-v2/student.js?v=20260716-nav-1" defer></script>
+</body>
+</html>

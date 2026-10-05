@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f2a29">
+<title>P:accine Reader · 문항 풀이</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+<style>
+  body { margin: 0; background: #e9e6df; color: #12211f; font-family: "Pretendard", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif; }
+  a { color: #0e7c7b; text-decoration: none; }
+  a:hover { color: #0a5d5c; }
+  *::-webkit-scrollbar { width: 9px; height: 9px; }
+  *::-webkit-scrollbar-thumb { background: #d4d0c6; border-radius: 9px; }
+  .noscroll::-webkit-scrollbar { display: none; }
+  @keyframes rdrSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes rdrFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rdrPop { from { opacity: 0; transform: translate(-50%, 4px) scale(.96); } to { opacity: 1; transform: translate(-50%, 8px) scale(1); } }
+  @keyframes rdrRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column">
+
+  <!-- ===== stage ===== -->
+  <div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:0">
+    <div ref="{{ stageRef }}" style="position:relative;{{ stageSize }}">
+
+      <!-- ---------- DESKTOP ---------- -->
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;inset:0;background:#fbfaf6;border:0;border-radius:0;overflow:hidden;display:flex;flex-direction:column;box-shadow:none">
+        <!-- toolbar -->
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;border-bottom:1px solid #eceae3;background:#fff">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0">
+            <button type="button" style="background:transparent;border:0;color:#5f6f6c;font-size:13.5px;cursor:pointer;padding:6px 8px;border-radius:9px;display:flex;align-items:center;gap:6px" onClick="{{ backToApp }}" style-hover="background:#f4f2ec">← 세트</button>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#12211f;font-weight:600">{{ progressText }}</span>
+            <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;{{ modeBadgeStyle }}">{{ modeBadgeText }}</span>
+            <sc-if value="{{ reported }}"><span style="font-size:11px;color:#8a5a12;background:#f6ebd6;padding:3px 9px;border-radius:999px">신고 접수됨</span></sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <sc-if value="{{ showTimer }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:6px 11px;border-radius:10px;{{ timerStyle }}"><span style="font-size:10px;opacity:.7">{{ timerLabel }}</span>{{ timerText }}</span></sc-if>
+            <button type="button" onClick="{{ openRef }}" style="background:#fff;border:1.5px solid #0e7c7b;color:#0e7c7b;font-size:13px;font-weight:700;cursor:pointer;padding:6px 13px;border-radius:10px" style-hover="background:#f2f6f5">참고치</button>
+            <button type="button" onClick="{{ openMenu }}" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:0;color:#12211f;font-size:20px;cursor:pointer;border-radius:9px;line-height:1" style-hover="background:#f4f2ec">⋯</button>
+          </div>
+        </div>
+        <!-- body -->
+        <div style="flex:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);min-height:0">
+          <!-- left -->
+          <div style="overflow:auto;padding:24px 26px;display:flex;flex-direction:column;gap:20px;border-right:1px solid #eceae3">
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <sc-for list="{{ metaChips }}" as="m" hint-placeholder-count="3"><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.04em;color:#5f6f6c;background:#f2f0ea;border:1px solid #e6e2d8;padding:4px 9px;border-radius:7px">{{ m }}</span></sc-for>
+            </div>
+
+            <!-- images -->
+            <sc-if value="{{ hasImages }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:#5f6f6c">제시자료</span><span style="font-size:11px;color:#9aa6a3">탭하면 확대 · 핀치줌 · 좌우 스와이프</span></div>
+              <div style="display:flex;gap:10px">
+                <sc-for list="{{ thumbs }}" as="t" hint-placeholder-count="2">
+                  <button type="button" onClick="{{ t.onClick }}" style="position:relative;width:118px;height:150px;border-radius:12px;overflow:hidden;border:1px solid #d4d0c6;background:#0b0d0e;cursor:zoom-in;padding:0;flex:none" style-hover="border-color:#0e7c7b">
+                    <img src="{{ t.src }}" alt="{{ t.cap }}" onError="{{ t.onError }}" style="width:100%;height:100%;object-fit:cover;display:block" />
+                    <span style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.72));color:#fff;font-size:10px;padding:14px 8px 6px;text-align:left;font-family:'IBM Plex Mono',monospace">{{ t.cap }}</span>
+                    <span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:12px">⤢</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- stem -->
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <span style="font-size:12px;font-weight:700;color:#5f6f6c">문항 <span style="font-weight:400;color:#9aa6a3">· 텍스트를 드래그해서 하이라이트</span></span>
+              <div ref="{{ stemRef }}" onMouseUp="{{ onStemUp }}" onTouchEnd="{{ onStemUp }}" style="position:relative">
+                <p style="margin:0;line-height:1.85;color:#12211f;text-wrap:pretty;cursor:text;user-select:text;-webkit-user-select:text"><sc-for list="{{ segs }}" as="seg" hint-placeholder-count="7"><span onClick="{{ seg.onClick }}" style="{{ seg.style }}">{{ seg.text }}</span></sc-for></p>
+                <sc-if value="{{ pop }}"><div style="position:absolute;z-index:6;{{ pop.style }}">{{ pop.node }}</div></sc-if>
+              </div>
+            </div>
+
+            <!-- choices -->
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ choices }}" as="c" hint-placeholder-count="5">
+                <div style="display:flex;flex-direction:column">
+                  <div style="{{ c.rowStyle }}">
+                    <button type="button" onClick="{{ c.onSelect }}" style="flex:1;display:flex;align-items:flex-start;gap:12px;text-align:left;background:transparent;border:0;cursor:pointer;padding:13px 14px;min-width:0">
+                      <span style="{{ c.numStyle }}">{{ c.mark }}</span>
+                      <span style="{{ c.textStyle }}">{{ c.text }}</span>
+                      <sc-if value="{{ c.hasBadge }}"><span style="{{ c.badgeStyle }}">{{ c.badge }}</span></sc-if>
+                    </button>
+                    <button type="button" onClick="{{ c.onCross }}" title="{{ c.crossTitle }}" style="flex:none;width:44px;border:0;border-left:1px solid rgba(0,0,0,.06);background:transparent;color:{{ c.crossColor }};font-size:15px;cursor:pointer;display:grid;place-items:center" style-hover="background:rgba(0,0,0,.04)">{{ c.crossLabel }}</button>
+                  </div>
+                  <sc-if value="{{ c.expanded }}"><div style="margin:2px 2px 4px;padding:12px 14px;background:#f6f4ee;border:1px solid #e6e2d8;border-radius:11px;font-size:13px;line-height:1.65;color:#4a5956;animation:rdrRise .18s ease"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;color:#0e7c7b;margin-bottom:5px">선지 {{ c.mark }} 해설</span>{{ c.expl }}</div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- confirm / result -->
+            <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ confirm }}" style="{{ confirmStyle }}">{{ confirmLabel }}</button>
+            </sc-if>
+            <sc-if value="{{ resultBanner }}"><div style="{{ resultStyle }}">{{ resultBanner }}</div></sc-if>
+            <sc-if value="{{ showAdvance }}"><button type="button" onClick="{{ advance }}" style="{{ advanceStyle }}">{{ advanceLabel }}</button></sc-if>
+          </div>
+
+          <!-- right tools -->
+          <div style="overflow:auto;padding:20px 22px;display:flex;flex-direction:column;gap:16px;background:#f6f4ee">
+            <div style="display:flex;gap:5px;background:#e8e5dc;padding:4px;border-radius:11px;flex-wrap:wrap">
+              <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="5"><button type="button" onClick="{{ tb.onClick }}" style="{{ tb.style }}">{{ tb.label }}</button></sc-for>
+            </div>
+            <div>{{ panelNode }}</div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ---------- MOBILE ---------- -->
+      <sc-if value="{{ isMobile }}">
+      <div style="height:100%">
+        <div style="height:100%;display:flex;flex-direction:column;background:#fbfaf6;font-family:'Pretendard','IBM Plex Sans KR',sans-serif">
+          <div style="flex:none;padding:52px 14px 11px;background:#fff;border-bottom:1px solid #eceae3;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0">
+              <button type="button" onClick="{{ backToApp }}" style="background:transparent;border:0;color:#5f6f6c;font-size:18px;cursor:pointer;padding:2px">←</button>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">{{ progressText }}</span>
+              <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;{{ modeBadgeStyle }}">{{ modeBadgeShort }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <sc-if value="{{ showTimer }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:4px 8px;border-radius:8px;{{ timerStyle }}">{{ timerText }}</span></sc-if>
+              <button type="button" onClick="{{ openRef }}" style="background:#fff;border:1.5px solid #0e7c7b;color:#0e7c7b;font-size:12px;font-weight:700;cursor:pointer;padding:4px 9px;border-radius:8px">참고치</button>
+              <button type="button" onClick="{{ openMenu }}" style="width:30px;height:30px;display:grid;place-items:center;background:transparent;border:0;font-size:19px;cursor:pointer;line-height:1">⋯</button>
+            </div>
+          </div>
+
+          <div class="noscroll" style="flex:1;overflow:auto;padding:15px 15px 26px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ metaChips }}" as="m" hint-placeholder-count="3"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5f6f6c;background:#f2f0ea;border:1px solid #e6e2d8;padding:3px 8px;border-radius:6px">{{ m }}</span></sc-for>
+            </div>
+
+            <sc-if value="{{ hasImages }}">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11.5px;font-weight:700;color:#5f6f6c">제시자료 · MRI <span style="font-weight:400;color:#9aa6a3">· 탭하면 확대</span></span>
+              <div style="display:flex;gap:8px">
+                <sc-for list="{{ thumbs }}" as="t" hint-placeholder-count="2">
+                  <button type="button" onClick="{{ t.onClick }}" style="position:relative;flex:1;height:132px;border-radius:11px;overflow:hidden;border:1px solid #d4d0c6;background:#0b0d0e;cursor:zoom-in;padding:0">
+                    <img src="{{ t.src }}" alt="{{ t.cap }}" onError="{{ t.onError }}" style="width:100%;height:100%;object-fit:cover;display:block" />
+                    <span style="position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:5px;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:11px">⤢</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11.5px;font-weight:700;color:#5f6f6c">문항 <span style="font-weight:400;color:#9aa6a3">· 드래그해서 하이라이트</span></span>
+              <div ref="{{ stemRefM }}" onMouseUp="{{ onStemUp }}" onTouchEnd="{{ onStemUp }}" style="position:relative">
+                <p style="margin:0;line-height:1.8;color:#12211f;text-wrap:pretty;cursor:text;user-select:text;-webkit-user-select:text"><sc-for list="{{ segsM }}" as="seg" hint-placeholder-count="7"><span onClick="{{ seg.onClick }}" style="{{ seg.style }}">{{ seg.text }}</span></sc-for></p>
+                <sc-if value="{{ popM }}"><div style="position:absolute;z-index:6;{{ popM.style }}">{{ popM.node }}</div></sc-if>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ choices }}" as="c" hint-placeholder-count="5">
+                <div style="display:flex;flex-direction:column">
+                  <div style="{{ c.rowStyle }}">
+                    <button type="button" onClick="{{ c.onSelect }}" style="flex:1;display:flex;align-items:flex-start;gap:10px;text-align:left;background:transparent;border:0;cursor:pointer;padding:11px 12px;min-width:0">
+                      <span style="{{ c.numStyleM }}">{{ c.mark }}</span>
+                      <span style="{{ c.textStyleM }}">{{ c.text }}</span>
+                    </button>
+                    <button type="button" onClick="{{ c.onCross }}" title="{{ c.crossTitle }}" style="flex:none;width:40px;border:0;border-left:1px solid rgba(0,0,0,.06);background:transparent;color:{{ c.crossColor }};font-size:14px;cursor:pointer;display:grid;place-items:center">{{ c.crossLabel }}</button>
+                  </div>
+                  <sc-if value="{{ c.expanded }}"><div style="margin:2px 1px 3px;padding:10px 12px;background:#f6f4ee;border:1px solid #e6e2d8;border-radius:10px;font-size:12px;line-height:1.6;color:#4a5956;animation:rdrRise .18s ease"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#0e7c7b;margin-bottom:4px">선지 {{ c.mark }} 해설</span>{{ c.expl }}</div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ confirm }}" style="{{ confirmStyleM }}">{{ confirmLabel }}</button></sc-if>
+            <sc-if value="{{ resultBanner }}"><div style="{{ resultStyle }}">{{ resultBanner }}</div></sc-if>
+            <sc-if value="{{ showAdvance }}"><button type="button" onClick="{{ advance }}" style="{{ advanceStyleM }}">{{ advanceLabel }}</button></sc-if>
+
+            <div style="height:1px;background:#eceae3;margin:2px 0"></div>
+            <span style="font-size:11.5px;font-weight:700;color:#5f6f6c">학습 도구</span>
+            <div class="noscroll" style="display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
+              <sc-for list="{{ tabsM }}" as="tb" hint-placeholder-count="5"><button type="button" onClick="{{ tb.onClick }}" style="{{ tb.style }}">{{ tb.label }}</button></sc-for>
+            </div>
+            <div>{{ panelNode }}</div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ================= OVERLAYS ================= -->
+
+      <!-- lightbox -->
+      <sc-if value="{{ lbOpen }}">
+      <div style="position:absolute;inset:0;z-index:40;background:rgba(7,9,10,.94);border-radius:{{ stageRadius }};overflow:hidden;display:flex;flex-direction:column;animation:rdrFade .16s ease">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#e9e6df">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">{{ lbCounter }} · {{ lbCaption }}</span>
+          <button type="button" onClick="{{ lbClose }}" style="width:34px;height:34px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:19px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <div onPointerDown="{{ lbDown }}" onPointerMove="{{ lbMove }}" onPointerUp="{{ lbUp }}" onDoubleClick="{{ lbDouble }}" style="flex:1;overflow:hidden;display:grid;place-items:center;touch-action:none;cursor:{{ lbCursor }}">
+          <img src="{{ lbSrc }}" alt="{{ lbCaption }}" draggable="false" style="max-width:92%;max-height:92%;transform:{{ lbTransform }};transition:{{ lbTransition }};user-select:none;-webkit-user-drag:none" />
+        </div>
+        <div style="flex:none;display:flex;align-items:center;justify-content:center;gap:14px;padding:14px 16px 20px">
+          <button type="button" onClick="{{ lbPrev }}" style="width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:19px;cursor:pointer">‹</button>
+          <button type="button" onClick="{{ lbOut }}" style="width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:20px;cursor:pointer">−</button>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e9e6df;min-width:52px;text-align:center">{{ lbZoomPct }}</span>
+          <button type="button" onClick="{{ lbIn }}" style="width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:20px;cursor:pointer">+</button>
+          <button type="button" onClick="{{ lbNext }}" style="width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:19px;cursor:pointer">›</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- reference sheet -->
+      <sc-if value="{{ refOpen }}">
+      <div style="position:absolute;inset:0;z-index:30;border-radius:{{ stageRadius }};overflow:hidden">
+        <div onClick="{{ closeRef }}" style="position:absolute;inset:0;background:rgba(15,42,41,.34);animation:rdrFade .16s ease"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:62%;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -20px 50px -24px rgba(18,33,31,.5);display:flex;flex-direction:column;animation:rdrSheet .26s cubic-bezier(.22,1,.36,1)">
+          <div style="flex:none;padding:12px 20px 6px;display:flex;flex-direction:column;gap:12px">
+            <div style="width:38px;height:4px;border-radius:999px;background:#dcd8ce;align-self:center"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:16px;font-weight:800;letter-spacing:-0.01em">임상 참고치</span>
+              <button type="button" onClick="{{ closeRef }}" style="background:transparent;border:0;color:#8a968f;font-size:20px;cursor:pointer;line-height:1">×</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <sc-for list="{{ refTabs }}" as="rt" hint-placeholder-count="4"><button type="button" onClick="{{ rt.onClick }}" style="{{ rt.style }}">{{ rt.label }}</button></sc-for>
+            </div>
+          </div>
+          <div style="flex:1;overflow:auto;padding:6px 20px 24px">
+            <table style="width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace">
+              <sc-for list="{{ refRows }}" as="r" hint-placeholder-count="6">
+                <tr style="border-bottom:1px solid #f0eee7"><td style="padding:11px 8px 11px 0;font-size:13.5px;color:#12211f;font-weight:500">{{ r.name }}</td><td style="padding:11px 0;font-size:13px;color:#0e7c7b;text-align:right;white-space:nowrap">{{ r.val }}</td></tr>
+              </sc-for>
+            </table>
+            <p style="margin:14px 0 0;font-size:11.5px;color:#9aa6a3;line-height:1.6;font-family:'Pretendard',sans-serif">기관·검사법에 따라 정상 범위가 다를 수 있습니다. 문항 풀이 참고용입니다.</p>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ⋯ menu sheet -->
+      <sc-if value="{{ menuOpen }}">
+      <div style="position:absolute;inset:0;z-index:32;border-radius:{{ stageRadius }};overflow:hidden">
+        <div onClick="{{ closeMenu }}" style="position:absolute;inset:0;background:rgba(15,42,41,.34);animation:rdrFade .16s ease"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -20px 50px -24px rgba(18,33,31,.5);padding:12px 20px 24px;display:flex;flex-direction:column;gap:6px;animation:rdrSheet .26s cubic-bezier(.22,1,.36,1)">
+          <div style="width:38px;height:4px;border-radius:999px;background:#dcd8ce;align-self:center;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 4px">
+            <span style="font-size:14px;font-weight:600">글자 크기</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button type="button" onClick="{{ fontDown }}" style="width:38px;height:38px;border-radius:10px;border:1px solid #d4d0c6;background:#fff;font-size:15px;font-weight:700;cursor:pointer">A−</button>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5f6f6c;min-width:42px;text-align:center">{{ fontPct }}</span>
+              <button type="button" onClick="{{ fontUp }}" style="width:38px;height:38px;border-radius:10px;border:1px solid #d4d0c6;background:#fff;font-size:19px;font-weight:700;cursor:pointer">A+</button>
+            </div>
+          </div>
+          <div style="height:1px;background:#f0eee7"></div>
+          <button type="button" onClick="{{ toggleTimer }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;background:transparent;border:0;cursor:pointer;width:100%;text-align:left">
+            <span style="font-size:14px;font-weight:600;color:#12211f">타이머 숨김</span>
+            <span style="{{ timerSwitch }}"><span style="{{ timerKnob }}"></span></span>
+          </button>
+          <div style="height:1px;background:#f0eee7"></div>
+          <button type="button" onClick="{{ openReport }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;background:transparent;border:0;cursor:pointer;width:100%;text-align:left">
+            <span style="font-size:14px;font-weight:600;color:#12211f">문항 신고</span>
+            <span style="color:#9aa6a3;font-size:16px">›</span>
+          </button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- report sheet -->
+      <sc-if value="{{ reportOpen }}">
+      <div style="position:absolute;inset:0;z-index:34;border-radius:{{ stageRadius }};overflow:hidden">
+        <div onClick="{{ closeReport }}" style="position:absolute;inset:0;background:rgba(15,42,41,.34);animation:rdrFade .16s ease"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -20px 50px -24px rgba(18,33,31,.5);padding:12px 20px 24px;display:flex;flex-direction:column;gap:12px;animation:rdrSheet .26s cubic-bezier(.22,1,.36,1)">
+          <div style="width:38px;height:4px;border-radius:999px;background:#dcd8ce;align-self:center"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:16px;font-weight:800;letter-spacing:-0.01em">문항 신고</span>
+            <button type="button" onClick="{{ closeReport }}" style="background:transparent;border:0;color:#8a968f;font-size:20px;cursor:pointer;line-height:1">×</button>
+          </div>
+          <span style="font-size:12.5px;color:#5f6f6c">사유를 선택해 주세요. 검토 후 반영됩니다.</span>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ reportReasons }}" as="rr" hint-placeholder-count="4"><button type="button" onClick="{{ rr.onClick }}" style="{{ rr.style }}"><span style="{{ rr.dot }}"></span>{{ rr.label }}</button></sc-for>
+          </div>
+          <textarea placeholder="추가 메모 (선택)" onInput="{{ reportNoteInput }}" value="{{ reportNote }}" style="width:100%;box-sizing:border-box;min-height:64px;resize:none;border:1px solid #d4d0c6;border-radius:11px;padding:11px 12px;font-size:13px;font-family:'Pretendard',sans-serif;color:#12211f"></textarea>
+          <button type="button" onClick="{{ submitReport }}" style="{{ submitStyle }}">신고 접수</button>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:900},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;learn&quot;,&quot;exam&quot;],&quot;default&quot;:&quot;learn&quot;,&quot;tsType&quot;:&quot;'learn'|'exam'&quot;,&quot;section&quot;:&quot;기본&quot;},&quot;startDevice&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop'|'mobile'&quot;,&quot;section&quot;:&quot;기본&quot;},&quot;examMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:90,&quot;min&quot;:10,&quot;max&quot;:240,&quot;unit&quot;:&quot;분&quot;,&quot;section&quot;:&quot;기본&quot;}}">
+class Component extends DCLogic {
+  stemRef = React.createRef();
+  stemRefM = React.createRef();
+
+  Q = {
+    subject: "신경 및 특수감각기학",
+    exam: "2025 2차",
+    qtype: "이미지 판독",
+    concept: "시신경척수염범주질환 (NMOSD)",
+    answer: "5",
+    imgs: [
+      { src: "media/neuro_BIN000A.jpeg", cap: "T2 시상면 · 흉추 척수" },
+      { src: "media/neuro_BIN000B.jpeg", cap: "T1 시상면 · 흉추 척수" },
+    ],
+    stem: [
+      "52세 여자가 2일 전부터 점차 다리에 힘이 빠지고 배꼽 이하 부위로 저린감이 느껴져서 응급실로 찾아왔다.",
+      "10개월 전 우측 눈의 시력 저하로 시신경염을 진단받고 치료 받았으나 시력이 회복되지 않아 현재 우측 눈은 물체의 움직임만 구분할 수 있다고 한다.",
+      "신경학적 검사에서 양측 하지 근력이 3/5 정도로 측정되었으며, 배꼽 이후 부위로 통각과 온도각이 소실되어 있었다.",
+      "대광 반사가 우측에서 소실되어 있었다.",
+      "바빈스키 징후가 양측에서 양성으로 나타났다.",
+      "뇌척수액검사에서 oligoclonal band와 항 AQP4 항체는 모두 음성으로 확인되었다.",
+      "흉추부 척수 자기공명촬영 소견은 다음과 같다. 가장 적합한 진단과 치료는?",
+    ],
+    choices: [
+      { n: "1", text: "척수 경색(spinal cord infarction) – 항혈소판 제제", expl: "척수 경색은 급성 발현이 특징이나, 시신경염 병력·재발 경과·3척추분절 이상 LETM 소견과 맞지 않습니다. 항혈소판제는 이 증례의 치료가 아닙니다." },
+      { n: "2", text: "척수 종양(spinal cord tumor) – 종양의 수술적 제거", expl: "종양성 병변은 국소 종괴·조영증강 양상을 보입니다. 본 증례의 길게 뻗은 LETM은 염증성 척수염 소견으로, 수술 대상이 아닙니다." },
+      { n: "3", text: "다발성 경화증(multiple sclerosis) – 베타 인터페론 주사", expl: "시신경염 병력은 겹치지만 MS의 척수병변은 보통 2척추분절 미만·편측성입니다. 3척추분절 이상의 LETM은 오히려 NMOSD를 시사하며, 베타 인터페론은 NMOSD를 악화시킬 수 있습니다." },
+      { n: "4", text: "아급성연합변성(subacute combined degeneration) – vitamin B12 근주", expl: "B12 결핍은 후주(dorsal column) 중심의 대칭 병변과 심부감각 저하가 특징입니다. 통각·온도각 소실과 LETM 양상과는 일치하지 않습니다." },
+      { n: "5", text: "시신경척수염범주질환(NMOSD) – 고용량 스테로이드 정주", expl: "과거 시신경염 + 현재 3척추분절 이상의 LETM → 항 AQP4 항체가 음성이어도 NMOSD 진단기준을 만족합니다. 급성 재발의 1차 치료는 고용량 스테로이드 정주입니다." },
+    ],
+    explanation: "증례는 척수염의 발병을 나타내며 척추 MRI는 척추분절 3개 이상의 LETM(longitudinally extensive transverse myelitis) 소견입니다. 뇌척수액에서 항 AQP4 항체가 음성이지만 과거 시신경염 병력과 현재 LETM을 함께 고려하면 시신경척수염범주질환(NMOSD)의 진단기준을 만족합니다. 급성 재발의 1차 치료는 고용량 스테로이드 정주입니다.",
+    citations: ["대한신경과학회 진료지침 · 시신경척수염범주질환", "Wingerchuk et al., 2015 IPND 진단기준"],
+  };
+
+  refData = {
+    cbc: [["백혈구 WBC", "4.0–10.0 ×10³/µL"], ["혈색소 Hb", "남 13–17 · 여 12–16 g/dL"], ["적혈구용적 Hct", "남 39–52 · 여 36–48 %"], ["혈소판 Plt", "150–400 ×10³/µL"], ["MCV", "80–100 fL"], ["망상적혈구", "0.5–2.0 %"]],
+    chem: [["Na⁺", "135–145 mmol/L"], ["K⁺", "3.5–5.1 mmol/L"], ["Cl⁻", "98–107 mmol/L"], ["BUN", "8–20 mg/dL"], ["Creatinine", "0.6–1.2 mg/dL"], ["Glucose (공복)", "70–110 mg/dL"], ["총단백", "6.4–8.3 g/dL"], ["알부민", "3.5–5.2 g/dL"]],
+    abg: [["pH", "7.35–7.45"], ["PaCO₂", "35–45 mmHg"], ["PaO₂", "80–100 mmHg"], ["HCO₃⁻", "22–26 mmol/L"], ["SaO₂", "95–100 %"], ["Base excess", "−2 ~ +2 mmol/L"]],
+    coag: [["PT", "11–14 초 (INR 0.8–1.2)"], ["aPTT", "25–35 초"], ["Fibrinogen", "200–400 mg/dL"], ["D-dimer", "< 0.5 µg/mL FEU"], ["혈소판", "150–400 ×10³/µL"]],
+  };
+  refLabels = { cbc: "CBC", chem: "화학", abg: "ABG", coag: "응고" };
+
+  reasonList = [
+    { key: "wrong", label: "오답 · 정답/해설 오류" },
+    { key: "typo", label: "오타 · 지문/선지 오탈자" },
+    { key: "image", label: "이미지 오류 · 자료 누락·불일치" },
+    { key: "etc", label: "기타" },
+  ];
+
+  state = {
+    mode: new URLSearchParams(window.location.search).get("mode") || this.props.mode || this.props.startMode || "learn",
+    device: window.innerWidth < 720 ? "mobile" : (this.props.device || this.props.startDevice || "desktop"),
+    selected: null,
+    confirmed: false,
+    crossed: {},
+    expanded: null,
+    tab: "expl",
+    fontScale: 1,
+    timerHidden: false,
+    highlights: [],
+    pendingSel: null,
+    pop: null,
+    lb: { open: false, idx: 0, zoom: 1, tx: 0, ty: 0, anim: true },
+    refOpen: false,
+    refTab: "cbc",
+    menuOpen: false,
+    reportOpen: false,
+    reportReason: null,
+    reportNote: "",
+    reported: false,
+    elapsed: 0,
+    qIndex: 0,
+    total: 1,
+    loading: true,
+  };
+
+  componentDidMount() {
+    this._pointers = new Map();
+    this._sessionId = "qbank_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+    this._answers = [];
+    const params = new URLSearchParams(window.location.search);
+    const scope = params.get("scope") || "신경 및 특수감각기학";
+    const setName = params.get("setName") || "";
+    const count = Math.max(1, Math.min(100, Number(params.get("count")) || 20));
+    fetch("/api/student/qbank").then((response) => {
+      if (!response.ok) throw new Error("문항을 불러오지 못했습니다.");
+      return response.json();
+    }).then((payload) => {
+      const all = Array.isArray(payload.questions) ? payload.questions : [];
+      const questionId = params.get("questionId") || "";
+      let retryIds = [];
+      try { retryIds = JSON.parse(localStorage.getItem("paccine.student.retry.v1") || "[]"); } catch (error) {}
+      const retryItems = params.get("retry") === "1" && Array.isArray(retryIds) ? all.filter((question) => retryIds.includes(question.id)) : [];
+      const directItems = questionId ? all.filter((question) => question.id === questionId) : [];
+      const exact = all.filter((question) => question.exam === setName);
+      const scoped = all.filter((question) => question.course === scope || String(question.exam || "").startsWith(scope + " ·"));
+      this._sessionItems = (retryItems.length ? retryItems : directItems.length ? directItems : exact.length ? exact : scoped.length ? scoped : all).slice(0, count);
+      if (retryItems.length) localStorage.removeItem("paccine.student.retry.v1");
+      if (!this._sessionItems.length) throw new Error("선택한 범위에 학습 문항이 없습니다.");
+      this.Q = this.mapExamItem(this._sessionItems[0]);
+      this.setState({ qIndex: 0, total: this._sessionItems.length, loading: false });
+    }).catch((error) => {
+      this.setState({ loading: false });
+      console.error(error);
+    });
+    this._timer = setInterval(() => this.setState((s) => ({ elapsed: s.elapsed + 1 })), 1000);
+  }
+  mapExamItem(q) {
+    return {
+      id: q.id,
+      subject: q.subject, exam: q.exam, qtype: q.qtype, concept: q.topic || q.concept, answer: q.answer ? String(q.answer) : null,
+      imgs: (q.imgs || []).map((image) => typeof image === "string" ? { src: image, cap: "제시자료" } : image),
+      stem: [q.stimulus && q.stimulus !== "<그림>" ? q.stimulus : "", q.stem].filter(Boolean),
+      choices: (q.choices || []).map((c) => ({ n: String(c.n), text: c.text, expl: c.expl || "" })),
+      explanation: q.explanation || "",
+      points: q.points || [],
+      citations: ["\ucd9c\ucc98 \u00b7 " + (q.course || q.subject) + " \u00b7 " + q.exam],
+    };
+  }
+  componentWillUnmount() {
+    clearInterval(this._timer);
+    clearTimeout(this._press);
+  }
+
+  // ---- top toggles ----
+  setLearn = () => this.setState({ mode: "learn" });
+  setExam = () => this.setState({ mode: "exam", expanded: null });
+  setDesktop = () => this.setState({ device: "desktop", pop: null });
+  setMobile = () => this.setState({ device: "mobile", pop: null });
+  backToApp = () => {
+    localStorage.setItem("paccine.student.paused.v1", JSON.stringify({
+      sessionId: this._sessionId, qIndex: this.state.qIndex, total: this.state.total,
+      elapsed: this.state.elapsed, mode: this.state.mode, url: window.location.href,
+    }));
+    window.location.href = "./#home";
+  };
+  applyFeedback(feedback) {
+    this.Q = {
+      ...this.Q,
+      answer: String((feedback.answer_keys || [""])[0] || ""),
+      explanation: feedback.explanation || "",
+      points: feedback.points || [],
+      choices: this.Q.choices.map((choice) => ({ ...choice, expl: (feedback.choice_explanations || {})[choice.n] || "" })),
+    };
+  }
+  submitCurrent = async () => {
+    const response = await fetch("/api/student/questions/" + encodeURIComponent(this.Q.id) + "/answer", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        event_id: this._sessionId + "_" + this.Q.id,
+        session_id: this._sessionId,
+        selected_choices: [String(this.state.selected)],
+        time_ms: Math.round((this.state.elapsed / Math.max(1, this.state.qIndex + 1)) * 1000),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "답안을 저장하지 못했습니다.");
+    return payload;
+  };
+  openQuestion(index) {
+    this.Q = this.mapExamItem(this._sessionItems[index]);
+    this._lastFeedback = null;
+    this.setState({ qIndex: index, selected: null, confirmed: false, crossed: {}, expanded: null, tab: "expl" });
+  }
+  finishSession(results) {
+    const correct = results.filter((item) => item.isCorrect).length;
+    const params = new URLSearchParams(window.location.search);
+    const session = {
+      sessionId: this._sessionId,
+      mode: this.state.mode,
+      setName: params.get("setName") || "학습 세트",
+      scope: params.get("scope") || "",
+      elapsed: this.state.elapsed,
+      total: results.length,
+      correct,
+      results,
+      completedAt: new Date().toISOString(),
+    };
+    localStorage.setItem("paccine.student.result.v1", JSON.stringify(session));
+    localStorage.removeItem("paccine.student.paused.v1");
+    window.location.href = "./result.html?session=" + encodeURIComponent(this._sessionId);
+  }
+  advance = async () => {
+    if (this.state.selected == null) return;
+    let feedback = null;
+    try {
+      feedback = this.state.mode === "learn" && this.state.confirmed && this._lastFeedback ? this._lastFeedback : await this.submitCurrent();
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+    const result = {
+      questionId: this.Q.id,
+      topic: this.Q.concept || this.Q.subject,
+      selected: String(this.state.selected),
+      answer: String((feedback.answer_keys || [""])[0] || ""),
+      isCorrect: Boolean(feedback.is_correct),
+    };
+    const answers = [...this._answers.filter((item) => item.questionId !== result.questionId), result];
+    this._answers = answers;
+    const next = this.state.qIndex + 1;
+    if (next < this._sessionItems.length) this.openQuestion(next);
+    else this.finishSession(answers);
+  };
+
+  // ---- choices ----
+  select(n) {
+    this.setState((s) => {
+      if (s.crossed[n]) return {};
+      if (s.mode === "exam") return { selected: s.selected === n ? null : n };
+      if (s.confirmed) return { expanded: s.expanded === n ? null : n };
+      return { selected: n };
+    });
+  }
+  toggleCross(n) {
+    this.setState((s) => {
+      const c = { ...s.crossed };
+      c[n] = !c[n];
+      const selected = c[n] && s.selected === n ? null : s.selected;
+      return { crossed: c, selected };
+    });
+  }
+  confirm = async () => {
+    if (this.state.selected == null) return;
+    if (this.state.mode === "exam") {
+      this.setState({ confirmed: true, expanded: null });
+      return;
+    }
+    try {
+      const feedback = await this.submitCurrent();
+      this._lastFeedback = feedback;
+      this.applyFeedback(feedback);
+      this.setState({ confirmed: true, expanded: this.state.selected });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // ---- highlight ----
+  refFor() {
+    return this.state.device === "mobile" ? this.stemRefM : this.stemRef;
+  }
+  charOffset(container, node, offset) {
+    const r = document.createRange();
+    r.setStart(container, 0);
+    r.setEnd(node, offset);
+    return r.toString().length;
+  }
+  onStemUp = () => {
+    setTimeout(() => {
+      const sel = window.getSelection && window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const el = this.refFor().current;
+      if (!el || !el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return;
+      const range = sel.getRangeAt(0);
+      const pEl = el.querySelector("p") || el;
+      let a = this.charOffset(pEl, range.startContainer, range.startOffset);
+      let b = this.charOffset(pEl, range.endContainer, range.endOffset);
+      if (a > b) { const t = a; a = b; b = t; }
+      if (b - a < 1) return;
+      const rr = range.getBoundingClientRect();
+      const cr = el.getBoundingClientRect();
+      let left = rr.left + rr.width / 2 - cr.left;
+      left = Math.max(80, Math.min(cr.width - 80, left));
+      const top = rr.bottom - cr.top + 4;
+      this.setState({ pendingSel: { a, b }, pop: { left, top, editing: false, note: "", mode: "new" } });
+    }, 0);
+  };
+  posFromEvent(e) {
+    const el = this.refFor().current;
+    const cr = el ? el.getBoundingClientRect() : { left: 0, top: 0, width: 300 };
+    let left = e.clientX - cr.left;
+    left = Math.max(80, Math.min(cr.width - 80, left));
+    return { left, top: e.clientY - cr.top + 8 };
+  }
+  addHighlight(a, b, note) {
+    this.setState((s) => {
+      let na = a, nb = b, keptNote = note || "";
+      const rest = [];
+      for (const h of s.highlights) {
+        if (h.end < na || h.start > nb) rest.push(h);
+        else { na = Math.min(na, h.start); nb = Math.max(nb, h.end); if (!keptNote && h.note) keptNote = h.note; }
+      }
+      rest.push({ start: na, end: nb, note: keptNote });
+      rest.sort((x, y) => x.start - y.start);
+      return { highlights: rest, pendingSel: null };
+    });
+    if (window.getSelection) window.getSelection().removeAllRanges();
+  }
+  applyHighlight = () => {
+    const sel = this.state.pendingSel;
+    if (sel) this.addHighlight(sel.a, sel.b, "");
+    this.setState({ pop: null });
+  };
+  applyThenMemo = () => {
+    const sel = this.state.pendingSel;
+    if (!sel) return;
+    this.setState((s) => {
+      let na = sel.a, nb = sel.b, keptNote = "";
+      const rest = [];
+      for (const h of s.highlights) {
+        if (h.end < na || h.start > nb) rest.push(h);
+        else { na = Math.min(na, h.start); nb = Math.max(nb, h.end); if (!keptNote && h.note) keptNote = h.note; }
+      }
+      rest.push({ start: na, end: nb, note: keptNote });
+      rest.sort((x, y) => x.start - y.start);
+      const idx = rest.findIndex((h) => h.start === na && h.end === nb);
+      return { highlights: rest, pendingSel: null, pop: { ...s.pop, editing: true, mode: "edit", idx, note: keptNote } };
+    });
+    if (window.getSelection) window.getSelection().removeAllRanges();
+  };
+  openEdit(idx, e) {
+    const pos = this.posFromEvent(e);
+    const h = this.state.highlights[idx];
+    this.setState({ pop: { ...pos, editing: false, mode: "edit", idx, note: (h && h.note) || "" } });
+  }
+  removeHighlight = () => {
+    const idx = this.state.pop.idx;
+    this.setState((s) => ({ highlights: s.highlights.filter((_, i) => i !== idx), pop: null }));
+    if (window.getSelection) window.getSelection().removeAllRanges();
+  };
+  startMemo = () => this.setState((s) => ({ pop: { ...s.pop, editing: true } }));
+  memoInput = (e) => {
+    const v = e.target.value;
+    this.setState((s) => ({ pop: { ...s.pop, note: v } }));
+  };
+  saveMemo = () => {
+    const { idx, note } = this.state.pop;
+    this.setState((s) => ({ highlights: s.highlights.map((h, i) => (i === idx ? { ...h, note } : h)), pop: null }));
+    if (window.getSelection) window.getSelection().removeAllRanges();
+  };
+  closePop = () => this.setState({ pop: null, pendingSel: null });
+
+  // ---- lightbox ----
+  openLb(idx) {
+    this.setState({ lb: { open: true, idx, zoom: 1, tx: 0, ty: 0, anim: true } });
+  }
+  lbClose = () => this.setState((s) => ({ lb: { ...s.lb, open: false } }));
+  lbZoom(delta) {
+    this.setState((s) => {
+      const zoom = Math.min(4, Math.max(1, +(s.lb.zoom + delta).toFixed(2)));
+      const reset = zoom === 1;
+      return { lb: { ...s.lb, zoom, tx: reset ? 0 : s.lb.tx, ty: reset ? 0 : s.lb.ty, anim: true } };
+    });
+  }
+  lbIn = () => this.lbZoom(0.5);
+  lbOut = () => this.lbZoom(-0.5);
+  lbStep(dir) {
+    this.setState((s) => {
+      const n = this.Q.imgs.length;
+      const idx = (s.lb.idx + dir + n) % n;
+      return { lb: { open: true, idx, zoom: 1, tx: 0, ty: 0, anim: true } };
+    });
+  }
+  lbPrev = () => this.lbStep(-1);
+  lbNext = () => this.lbStep(1);
+  lbDouble = () => this.setState((s) => ({ lb: { ...s.lb, zoom: s.lb.zoom > 1 ? 1 : 2.2, tx: 0, ty: 0, anim: true } }));
+  lbDown = (e) => {
+    this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.target.setPointerCapture) { try { e.target.setPointerCapture(e.pointerId); } catch (err) {} }
+    this._lbStart = { tx: this.state.lb.tx, ty: this.state.lb.ty, x: e.clientX, y: e.clientY };
+    this._swipeDx = 0;
+    if (this._pointers.size === 2) {
+      const p = [...this._pointers.values()];
+      this._pinchDist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+      this._pinchZoom = this.state.lb.zoom;
+    }
+  };
+  lbMove = (e) => {
+    if (!this._pointers.has(e.pointerId)) return;
+    this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this._pointers.size >= 2) {
+      const p = [...this._pointers.values()];
+      const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+      const zoom = Math.min(4, Math.max(1, +(this._pinchZoom * (d / this._pinchDist)).toFixed(2)));
+      this.setState((s) => ({ lb: { ...s.lb, zoom, anim: false } }));
+      return;
+    }
+    const dx = e.clientX - this._lbStart.x, dy = e.clientY - this._lbStart.y;
+    if (this.state.lb.zoom > 1) {
+      this.setState((s) => ({ lb: { ...s.lb, tx: this._lbStart.tx + dx, ty: this._lbStart.ty + dy, anim: false } }));
+    } else {
+      this._swipeDx = dx;
+    }
+  };
+  lbUp = (e) => {
+    this._pointers.delete(e.pointerId);
+    if (this.state.lb.zoom <= 1 && Math.abs(this._swipeDx || 0) > 55) {
+      this.lbStep(this._swipeDx < 0 ? 1 : -1);
+    }
+    this._swipeDx = 0;
+  };
+
+  // ---- sheets ----
+  openRef = () => this.setState({ refOpen: true, menuOpen: false });
+  closeRef = () => this.setState({ refOpen: false });
+  setRefTab(k) { this.setState({ refTab: k }); }
+  openMenu = () => this.setState({ menuOpen: true });
+  closeMenu = () => this.setState({ menuOpen: false });
+  fontDown = () => this.setState((s) => ({ fontScale: Math.max(0.85, +(s.fontScale - 0.1).toFixed(2)) }));
+  fontUp = () => this.setState((s) => ({ fontScale: Math.min(1.35, +(s.fontScale + 0.1).toFixed(2)) }));
+  toggleTimer = () => this.setState((s) => ({ timerHidden: !s.timerHidden }));
+  openReport = () => this.setState({ menuOpen: false, reportOpen: true });
+  closeReport = () => this.setState({ reportOpen: false });
+  setReason(k) { this.setState({ reportReason: k }); }
+  reportNoteInput = (e) => this.setState({ reportNote: e.target.value });
+  submitReport = () => {
+    if (!this.state.reportReason) return;
+    this.setState({ reportOpen: false, reported: true, reportReason: null, reportNote: "" });
+  };
+
+  S(css) {
+    const o = {};
+    String(css).split(";").forEach((d) => {
+      const i = d.indexOf(":");
+      if (i < 0) return;
+      let k = d.slice(0, i).trim();
+      const v = d.slice(i + 1).trim();
+      if (!k) return;
+      k = k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      o[k] = v;
+    });
+    return o;
+  }
+
+  fmt(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    const pad = (x) => String(x).padStart(2, "0");
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const Q = this.Q;
+    const isLearn = s.mode === "learn";
+    const isExam = s.mode === "exam";
+    const reveal = s.confirmed && isLearn;
+    const showAdvance = (isExam && s.confirmed) || reveal;
+    const advBase = "border:0;border-radius:13px;font-weight:700;cursor:pointer;transition:all .15s;";
+    const advColor = isExam ? "background:#b45309;color:#fff;box-shadow:0 12px 26px -12px rgba(180,83,9,.7)" : "background:#0e7c7b;color:#fff;box-shadow:0 12px 26px -12px rgba(14,124,123,.7)";
+    const scale = s.fontScale;
+    const marks = ["①", "②", "③", "④", "⑤"];
+
+    // --- toggles ---
+    const tglOn = "border:0;padding:8px 15px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:#0f2a29;color:#fff";
+    const tglOff = "border:0;padding:8px 15px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:#5f6f6c";
+
+    // --- meta ---
+    const metaChips = [Q.subject, Q.exam, Q.qtype];
+
+    // --- images ---
+    const missingImage = "data:image/svg+xml;charset=utf-8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='480' height='600'><rect width='100%' height='100%' fill='#182321'/><text x='50%' y='46%' text-anchor='middle' fill='#cfe3e1' font-family='sans-serif' font-size='22'>제시자료 준비 중</text><text x='50%' y='53%' text-anchor='middle' fill='#7fa8a5' font-family='sans-serif' font-size='14'>원본 이미지 파일이 필요합니다</text></svg>");
+    const thumbs = Q.imgs.map((im, i) => ({ src: im.src, cap: im.cap, onClick: () => this.openLb(i), onError: (event) => { event.currentTarget.onerror = null; event.currentTarget.src = missingImage; } }));
+
+    // --- stem: drag-select highlight runs ---
+    const stemText = Q.stem.join(" ");
+    const mkRuns = (fontPx) => {
+      const hs = [...s.highlights].sort((a, b) => a.start - b.start);
+      const out = [];
+      let pos = 0;
+      const push = (text, hl, idx, note) => {
+        if (!text) return;
+        const base = `font-size:${fontPx}px;`;
+        const style = hl
+          ? base + `background:rgba(217,138,43,0.30);box-shadow:inset 0 -0.55em 0 rgba(217,138,43,0.14);border-radius:3px;cursor:pointer;${note ? "border-bottom:2px solid #d98a2b;" : ""}`
+          : base;
+        out.push({ text, hl, style, onClick: hl ? (e) => this.openEdit(idx, e) : undefined });
+      };
+      hs.forEach((h) => {
+        const idx = s.highlights.indexOf(h);
+        if (h.start > pos) push(stemText.slice(pos, h.start), false);
+        push(stemText.slice(h.start, h.end), true, idx, h.note);
+        pos = h.end;
+      });
+      if (pos < stemText.length) push(stemText.slice(pos), false);
+      if (out.length === 0) push(stemText, false);
+      return out;
+    };
+
+    // --- popover node ---
+    const popNode = (pop) => {
+      if (!pop) return null;
+      const H = (t, p, c) => React.createElement(t, p && typeof p.style === "string" ? { ...p, style: this.S(p.style) } : p, c);
+      const wrap = (children) => H("div", {
+        style: "display:flex;align-items:center;background:#12211f;border-radius:11px;box-shadow:0 12px 30px -12px rgba(0,0,0,.5);overflow:hidden;animation:rdrPop .16s ease",
+      }, children);
+      const light = (label, onClick, primary) => H("button", {
+        type: "button", onClick,
+        style: `border:0;background:transparent;color:${primary ? "#f4cf95" : "#e9e6df"};font-size:13px;font-weight:${primary ? 700 : 500};cursor:pointer;padding:9px 13px;white-space:nowrap`,
+      }, label);
+      const div = () => H("span", { style: "width:1px;align-self:stretch;background:rgba(255,255,255,.14)" });
+      if (pop.editing) {
+        return wrap([
+          H("input", {
+            key: "in", value: pop.note, onInput: this.memoInput, autoFocus: true, placeholder: "메모…",
+            style: "border:0;background:transparent;color:#fff;font-size:13px;padding:9px 12px;width:150px;outline:none;font-family:'Pretendard',sans-serif",
+          }),
+          div(),
+          light("저장", this.saveMemo, true),
+        ]);
+      }
+      if (pop.mode === "edit") {
+        return wrap([light("메모", this.startMemo, false), div(), light("제거", this.removeHighlight, false), div(), light("닫기", this.closePop, false)]);
+      }
+      return wrap([light("하이라이트", this.applyHighlight, true), div(), light("메모", this.applyThenMemo, false), div(), light("취소", this.closePop, false)]);
+    };
+
+    let pop = null, popM = null;
+    if (s.pop) {
+      const style = `left:${s.pop.left}px;top:${s.pop.top}px;transform:translate(-50%,8px)`;
+      const node = popNode(s.pop);
+      if (s.device === "mobile") popM = { style, node }; else pop = { style, node };
+    }
+
+    // --- choices ---
+    const green = "#1f8a5b", coral = "#d9603f", teal = "#0e7c7b";
+    const choices = Q.choices.map((c, idx) => {
+      const n = c.n;
+      const crossed = !!s.crossed[n];
+      const selected = s.selected === n;
+      const isAns = n === Q.answer;
+      let rowBorder = "#e6e2d8", rowBg = "#fff", numBg = "#f2f0ea", numColor = "#5f6f6c", badge = "", badgeColor = "";
+      if (!s.confirmed) {
+        if (selected) { rowBorder = teal; rowBg = "#f2f6f5"; numBg = teal; numColor = "#fff"; badge = "선택"; badgeColor = teal; }
+      } else if (reveal) {
+        if (isAns) { rowBorder = green; rowBg = "#eef7f1"; numBg = green; numColor = "#fff"; badge = "정답"; badgeColor = green; }
+        else if (selected) { rowBorder = coral; rowBg = "#fbefe c".replace(" ", ""); numBg = coral; numColor = "#fff"; badge = "내 선택"; badgeColor = coral; }
+      } else if (selected) { rowBorder = teal; rowBg = "#f2f6f5"; numBg = teal; numColor = "#fff"; badge = "선택됨"; badgeColor = teal; }
+      const rowStyle = `display:flex;align-items:stretch;border:1.5px solid ${rowBorder};border-radius:14px;background:${rowBg};overflow:hidden;transition:all .15s;${crossed ? "opacity:.42;" : ""}`;
+      const numBase = `flex:none;border-radius:50%;display:grid;place-items:center;font-weight:700;line-height:1;background:${numBg};color:${numColor};`;
+      const numStyle = numBase + `width:26px;height:26px;font-size:14px;margin-top:1px`;
+      const numStyleM = numBase + `width:23px;height:23px;font-size:12.5px;margin-top:1px`;
+      const dim = crossed ? "text-decoration:line-through;" : "";
+      const textStyle = `${dim}color:#12211f;font-size:${(15 * scale).toFixed(1)}px;line-height:1.5;flex:1`;
+      const textStyleM = `${dim}color:#12211f;font-size:${(13.5 * scale).toFixed(1)}px;line-height:1.5;flex:1`;
+      const badgeStyle = `flex:none;align-self:center;font-size:11px;font-weight:700;color:${badgeColor};background:rgba(0,0,0,.03);padding:3px 8px;border-radius:999px`;
+      return {
+        n, mark: marks[idx], text: c.text, expl: c.expl,
+        rowStyle, numStyle, numStyleM, textStyle, textStyleM,
+        hasBadge: !!badge, badge, badgeStyle,
+        crossed, crossLabel: crossed ? "↺" : "✕", crossTitle: crossed ? "복원" : "소거", crossColor: crossed ? "#0e7c7b" : "#b7b1a5",
+        expanded: reveal && s.expanded === n,
+        onSelect: () => this.select(n), onCross: () => this.toggleCross(n),
+      };
+    });
+
+    // --- confirm / result ---
+    const showConfirm = !s.confirmed || isExam;
+    const confirmLabel = isExam ? (s.confirmed ? "선택 저장됨 · 변경 가능" : "선택 저장") : "정답 확인";
+    const canConfirm = s.selected != null;
+    const confirmBase = `border:0;border-radius:13px;font-weight:700;cursor:${canConfirm ? "pointer" : "not-allowed"};transition:all .15s;`;
+    const confirmColor = canConfirm ? "background:#0e7c7b;color:#fff;box-shadow:0 12px 26px -12px rgba(14,124,123,.72)" : "background:#e6e2d8;color:#9aa6a3";
+    const confirmStyle = confirmBase + `padding:14px 22px;font-size:15px;${confirmColor}`;
+    const confirmStyleM = confirmBase + `padding:13px 18px;font-size:14px;${confirmColor}`;
+
+    let resultBanner = "", resultStyle = "";
+    if (reveal) {
+      const ok = s.selected === Q.answer;
+      resultBanner = ok ? "정답입니다 · " + marks[+Q.answer - 1] + " " : "오답입니다 · 정답은 " + marks[+Q.answer - 1] + "번 ";
+      resultStyle = `padding:13px 16px;border-radius:13px;font-size:14px;font-weight:700;${ok ? "background:#eef7f1;color:#1f8a5b;border:1px solid #cfe9db" : "background:#fbeeea;color:#d9603f;border:1px solid #f1d6cd"}`;
+    } else if (isExam && s.confirmed) {
+      resultBanner = "선택이 저장되었습니다 · 시험 모드에서는 세션 종료 후 해설이 공개됩니다.";
+      resultStyle = "padding:13px 16px;border-radius:13px;font-size:13px;font-weight:600;background:#f2f0ea;color:#5f6f6c;border:1px solid #e6e2d8";
+    }
+
+    // --- tabs ---
+    const tabDefs = [["expl", "해설"], ["point", "출제 포인트"], ["media", "검사·자료"], ["note", "개념 노트"], ["anki", "Anki"]];
+    const mkTabs = (compact) => tabDefs.map(([k, label]) => {
+      const on = s.tab === k;
+      const style = on
+        ? `flex:${compact ? "none" : "1"};white-space:nowrap;border:0;padding:${compact ? "8px 13px" : "8px 6px"};border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;color:#0e7c7b;box-shadow:0 2px 8px -4px rgba(18,33,31,.3)`
+        : `flex:${compact ? "none" : "1"};white-space:nowrap;border:0;padding:${compact ? "8px 13px" : "8px 6px"};border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;background:transparent;color:#5f6f6c`;
+      return { key: k, label, style, onClick: () => this.setState({ tab: k }) };
+    });
+
+    // --- panel node ---
+    const panelNode = this.buildPanel(s, reveal, isExam);
+
+    // --- timer ---
+    const examTotal = (this.props.examMinutes || 90) * 60;
+    const timerLabel = isExam ? "남은" : "경과";
+    const timerText = isExam ? this.fmt(examTotal - s.elapsed) : this.fmt(s.elapsed);
+    const lowTime = isExam && examTotal - s.elapsed < 300;
+    const timerStyle = lowTime ? "background:#fbeeea;color:#d9603f" : "background:#f2f0ea;color:#12211f";
+
+    // --- reference ---
+    const refTabs = Object.keys(this.refLabels).map((k) => {
+      const on = s.refTab === k;
+      return { key: k, label: this.refLabels[k], onClick: () => this.setRefTab(k), style: `border:0;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:${on ? 700 : 600};cursor:pointer;${on ? "background:#0e7c7b;color:#fff" : "background:#f2f0ea;color:#5f6f6c"}` };
+    });
+    const refRows = this.refData[s.refTab].map(([name, val]) => ({ name, val }));
+
+    // --- report ---
+    const reportReasons = this.reasonList.map((r) => {
+      const on = s.reportReason === r.key;
+      return { key: r.key, label: r.label, onClick: () => this.setReason(r.key), style: `display:flex;align-items:center;gap:10px;text-align:left;border:1.5px solid ${on ? "#0e7c7b" : "#e6e2d8"};background:${on ? "#f2f6f5" : "#fff"};border-radius:12px;padding:13px 14px;font-size:13.5px;font-weight:${on ? 700 : 500};color:#12211f;cursor:pointer`, dot: `flex:none;width:16px;height:16px;border-radius:50%;border:2px solid ${on ? "#0e7c7b" : "#c8c3b7"};background:${on ? "radial-gradient(#0e7c7b 40%,transparent 44%)" : "transparent"}` };
+    });
+    const submitStyle = `border:0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;margin-top:2px;cursor:${s.reportReason ? "pointer" : "not-allowed"};${s.reportReason ? "background:#0e7c7b;color:#fff" : "background:#e6e2d8;color:#9aa6a3"}`;
+
+    // --- timer switch ---
+    const timerSwitch = `flex:none;width:44px;height:26px;border-radius:999px;position:relative;transition:background .18s;background:${s.timerHidden ? "#0e7c7b" : "#d4d0c6"};display:inline-block`;
+    const timerKnob = `position:absolute;top:3px;left:${s.timerHidden ? "21px" : "3px"};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.25)`;
+
+    return {
+      stageRef: this.stemRefStage || (this.stemRefStage = React.createRef()),
+      stageSize: "width:100vw;height:100vh",
+      stageRadius: "0",
+      isDesktop: s.device === "desktop",
+      isMobile: s.device === "mobile",
+      // toggles
+      setLearn: this.setLearn, setExam: this.setExam, setDesktop: this.setDesktop, setMobile: this.setMobile,
+      tglLearn: isLearn ? tglOn : tglOff, tglExam: isExam ? tglOn : tglOff,
+      tglDesktop: s.device === "desktop" ? tglOn : tglOff, tglMobile: s.device === "mobile" ? tglOn : tglOff,
+      // toolbar
+      progressText: (s.qIndex + 1) + " / " + (s.total || 1),
+      setLabel: new URLSearchParams(window.location.search).get("setName") || "문항 세트",
+      backToApp: this.backToApp,
+      advance: this.advance,
+      showAdvance,
+      advanceLabel: s.qIndex + 1 >= s.total ? "세트 완료 →" : "다음 문항 →",
+      advanceStyle: advBase + "padding:14px 22px;font-size:15px;" + advColor,
+      advanceStyleM: advBase + "padding:13px 18px;font-size:14px;" + advColor,
+      modeBadgeText: isExam ? "시험 모드" : "학습 모드",
+      modeBadgeShort: isExam ? "시험" : "학습",
+      modeBadgeStyle: isExam ? "background:#f6ebd6;color:#8a5a12" : "background:#e5f0ef;color:#0e7c7b",
+      reported: s.reported,
+      showTimer: !s.timerHidden,
+      timerLabel, timerText, timerStyle,
+      openRef: this.openRef, openMenu: this.openMenu,
+      // meta / images / stem
+      metaChips, thumbs, hasImages: Q.imgs.length > 0,
+      stemRef: this.stemRef, stemRefM: this.stemRefM, onStemUp: this.onStemUp,
+      segs: mkRuns((16 * scale).toFixed(1)), segsM: mkRuns((14.5 * scale).toFixed(1)),
+      pop, popM,
+      // choices
+      choices,
+      showConfirm, confirm: this.confirm, confirmLabel, confirmStyle, confirmStyleM,
+      resultBanner, resultStyle,
+      // tabs / panel
+      tabs: mkTabs(false), tabsM: mkTabs(true), panelNode,
+      // lightbox
+      lbOpen: s.lb.open,
+      lbSrc: (Q.imgs[s.lb.idx] || { src: missingImage }).src, lbCaption: (Q.imgs[s.lb.idx] || { cap: "제시자료" }).cap,
+      lbCounter: `${s.lb.idx + 1} / ${Q.imgs.length}`,
+      lbTransform: `translate(${s.lb.tx}px,${s.lb.ty}px) scale(${s.lb.zoom})`,
+      lbTransition: s.lb.anim ? "transform .18s ease" : "none",
+      lbZoomPct: Math.round(s.lb.zoom * 100) + "%",
+      lbCursor: s.lb.zoom > 1 ? "grab" : "default",
+      lbClose: this.lbClose, lbIn: this.lbIn, lbOut: this.lbOut, lbPrev: this.lbPrev, lbNext: this.lbNext, lbDouble: this.lbDouble,
+      lbDown: this.lbDown, lbMove: this.lbMove, lbUp: this.lbUp,
+      // reference
+      refOpen: s.refOpen, closeRef: this.closeRef, refTabs, refRows,
+      // menu
+      menuOpen: s.menuOpen, closeMenu: this.closeMenu,
+      fontDown: this.fontDown, fontUp: this.fontUp, fontPct: Math.round(scale * 100) + "%",
+      toggleTimer: this.toggleTimer, timerSwitch, timerKnob,
+      openReport: this.openReport,
+      // report
+      reportOpen: s.reportOpen, closeReport: this.closeReport, reportReasons,
+      reportNote: s.reportNote, reportNoteInput: this.reportNoteInput,
+      submitReport: this.submitReport, submitStyle,
+    };
+  }
+
+  buildPanel(s, reveal, isExam) {
+    const Q = this.Q;
+    const raw = React.createElement;
+    const h = (t, p, c) => raw(t, p && typeof p.style === "string" ? { ...p, style: this.S(p.style) } : p, c);
+    const card = (children) => h("div", { style: "display:flex;flex-direction:column;gap:12px;animation:rdrRise .2s ease" }, children);
+    const kicker = (t) => h("div", { style: "font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#0e7c7b" }, t);
+    const title = (t) => h("h3", { style: "margin:0;font-size:16px;font-weight:800;letter-spacing:-0.01em;line-height:1.35" }, t);
+    const para = (t) => h("p", { style: "margin:0;font-size:13px;line-height:1.7;color:#4a5956" }, t);
+    const box = (children, extra) => h("div", { style: "background:#fff;border:1px solid #e6e2d8;border-radius:14px;padding:14px 15px;display:flex;flex-direction:column;gap:9px;" + (extra || "") }, children);
+
+    if (s.tab === "expl") {
+      if (isExam) {
+        return card([
+          kicker("해설"),
+          box([
+            h("div", { style: "display:flex;align-items:center;gap:8px" }, [h("span", { key: "l", style: "font-size:16px" }, "🔒"), h("strong", { key: "t", style: "font-size:14px" }, "시험 모드 · 해설 잠금")]),
+            para("정답·해설·근거는 시험 세션이 끝난 뒤 리뷰 화면에서 한꺼번에 공개됩니다. 지금은 선지 소거·하이라이트·참고치로 풀이에 집중하세요."),
+          ]),
+        ]);
+      }
+      if (!reveal) {
+        return card([kicker("학습 패널"), box([h("strong", { style: "font-size:14px" }, "풀이 후 근거를 확인합니다."), para("정답, 해설, 출제 포인트, 복습 카드 초안을 한 화면에 모읍니다. 정답을 선택하고 ‘정답 확인’을 누르세요.")])]);
+      }
+      const ok = s.selected === Q.answer;
+      const correctChoice = Q.choices.find((choice) => choice.n === Q.answer);
+      const correctLabel = correctChoice ? `${Q.answer} · ${correctChoice.text}` : `${Q.answer}번`;
+      return card([
+        kicker("정답 해설"),
+        h("div", { style: `padding:12px 14px;border-radius:12px;font-weight:700;font-size:14px;${ok ? "background:#eef7f1;color:#1f8a5b;border:1px solid #cfe9db" : "background:#fbeeea;color:#d9603f;border:1px solid #f1d6cd"}` }, ok ? `정답 · ${correctLabel}` : `오답 · 정답 ${correctLabel}`),
+        box([para(Q.explanation || "서버 채점은 완료됐지만 등록된 전체 해설이 없습니다.")]),
+        box([
+          h("span", { key: "s", style: "font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;color:#8a968f" }, "근거"),
+          ...Q.citations.map((c, i) => h("a", { key: i, href: "#", onClick: (e) => e.preventDefault(), style: "font-size:12.5px;color:#0e7c7b;line-height:1.5;display:flex;gap:7px" }, [h("span", { key: "d", style: "color:#c8d3cf" }, "→"), c])),
+        ]),
+      ]);
+    }
+    if (s.tab === "point") {
+      const registeredPoints = (Array.isArray(Q.points) ? Q.points : []).map((point) => typeof point === "string" ? point : (point.text || point.label || "")).filter(Boolean);
+      return card([
+        kicker("출제 포인트"), title(Q.concept),
+        ...(registeredPoints.length ? registeredPoints.slice(0, 4).map((point, index) => box([
+          h("span", { key: "l", style: "font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a968f" }, `POINT ${String(index + 1).padStart(2, "0")}`),
+          h("p", { key: "p", style: "margin:0;font-size:13px;color:#31413e;line-height:1.6" }, point),
+        ])) : [box([para("이 문항에는 별도의 출제 포인트가 등록되지 않았습니다.")])]),
+      ]);
+    }
+    if (s.tab === "media") {
+      if (!Q.imgs.length) {
+        return card([
+          kicker("검사 · 자료"), title("연결된 제시자료 없음"),
+          box([para("이 문항은 텍스트 중심 문항이며 별도 검사 이미지가 등록되지 않았습니다.")]),
+        ]);
+      }
+      return card([
+        kicker("검사 · 자료"), title(`제시자료 ${Q.imgs.length}개 · ${Q.concept || Q.subject}`),
+        h("div", { style: "display:flex;gap:10px" }, Q.imgs.map((im, i) => h("button", { key: i, type: "button", onClick: () => this.openLb(i), style: "position:relative;flex:1;height:120px;border-radius:11px;overflow:hidden;border:1px solid #d4d0c6;background:#0b0d0e;cursor:zoom-in;padding:0" }, [h("img", { key: "i", src: im.src, style: "width:100%;height:100%;object-fit:cover;display:block" }), h("span", { key: "c", style: "position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;font-size:9.5px;padding:12px 7px 5px;font-family:'IBM Plex Mono',monospace" }, im.cap)]))),
+        box([para("이미지를 선택하면 라이트박스에서 확대·이동하며 확인할 수 있습니다.")]),
+      ]);
+    }
+    if (s.tab === "note") {
+      const chips = [Q.subject, Q.concept, Q.exam].filter(Boolean);
+      return card([
+        kicker("개념 노트"), title(Q.concept),
+        para(`이 문항은 ‘${Q.exam || Q.subject}’의 ${Q.concept || "미분류 개념"} 학습 기록으로 연결됩니다. 검토된 concept ID가 있을 때 같은 주제의 문항·노트·복습 일정과 묶입니다.`),
+        h("div", { style: "display:flex;flex-wrap:wrap;gap:6px" }, chips.map((c, i) => h("span", { key: i, style: "font-size:11.5px;background:#f2f0ea;border:1px solid #e6e2d8;color:#5f6f6c;padding:4px 10px;border-radius:999px" }, c))),
+        h("button", { type: "button", style: "align-self:flex-start;margin-top:2px;background:#fff;border:1.5px solid #0e7c7b;color:#0e7c7b;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:10px;cursor:pointer" }, "관련 세트 보기 →"),
+      ]);
+    }
+    // anki
+    const cloze = (front, tag) => h("div", { style: "background:#fff;border:1px solid #e6e2d8;border-radius:13px;padding:13px 14px;display:flex;flex-direction:column;gap:6px" }, [
+      h("span", { key: "t", style: "font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8a968f" }, tag),
+      h("p", { key: "f", style: "margin:0;font-size:13px;line-height:1.65;color:#12211f" }, front),
+    ]);
+    return card([
+      kicker("Anki 카드"), title("검토된 핵심 포인트 기반 카드 후보"),
+      para("문항에 등록된 해설·출제 포인트를 복습 카드 후보로 보냅니다. 학생 저장 전 내용 확인이 필요합니다."),
+      ...((Array.isArray(Q.points) ? Q.points : []).slice(0, 2).map((point, index) => cloze(typeof point === "string" ? point : (point.text || point.label || ""), `REVIEW CANDIDATE · ${index + 1}`))),
+      ...((Array.isArray(Q.points) && Q.points.length) ? [] : [cloze(Q.explanation || "등록된 카드 후보 문장이 없습니다.", "REVIEW CANDIDATE")]),
+      h("div", { style: "display:flex;gap:8px;margin-top:2px" }, [
+        h("button", { key: 1, type: "button", style: "flex:1;background:#0e7c7b;color:#fff;border:0;font-size:12.5px;font-weight:700;padding:9px;border-radius:10px;cursor:pointer" }, "카드 후보로 저장"),
+        h("button", { key: 2, type: "button", style: "flex:none;background:#fff;border:1.5px solid #d4d0c6;color:#5f6f6c;font-size:12.5px;font-weight:600;padding:9px 13px;border-radius:10px;cursor:pointer" }, "관련 카드"),
+      ]),
+    ]);
+  }
+}
+</script>
+</body>
+</html>

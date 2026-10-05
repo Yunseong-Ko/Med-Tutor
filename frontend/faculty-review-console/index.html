@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f2a29">
+  <title>교수 검토 콘솔 · P:accine</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/faculty-review-console/console.css?v=20261005-source-v4">
+</head>
+<body>
+  <header class="frc-topbar">
+    <a class="frc-brand" href="/faculty-studio-v2/" aria-label="P:accine 교수용 홈으로">
+      <span class="frc-avatar" aria-hidden="true">P</span>
+      <span class="frc-brand-text"><strong>P:accine 교수 검토 콘솔</strong><small>FACULTY · ISOLATED ENTRYPOINT</small></span>
+    </a>
+    <nav class="frc-tabs" id="frc-tabs" aria-label="콘솔 탭"></nav>
+    <div class="frc-top-right">
+      <div class="frc-progress" id="frc-progress" aria-live="polite"></div>
+      <span class="frc-shortcuts" title="문항 확정 탭에서만 동작">A 승인 · R 수정 · D 폐기 · ← → 이동 · Esc 편집취소</span>
+      <a class="frc-studio-link" href="/faculty-studio-v2/">스튜디오 →</a>
+      <button id="frc-logout" class="frc-logout" type="button">로그아웃</button>
+    </div>
+  </header>
+  <main id="frc-app" class="frc-main">
+    <div class="frc-center"><span class="frc-spinner"></span><span>콘솔을 불러오는 중…</span></div>
+  </main>
+  <div id="frc-toast" class="frc-toast" role="status"></div>
+  <script src="/faculty-review-console/console.js?v=20261005-source-v9" defer></script>
+</body>
+</html>

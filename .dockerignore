@@ -63,12 +63,30 @@ data_private/curriculum/*
 !data_private/curriculum/registry_index.json
 !data_private/curriculum/ontology_query_map.json
 !data_private/curriculum/ontology_trust_kernel_releases.json
+!data_private/curriculum/evidence_routing.json
 
 !data_private/student/
 data_private/student/*
 !data_private/student/qbank.json
 !data_private/student/qbank_enrichment.draft.json
 !data_private/student/qbank_enrichment.releases.json
+
+# AI 생성 문항 세트 + 졸업반 검토 집계 — 교수 검토 콘솔(/faculty-review-console/)과 학생 신뢰 배지의 원천.
+# review/ 는 통째로 재포함하지 않는다(roster_credentials.csv·roster.txt·faculty_edits.jsonl 등 운영·개인정보 파일 유출 방지).
+!data_private/professor_items/
+data_private/professor_items/*
+!data_private/professor_items/generated/
+data_private/professor_items/generated/*
+!data_private/professor_items/generated/set_1.json
+!data_private/professor_items/generated/set_2.json
+!data_private/professor_items/generated/set_3.json
+!data_private/professor_items/generated/set_4.json
+!data_private/professor_items/review/
+data_private/professor_items/review/*
+!data_private/professor_items/review/item_actions.json
+!data_private/professor_items/review/reviews_1cha_normalized.json
+!data_private/professor_items/review/comments_1cha_coded.csv
+!data_private/professor_items/review/quality_metrics.json
 
 !data_private/concept_notes/
 data_private/concept_notes/*

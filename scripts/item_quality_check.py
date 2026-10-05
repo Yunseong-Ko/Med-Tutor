@@ -96,6 +96,13 @@ HARRISON_LOCATOR = re.compile(
     re.IGNORECASE,
 )
 HARRISON_MARKER = re.compile(r"(?:^|[^A-Z0-9])H([1-9]\d*)(?:$|[^A-Z0-9])")
+# 다권 근거 체계: 과별 1차 교과서(Sabiston·Nelson·Williams·Berek·Speroff·신경정신의학)의
+# 장 수준 인용도 정확 locator로 인정한다. 쪽 번호는 책마다 확보 수준이 달라 장까지 요구.
+TEXTBOOK_LOCATOR = re.compile(
+    r"(?:Sabiston|Nelson|Williams\s*Obstetrics|Berek|Novak|Speroff|"
+    r"Clinical\s*Gynecologic|신경정신의학)[^\n]{0,40}?Ch(?:apter)?\.?\s*\d+",
+    re.IGNORECASE,
+)
 
 
 def _flatten_explanation_text(q):
@@ -181,7 +188,9 @@ def _ontology_rag_flaws(q, choices, answer):
     if not harrison_sources:
         evidence = q.get("grounding_evidence") if isinstance(q.get("grounding_evidence"), dict) else {}
         harrison_sources = evidence.get("harrison_sources") if isinstance(evidence.get("harrison_sources"), list) else []
-    ontology_item = bool(trace or q.get("disease_concept_id") or harrison_sources)
+    # 다권 체계: 과별 교과서 근거(textbook_sources)도 harrison과 동급으로 인정
+    textbook_sources = q.get("textbook_sources") if isinstance(q.get("textbook_sources"), list) else []
+    ontology_item = bool(trace or q.get("disease_concept_id") or harrison_sources or textbook_sources)
     if ontology_item:
         explanation_text = _flatten_explanation_text(q)
         cited_ids = {f"H{match.group(1)}" for match in HARRISON_MARKER.finditer(explanation_text)}
@@ -190,7 +199,13 @@ def _ontology_rag_flaws(q, choices, answer):
             for row in harrison_sources
             if isinstance(row, dict) and row.get("chapter") and row.get("printed_page")
         }
-        exact_locator = bool(HARRISON_LOCATOR.search(explanation_text))
+        allowed_ids |= {
+            str(row.get("source_id") or "")
+            for row in textbook_sources
+            if isinstance(row, dict) and row.get("book_id") and row.get("chapter")
+        }
+        exact_locator = bool(HARRISON_LOCATOR.search(explanation_text)
+                             or TEXTBOOK_LOCATOR.search(explanation_text))
         if not allowed_ids or (not exact_locator and not (cited_ids & allowed_ids)):
             flaws.append("explanation_missing_source")
         elif any(
@@ -375,6 +390,24 @@ def scan_item(q):
         flaws.append("target_already_resolved")
     if disclosure_plan and disclosure_plan.get("status") == "blocked" and not disclosure_plan.get("qc_flags"):
         flaws.append("disclosure_plan_blocked")
+
+    # 17) 티어 인지 과잉단서 — 설문 T1(단서 과다 → 난이도 하향, 평정 3.52 최저) 대응.
+    #     difficulty_tier가 있는 신규 문항만 검사한다. 티어 없는 기존 320문항은 스킵(회귀 0 보장).
+    #     decision_cues 중 문두(stem+lab_box)에 부분문자열로 등장하는 수를 세어
+    #     상=3개 초과·중=5개 초과면 결함. 임계 실측 보정 전이므로 소프트 결함으로만 두고
+    #     하드룰로 승격하지 않는다(self_check·NBME 체크리스트가 이 코드를 읽지 않음).
+    tier = str(q.get("difficulty_tier") or "").strip()
+    cue_budget = {"상": 3, "중": 5}
+    tier_cognitive = q.get("cognitive_model") if isinstance(q.get("cognitive_model"), dict) else {}
+    decision_cues = tier_cognitive.get("decision_cues") if isinstance(tier_cognitive.get("decision_cues"), list) else []
+    if tier in cue_budget and decision_cues:
+        surface = re.sub(r"\s+", " ", f"{full_stem} {q.get('lab_box') or ''}")
+        exposed = sum(
+            1 for cue in decision_cues
+            if str(cue).strip() and re.sub(r"\s+", " ", str(cue).strip()) in surface
+        )
+        if exposed > cue_budget[tier]:
+            flaws.append("over_cueing_for_tier")
 
     # Do not trust the model's self-check.  Reconcile the persisted answer key
     # with both structured verdicts and textual declarations deterministically.
@@ -579,7 +612,11 @@ def apply_generation_quality_gate(q):
     quality["hard_rule_passed"] = hard_rules["passed_count"]
     quality["hard_rule_total"] = hard_rules["total_count"]
     quality["manual_review_rules"] = hard_rules["manual_review_rules"]
-    q["self_check"] = self_check
+    # 표준 22키 밖의 모델 주장(예: rule 18이 읽는 common_high_stakes_problem)은 보존한다.
+    # 통째로 교체하면 게이트를 두 번 적용했을 때 그 키가 사라져 판정이 뒤집힌다(비멱등).
+    prior_claims = q.get("self_check") if isinstance(q.get("self_check"), dict) else {}
+    preserved = {k: v for k, v in prior_claims.items() if k not in self_check}
+    q["self_check"] = {**preserved, **self_check}
     q["item_quality"] = quality
     q["needs_review"] = True
     q["gen_ready"] = False

@@ -88,6 +88,43 @@ GENERIC_PARENT_CONCEPT_IDS = frozenset(
     }
 )
 MEDICAL_EMBEDDING_THRESHOLD = 0.85
+GENERATION_DOSE_RE = re.compile(
+    r"(?<![0-9A-Za-z가-힣])"
+    r"\d+(?:[.,]\d+)?"
+    r"(?:\s*(?:-|–|~|to)\s*\d+(?:[.,]\d+)?)?"
+    r"\s*(?:μg|mcg|ug|mg|g|mL|ml|IU|U|units?|단위|정|캡슐|앰플|ampoules?|amps?)"
+    r"(?!\s*/\s*(?:dL|L)\b)"
+    r"(?:\s*(?:/|per)\s*(?:kg|day|일|회|dose|h|hr|min))?",
+    re.IGNORECASE,
+)
+
+
+def _numeric_safety_review_reasons(
+    record: dict[str, Any],
+    *,
+    has_harrison_anchor: bool,
+) -> list[str]:
+    """Tag generated medication doses without treating lab values as doses."""
+
+    candidate = {
+        key: record.get(key)
+        for key in (
+            "stem",
+            "vignette",
+            "options",
+            "choices",
+            "explanation",
+            "pma_solution",
+            "choice_explanations",
+        )
+    }
+    text = json.dumps(candidate, ensure_ascii=False)
+    if not GENERATION_DOSE_RE.search(text):
+        return []
+    reasons = ["numeric_dose_requires_human_review"]
+    if not has_harrison_anchor:
+        reasons.append("numeric_dose_without_harrison_anchor")
+    return reasons
 MEDICAL_EMBEDDING_MODEL = os.getenv(
     "PACCINE_MEDICAL_EMBEDDING_MODEL",
     "jhgan/ko-sroberta-multitask",
@@ -126,6 +163,11 @@ def _local_sentence_transformer(model_name: str):
         return None
 
 
+# 후보 코퍼스 임베딩 캐시: 레지스트리가 바뀌지 않는 한 후보 602개의 임베딩은 상수다.
+# 캐시 없이는 배치 grounding에서 topic마다 ~5초씩 후보 전체를 재인코딩한다(측정치).
+_CANDIDATE_EMBEDDING_CACHE: dict[tuple[str, ...], Any] = {}
+
+
 def _default_semantic_matcher(query: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Rank concept surfaces with the configured *local* embedding model.
 
@@ -138,20 +180,28 @@ def _default_semantic_matcher(query: str, candidates: list[dict[str, Any]]) -> l
     if model is None or not candidates:
         return []
     try:
-        texts = [str(row.get("embedding_text") or "") for row in candidates]
-        vectors = model.encode(
-            [query, *texts],
+        texts = tuple(str(row.get("embedding_text") or "") for row in candidates)
+        cached = _CANDIDATE_EMBEDDING_CACHE.get(texts)
+        if cached is None:
+            cached = model.encode(
+                list(texts),
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            _CANDIDATE_EMBEDDING_CACHE.clear()   # 코퍼스 1종만 유지(메모리 상한)
+            _CANDIDATE_EMBEDDING_CACHE[texts] = cached
+        query_vector = model.encode(
+            [query],
             normalize_embeddings=True,
             show_progress_bar=False,
-        )
-        query_vector = vectors[0]
+        )[0]
         rows = [
             {
                 **row,
                 "similarity": round(float(query_vector @ vector), 6),
                 "embedding_model": MEDICAL_EMBEDDING_MODEL,
             }
-            for row, vector in zip(candidates, vectors[1:])
+            for row, vector in zip(candidates, cached)
         ]
         return sorted(rows, key=lambda row: (-float(row["similarity"]), str(row["concept_id"])))
     except Exception:
@@ -445,14 +495,46 @@ def load_registry(
     source_concept_count = len(concepts)
     typed_entities = load_active_entities(typed_entity_registry_path)
     concepts = {cid: row for cid, row in concepts.items() if cid not in typed_entities}
+    supplemented = _apply_alias_supplement(concepts)
     return concepts, {
         "status": "loaded",
         "path": str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path),
         "concept_count": len(concepts),
         "source_concept_count": source_concept_count,
         "typed_entities_excluded": len(typed_entities),
+        "alias_supplemented_concepts": supplemented,
         "registry_generated_at": (data.get("_meta") or {}).get("generated_at") if isinstance(data, dict) else None,
     }
+
+
+# 레지스트리 한글 별칭 보강 레이어.
+# 실측: 575개 개념 중 188개가 한글 별칭이 전혀 없어 '심방세동' 같은 표준 한글명도
+# exact 매칭에 실패했다(→ 시맨틱 threshold 미달 → 생성 차단). 별칭 보강 파일은
+# 개념ID → [별칭...] 매핑이며, 기존 별칭에 없는 것만 추가한다(원 레지스트리 불변).
+ALIAS_SUPPLEMENT_PATH = ROOT / "data_private" / "curriculum" / "alias_supplement_kr.json"
+
+
+def _apply_alias_supplement(concepts: dict[str, Any],
+                            path: Path = ALIAS_SUPPLEMENT_PATH) -> int:
+    if not path.exists():
+        return 0
+    try:
+        sup = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return 0
+    touched = 0
+    for cid, aliases in (sup.items() if isinstance(sup, dict) else []):
+        concept = concepts.get(str(cid))
+        if not isinstance(concept, dict) or not isinstance(aliases, list):
+            continue
+        cur = concept.get("aliases") if isinstance(concept.get("aliases"), list) else []
+        seen = {normalized_term(a) for a in cur} | {normalized_term(cid)}
+        add = [str(a) for a in aliases
+               if str(a).strip() and normalized_term(a) not in seen]
+        if add:
+            concept["aliases"] = [*cur, *add]
+            touched += 1
+    return touched
 
 
 def load_axis_registry(path: Path = AXIS_REGISTRY_PATH) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1831,6 +1913,14 @@ def apply_grounding_trace(record: dict[str, Any], grounding: dict[str, Any]) -> 
             reasons.append("distractor_outside_registry_scope")
         if not answer_citations_in_scope:
             reasons.append("explanation_missing_harrison_source")
+
+    numeric_review_reasons = _numeric_safety_review_reasons(
+        record,
+        has_harrison_anchor=answer_citations_in_scope,
+    )
+    if numeric_review_reasons:
+        record["needs_review"] = True
+        reasons.extend(numeric_review_reasons)
 
     record["grounding_trace"] = trace
     record["review_reasons"] = sorted({str(reason) for reason in reasons if str(reason).strip()})

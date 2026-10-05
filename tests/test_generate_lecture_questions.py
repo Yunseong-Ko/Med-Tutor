@@ -14,9 +14,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from generate_lecture_questions import (
+    build_generation_prompt,
     check_gitignore,
     extract_json_payload,
     normalize_question,
+    normalize_evidence_disclosure_plan,
 )
 
 
@@ -50,18 +52,197 @@ def _make_item(**overrides) -> dict:
 
 
 class GenerateLectureQuestionsTests(unittest.TestCase):
+    def test_disclosure_aliases_normalize_without_false_task_mismatch(self):
+        plan = normalize_evidence_disclosure_plan(
+            {
+                "status": "pass",
+                "assessment_task": "treatment",
+                "latent_diagnosis_required": False,
+                "retrieved_axis_ids": ["a:treatment:one"],
+                "selected_for_stem": [
+                    {
+                        "source_id": "a:diagnosis:one",
+                        "role": "discriminating_cue",
+                        "strength": "moderate",
+                        "evidence_family": "lab_result",
+                        "surface_form": "검사 양성",
+                    },
+                    {
+                        "source_id": "a:symptom:one",
+                        "role": "confirmatory_cue",
+                        "strength": "strong",
+                        "evidence_family": "morphology",
+                        "surface_form": "형태학적 소견",
+                    },
+                    {
+                        "source_id": "a:symptom:two",
+                        "role": "prerequisite_cue",
+                        "strength": "moderate",
+                        "evidence_family": "symptom",
+                        "surface_form": "피로",
+                    },
+                ],
+                "withheld": ["a:indication:two"],
+                "qc_flags": [],
+            },
+            assessment_task="treatment",
+        )
+
+        self.assertEqual(plan["status"], "pass")
+        self.assertEqual(plan["qc_flags"], [])
+        self.assertEqual(plan["selected_for_stem"][0]["role"], "decision_modifier")
+        self.assertEqual(plan["selected_for_stem"][0]["evidence_family"], "general_laboratory")
+        self.assertEqual(plan["selected_for_stem"][1]["role"], "target_data")
+        self.assertEqual(plan["selected_for_stem"][1]["evidence_family"], "pathology_genetics")
+        self.assertEqual(plan["selected_for_stem"][2]["evidence_family"], "symptom_course")
+        self.assertIn("a:diagnosis:one", plan["retrieved_axis_ids"])
+        self.assertEqual(
+            plan["withheld"],
+            [{"source_id": "a:indication:two", "reason": "unspecified_review"}],
+        )
+
     def test_normalize_question_happy_path(self):
         item = _make_item()
         result = normalize_question(
             item, idx=1, source_name="demo.txt", subject="외과", unit="소장"
         )
         self.assertEqual(result["answer"], 1)
-        self.assertFalse(result["needs_review"])
-        self.assertEqual(result["review_reasons"], [])
+        self.assertTrue(result["needs_review"])
+        self.assertIn("automated_generation_requires_human_review", result["review_reasons"])
         self.assertTrue(result["question_id"].startswith("LECTURE_demo_Q001"))
         self.assertEqual(len(result["options"]), 5)
         self.assertEqual(result["source_type"], "lecture_material")
         self.assertEqual(result["evidence_tier"], "lecture_only")
+        self.assertFalse(result["gen_ready"])
+        self.assertEqual(result["reasoning_hops"], 2)
+        self.assertFalse(result["reveal_specialty"])
+        self.assertIn("item_quality", result)
+        self.assertEqual(result["item_quality"]["hard_rule_total"], 20)
+        self.assertIn("cognitive_model", result)
+        self.assertEqual(len(result["choice_explanations"]), 5)
+        self.assertIn("misconception", result["choice_explanations"]["2"])
+
+    def test_disclosure_common_model_synonyms_do_not_create_false_mismatch(self):
+        plan = normalize_evidence_disclosure_plan(
+            {
+                "status": "pass",
+                "assessment_task": "treatment",
+                "selected_for_stem": [
+                    {
+                        "source_id": "a:prognosis:vitals",
+                        "role": "informative_cue",
+                        "strength": "moderate",
+                        "evidence_family": "vital_sign",
+                        "surface_form": "저혈압과 빈맥",
+                    },
+                    {
+                        "source_id": "a:treatment:frame",
+                        "role": "task_frame",
+                        "strength": "weak",
+                        "evidence_family": "clinical_context",
+                        "surface_form": "즉시 치료가 필요한 상황",
+                    },
+                    {
+                        "source_id": "a:diagnosis:ecg",
+                        "role": "prerequisite_cue",
+                        "strength": "moderate",
+                        "evidence_family": "ecg_finding",
+                        "surface_form": "불규칙 RR 간격",
+                    },
+                    {
+                        "source_id": "a:risk:risk",
+                        "role": "neutral_context",
+                        "strength": "weak",
+                        "evidence_family": "risk_factor",
+                        "surface_form": "고혈압 병력",
+                    },
+                ],
+                "withheld": [],
+                "qc_flags": [],
+            },
+            assessment_task="treatment",
+        )
+
+        self.assertEqual(plan["status"], "pass")
+        self.assertEqual(plan["qc_flags"], [])
+        self.assertEqual(plan["selected_for_stem"][0]["role"], "decision_modifier")
+        self.assertEqual(plan["selected_for_stem"][0]["evidence_family"], "physical_exam")
+        self.assertEqual(plan["selected_for_stem"][1]["role"], "prerequisite_cue")
+        self.assertEqual(plan["selected_for_stem"][1]["evidence_family"], "care_context")
+        self.assertEqual(plan["selected_for_stem"][2]["evidence_family"], "special_laboratory")
+
+        synonym_plan = normalize_evidence_disclosure_plan(
+            {
+                "status": "pass",
+                "assessment_task": "treatment",
+                "selected_for_stem": [
+                    {
+                        "source_id": "a:diagnosis:test",
+                        "role": "prerequisite_cue",
+                        "strength": "moderate",
+                        "evidence_family": "diagnostic_test",
+                        "surface_form": "심전도 소견",
+                    },
+                    {
+                        "source_id": "a:diagnosis:finding",
+                        "role": "prerequisite_cue",
+                        "strength": "moderate",
+                        "evidence_family": "diagnostic_finding",
+                        "surface_form": "QRS 연장",
+                    },
+                    {
+                        "source_id": "a:lab:value",
+                        "role": "prerequisite_cue",
+                        "strength": "moderate",
+                        "evidence_family": "lab_value",
+                        "surface_form": "칼륨 상승",
+                    },
+                ],
+                "qc_flags": [],
+            },
+            assessment_task="treatment",
+        )
+        self.assertEqual(synonym_plan["status"], "pass")
+        self.assertEqual(synonym_plan["qc_flags"], [])
+        self.assertEqual(
+            [cue["evidence_family"] for cue in synonym_plan["selected_for_stem"]],
+            ["special_laboratory", "special_laboratory", "general_laboratory"],
+        )
+
+        confirmatory_plan = normalize_evidence_disclosure_plan(
+            {
+                "status": "pass",
+                "assessment_task": "indication",
+                "selected_for_stem": [
+                    {
+                        "source_id": "a:imaging:one",
+                        "role": "confirmatory",
+                        "strength": "strong",
+                        "evidence_family": "imaging",
+                        "surface_form": "혈전 확인",
+                    }
+                ],
+                "qc_flags": [],
+            },
+            assessment_task="indication",
+        )
+        self.assertEqual(confirmatory_plan["status"], "pass")
+        self.assertEqual(confirmatory_plan["selected_for_stem"][0]["role"], "target_data")
+
+    def test_prompt_contains_nbme_contract_and_self_check(self):
+        prompt = build_generation_prompt(
+            "승인된 강의 요약",
+            source_name="demo.txt",
+            subject="내과",
+            unit="임상추론",
+            num_questions=2,
+            difficulty="중",
+            max_chars=1000,
+        )
+        self.assertIn("reveal_specialty: false", prompt)
+        self.assertIn("reasoning_hops: 2", prompt)
+        self.assertIn("self_check 22항목", prompt)
+        self.assertIn("urgency_adverb_not_key_only", prompt)
 
     def test_normalize_question_empty_problem(self):
         item = _make_item(problem="")
@@ -105,6 +286,39 @@ class GenerateLectureQuestionsTests(unittest.TestCase):
             item, idx=6, source_name="demo.txt", subject="외과", unit="소장"
         )
         self.assertEqual(result["evidence_refs"][0]["source_type"], "other")
+
+    def test_normalize_question_preserves_model_verdict_for_mismatch_lint(self):
+        item = _make_item(
+            choice_explanations={
+                "1": {"verdict": "오답", "rationale": "모델이 잘못 표시"},
+                "2": {"verdict": "정답", "rationale": "모델이 잘못 표시"},
+            }
+        )
+        result = normalize_question(item, idx=8, source_name="demo.txt", subject="내과", unit="혈액")
+        self.assertEqual(result["choice_explanations"]["1"]["model_verdict"], "오답")
+        self.assertIn("answer_key_explanation_mismatch", result["item_quality"]["flaws"])
+
+    def test_normalize_question_preserves_exact_harrison_locator(self):
+        item = _make_item(
+            evidence_refs=[
+                {
+                    "source_id": "H1",
+                    "source": "Harrison 22e",
+                    "locator": "22e · Ch.120 · p.924",
+                    "chapter": 120,
+                    "printed_page": 924,
+                    "basis": "ITP 진단 원리",
+                    "source_type": "textbook",
+                    "retrieval_method": "chapter_routed_scored_page",
+                    "entailment_status": "needs_human_review",
+                }
+            ]
+        )
+        result = normalize_question(item, idx=9, source_name="demo.txt", subject="내과", unit="ITP")
+        ref = result["evidence_refs"][0]
+        self.assertEqual(ref["source_id"], "H1")
+        self.assertEqual(ref["locator"], "22e · Ch.120 · p.924")
+        self.assertEqual(ref["printed_page"], "924")
 
     def test_normalize_question_preserves_data_table(self):
         item = _make_item(

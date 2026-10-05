@@ -44,6 +44,7 @@ class AxiomaStudioApiTests(unittest.TestCase):
 
     def test_prompt_only_generation_from_txt(self):
         client = TestClient(app)
+        client.cookies.set("paccine_role", "faculty")
         lecture = (
             "소장폐색은 복부 수술 후 유착이 흔한 원인이다. "
             "구토, 복부팽만, 산통성 복통, air-fluid level이 중요하다. "
@@ -54,9 +55,12 @@ class AxiomaStudioApiTests(unittest.TestCase):
             data={
                 "subject": "외과",
                 "unit": "소장폐색",
+                "disease_concept_id": "small_bowel_obstruction",
                 "num_questions": "2",
+                "generation_profile": "fast",
                 "difficulty": "보통",
                 "question_type": "clinical_case",
+                "target_axis_type": "diagnosis",
                 "reference_policy": "local_open",
                 "provider": "prompt-only",
                 "model": "prompt-only",
@@ -71,9 +75,134 @@ class AxiomaStudioApiTests(unittest.TestCase):
         self.assertEqual(payload["provider"], "prompt-only")
         self.assertIn("prompt", payload["paths"])
         self.assertIn("image_candidates", payload)
+        self.assertEqual(payload["generation_profile"], "fast")
+        self.assertTrue(payload["ontology"]["ontology_used"])
+        self.assertEqual(payload["ontology"]["disease_concept_id"], "small_bowel_obstruction")
+        self.assertGreater(payload["ontology"]["axis_node_count"], 0)
+        self.assertEqual(payload["question_blueprint"]["status"], "draft_blueprint")
+        self.assertEqual(payload["question_blueprint"]["target"]["axis_type"], "diagnosis")
+
+    def test_ontology_context_endpoint_returns_axis_provenance(self):
+        client = TestClient(app)
+        response = client.get(
+            "/api/ontology/context",
+            params={"disease_concept_id": "asthma"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "matched")
+        self.assertEqual(payload["disease_concept_id"], "asthma")
+        self.assertGreater(payload["axis_context"]["node_count"], 0)
+        self.assertIn("pathophysiology", payload["axis_context"]["types"])
+        self.assertEqual(payload["review_policy"], "faculty_draft")
+        self.assertFalse(payload["blocked"])
+
+    def test_student_approved_ontology_context_fails_closed_without_approvals(self):
+        client = TestClient(app)
+        response = client.get(
+            "/api/ontology/context",
+            params={
+                "disease_concept_id": "multiple_myeloma",
+                "review_policy": "student_approved",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "blocked")
+        self.assertTrue(payload["blocked"])
+        self.assertEqual(payload["review_policy"], "student_approved")
+        self.assertIn("concept_not_medically_approved", payload["block_reasons"])
+        self.assertFalse(payload["ontology_used"])
+        self.assertEqual(payload["axis_context"], {})
+
+    def test_student_approved_generation_is_blocked_before_model_call(self):
+        client = TestClient(app)
+        client.cookies.set("paccine_role", "faculty")
+        response = client.post(
+            "/api/generate",
+            data={
+                "subject": "혈액종양",
+                "unit": "다발골수종",
+                "disease_concept_id": "multiple_myeloma",
+                "ontology_review_policy": "student_approved",
+                "num_questions": "1",
+                "generation_profile": "fast",
+                "provider": "prompt-only",
+                "model": "prompt-only",
+            },
+            files={
+                "lecture_file": (
+                    "review_policy_demo.txt",
+                    io.BytesIO("다발골수종 교수 검수용 생성 요청".encode("utf-8")),
+                    "text/plain",
+                )
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("ontology_review_policy_blocked", response.json()["detail"])
+
+    def test_ontology_review_status_reports_fail_closed_gate(self):
+        client = TestClient(app)
+        response = client.get("/api/ontology/review-status")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "v1_connected_draft_not_generation_ready")
+        self.assertFalse(payload["medical_approval"])
+        self.assertEqual(
+            payload["counts"]["axis_claims_total"],
+            payload["counts"]["axis_nodes"] + payload["counts"]["axis_relationships"],
+        )
+        self.assertEqual(
+            payload["counts"]["axis_claims_not_verified"],
+            payload["counts"]["axis_claims_total"],
+        )
+        self.assertEqual(payload["review_worklist"]["review_items"], 281)
+        self.assertEqual(payload["review_decisions"]["total"], 0)
+        self.assertEqual(
+            payload["finding_endpoint_worklist"]["finding"]["pending_decisions"],
+            payload["finding_endpoint_worklist"]["finding"]["distinct_normalized_tags"],
+        )
+        self.assertEqual(
+            payload["finding_endpoint_worklist"]["endpoint"]["still_untyped"],
+            1,
+        )
+        self.assertTrue(payload["student_approved_policy"]["available"])
+        self.assertFalse(payload["student_approved_policy"]["approved_claim_subset_available"])
+
+    def test_question_blueprint_preview_requires_explicit_axis_for_generic_case(self):
+        client = TestClient(app)
+        blocked = client.post(
+            "/api/ontology/question-blueprint",
+            json={
+                "disease_concept_id": "multiple_myeloma",
+                "question_type": "clinical_case",
+            },
+        )
+        self.assertEqual(blocked.status_code, 200)
+        self.assertEqual(blocked.json()["status"], "blocked")
+        self.assertIn(
+            "target_axis_type_missing",
+            blocked.json()["question_blueprint"]["block_reasons"],
+        )
+
+        ready = client.post(
+            "/api/ontology/question-blueprint",
+            json={
+                "disease_concept_id": "multiple_myeloma",
+                "question_type": "clinical_case",
+                "target_axis_type": "diagnosis",
+            },
+        )
+        self.assertEqual(ready.status_code, 200)
+        self.assertEqual(ready.json()["status"], "draft_blueprint")
+        self.assertEqual(
+            ready.json()["question_blueprint"]["target"]["axis_type"],
+            "diagnosis",
+        )
 
     def test_media_bank_upload_and_list(self):
         client = TestClient(app)
+        client.cookies.set("paccine_role", "faculty")
         png = (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
             b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
@@ -131,6 +260,7 @@ class AxiomaStudioApiTests(unittest.TestCase):
 
     def test_notebooklm_import_creates_review_set(self):
         client = TestClient(app)
+        client.cookies.set("paccine_role", "faculty")
         set_id = None
         try:
             response = client.post(
@@ -264,6 +394,7 @@ class AxiomaStudioApiTests(unittest.TestCase):
 
     def test_question_set_detail_edit_and_approve_flow(self):
         client = TestClient(app)
+        client.cookies.set("paccine_role", "faculty")
         set_id = "unit_review_flow"
         try:
             archive_question_set(

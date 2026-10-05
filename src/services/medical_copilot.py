@@ -1660,7 +1660,7 @@ def classify_guideline_question(query: str) -> dict[str, Any]:
     )
     requires_released_claim = bool(
         asks_specific_detail
-        and (has_korean_context or has_guideline_context)
+        and has_korean_context
         and not source_navigation
     )
     if source_navigation:
@@ -1671,6 +1671,12 @@ def classify_guideline_question(query: str) -> dict[str, Any]:
         query_class = "general_learning_with_guideline_context"
     else:
         query_class = "general_harrison_learning"
+    if has_korean_context:
+        answer_jurisdiction_label = "korean"
+    elif asks_specific_detail and not source_navigation:
+        answer_jurisdiction_label = "international_reference"
+    else:
+        answer_jurisdiction_label = "general_learning"
     return {
         "query_class": query_class,
         "has_korean_context": has_korean_context,
@@ -1678,6 +1684,7 @@ def classify_guideline_question(query: str) -> dict[str, Any]:
         "source_navigation": source_navigation,
         "asks_specific_detail": asks_specific_detail,
         "requires_released_claim": requires_released_claim,
+        "answer_jurisdiction_label": answer_jurisdiction_label,
     }
 
 
@@ -3459,22 +3466,57 @@ def _build_model_prompt(query: str, context: dict[str, Any]) -> str:
 def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
     provider = context["provider"]["provider"]
     model = context["provider"]["model"]
-    allowed_source_ids = [
-        _clean_text(item.get("source_id"))
-        for item in context.get("harrison_internal") or []
-        if _clean_text(item.get("source_id"))
-    ]
-    allowed_source_ids.extend(
-        f"G{index}"
-        for index, _claim in enumerate(
-            context.get("approved_guideline_claims") or [],
-            start=1,
+    response_kind = _clean_text(context.get("response_kind"))
+    if response_kind == "entailment_shadow":
+        allowed_source_ids = [
+            _clean_text(item.get("source_id"))
+            for item in context.get("evidence") or []
+            if isinstance(item, dict) and _clean_text(item.get("source_id"))
+        ]
+        schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "claims": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "claim_id": {"type": "string"},
+                            "supported": {"type": "boolean"},
+                            "source_ids": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": allowed_source_ids or [""],
+                                },
+                            },
+                        },
+                        "required": ["claim_id", "supported", "source_ids"],
+                    },
+                }
+            },
+            "required": ["claims"],
+        }
+    else:
+        allowed_source_ids = [
+            _clean_text(item.get("source_id"))
+            for item in context.get("harrison_internal") or []
+            if _clean_text(item.get("source_id"))
+        ]
+        allowed_source_ids.extend(
+            f"G{index}"
+            for index, _claim in enumerate(
+                context.get("approved_guideline_claims") or [],
+                start=1,
+            )
         )
-    )
+        answer_scope = context.get("answer_scope") if isinstance(context.get("answer_scope"), dict) else {}
+        schema = _answer_schema(allowed_source_ids, answer_scope)
     answer_scope = context.get("answer_scope") if isinstance(context.get("answer_scope"), dict) else {}
-    schema = _answer_schema(allowed_source_ids, answer_scope)
     max_output_tokens = max(
-        4000,
+        1000 if response_kind == "entailment_shadow" else 4000,
         min(9000, int(answer_scope.get("max_output_tokens") or 7000)),
     )
     if provider == "claude-cli":
@@ -3579,6 +3621,18 @@ def _compose_with_model(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError(f"의료 챗봇 모델 호출 실패: {response.status_code}")
         return json.loads(response.json()["choices"][0]["message"]["content"])
     raise RuntimeError("답변 모델이 설정되지 않았습니다.")
+
+
+def _default_entailment_judge(prompt: str, context: dict[str, Any]) -> dict[str, Any]:
+    """Run the deployed answer model as a non-blocking entailment shadow."""
+
+    shadow_context = {
+        **context,
+        "response_kind": "entailment_shadow",
+        "provider": _provider_status(),
+        "answer_scope": {"max_output_tokens": 3000},
+    }
+    return _compose_with_model(prompt, shadow_context)
 
 
 def _validated_answer(
@@ -4112,6 +4166,18 @@ def build_medical_copilot_response(
     except (FileNotFoundError, ValueError, json.JSONDecodeError):
         approved_guideline_claims = []
     guideline_query_policy = classify_guideline_question(normalized_query)
+    jurisdiction_notice = (
+        {
+            "label": "국제 기준 학습 답변",
+            "jurisdiction": "international_reference",
+            "message": (
+                "국가·기관을 지정하지 않은 세부 질문이므로 Harrison의 국제적 일반 원칙 범위에서 "
+                "설명합니다. 대한민국 진료 적용 시에는 최신 국내 지침과 기관 기준을 별도로 확인하세요."
+            ),
+        }
+        if guideline_query_policy["answer_jurisdiction_label"] == "international_reference"
+        else None
+    )
     current_guideline_claim_pending = bool(
         guidelines
         and not approved_guideline_claims
@@ -4384,6 +4450,7 @@ def build_medical_copilot_response(
         "ontology_matches": concepts,
         "harrison_sources": harrison_public,
         "guidelines": guidelines,
+        "jurisdiction_notice": jurisdiction_notice,
         "approved_guideline_claims": [
             {
                 **claim,
@@ -4398,6 +4465,7 @@ def build_medical_copilot_response(
             "current_only": True,
             "current_guideline_claim_pending": current_guideline_claim_pending,
             "query_class": guideline_query_policy["query_class"],
+            "answer_jurisdiction_label": guideline_query_policy["answer_jurisdiction_label"],
         },
         "provider": {**provider, "error_type": model_error},
         "quality_validation": {

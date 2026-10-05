@@ -133,6 +133,24 @@ class RuntimeSeedTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 seed_runtime(seed, data)
 
+    def test_verify_skips_original_groups_when_seed_has_none(self):
+        """--exclude-originals 번들로 새 볼륨을 만들면 studio/question_bank·course_exams/extracted 가 양쪽에 없다 → 부팅 허용."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            seed = root / "seed"
+            data = root / "data"
+            self._build_seed(seed)
+            for pattern in ("studio/question_bank/*.question_set.json", "course_exams/extracted/*.json"):
+                for path in seed.glob(pattern):
+                    path.unlink()
+            seed_runtime(seed, data)
+            with self.assertRaises(RuntimeError):
+                verify_runtime(data)                       # 시드 정보 없이 검사하면 여전히 엄격
+            status = verify_runtime(data, seed)
+            self.assertTrue(status["ready"])
+            self.assertFalse(status["originals_present"])
+            self.assertEqual(status["question_set_count"], 0)
+
     def test_verify_fails_when_a_required_group_is_empty(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 
@@ -129,6 +131,60 @@ DEPARTMENT_PROFILES: tuple[dict[str, Any], ...] = (
         "aliases": ("응급의학과", "응급", "emergency medicine"),
         "match_terms": ("응급의학", "중환자의학"),
         "assessment_terms": ("emergency_management", "immediate_management"),
+    },
+    {
+        "id": "rheumatology",
+        "label": "류마티스내과",
+        "aliases": ("류마티스", "류마티스내과", "rheumatology"),
+        "match_terms": ("류마티스",),
+    },
+    {
+        "id": "allergy_immunology",
+        "label": "알레르기내과",
+        "aliases": ("알레르기", "알레르기내과", "allergy"),
+        "match_terms": ("알레르기", "면역알레르기"),
+    },
+    {
+        "id": "ophthalmology",
+        "label": "안과",
+        "aliases": ("안과", "ophthalmology"),
+        "match_terms": ("안과",),
+    },
+    {
+        "id": "thoracic_surgery",
+        "label": "흉부외과",
+        "aliases": ("흉부외과", "심장혈관흉부외과", "thoracic surgery"),
+        "match_terms": ("흉부외과",),
+    },
+    {
+        "id": "neurosurgery",
+        "label": "신경외과",
+        "aliases": ("신경외과", "neurosurgery"),
+        "match_terms": ("신경외과",),
+    },
+    {
+        "id": "rehabilitation_medicine",
+        "label": "재활의학과",
+        "aliases": ("재활의학과", "재활", "rehabilitation"),
+        "match_terms": ("재활의학",),
+    },
+    {
+        "id": "family_medicine",
+        "label": "가정의학과",
+        "aliases": ("가정의학과", "family medicine"),
+        "match_terms": ("가정의학",),
+    },
+    {
+        "id": "preventive_medicine",
+        "label": "예방의학·의료법규",
+        "aliases": ("예방의학", "의료법규", "preventive medicine"),
+        "match_terms": ("예방의학", "의료법", "법규", "직업환경의학"),
+    },
+    {
+        "id": "anesthesiology",
+        "label": "마취통증의학과",
+        "aliases": ("마취통증의학과", "마취과", "anesthesiology"),
+        "match_terms": ("마취통증의학", "마취과"),
     },
 )
 
@@ -281,8 +337,40 @@ def _assessment_domains(concept: dict[str, Any]) -> set[str]:
     return {_normalized_text(value) for value in values if value}
 
 
+# specialty 백필 레이어: 레지스트리에 specialty가 없는 개념(실측 277/602)을 위한
+# 보강 파일. 개념ID → "분과" 또는 "분과A/분과B". 레지스트리 원본은 불변으로 둔다.
+_SPECIALTY_SUPPLEMENT_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data_private" / "curriculum" / "specialty_supplement.json"
+)
+_specialty_supplement_cache: dict[str, str] | None = None
+
+
+def _specialty_supplement() -> dict[str, str]:
+    global _specialty_supplement_cache
+    if _specialty_supplement_cache is None:
+        try:
+            raw = json.loads(_SPECIALTY_SUPPLEMENT_PATH.read_text(encoding="utf-8"))
+            _specialty_supplement_cache = {
+                str(k): str(v) for k, v in raw.items() if str(v or "").strip()
+            } if isinstance(raw, dict) else {}
+        except Exception:
+            _specialty_supplement_cache = {}
+    return _specialty_supplement_cache
+
+
+def _concept_specialty(concept: dict[str, Any]) -> str:
+    own = _normalized_text(concept.get("specialty"))
+    if own:
+        return own
+    cid = str(concept.get("disease_concept_id") or concept.get("concept_id") or "")
+    if not cid:
+        return ""
+    return _normalized_text(_specialty_supplement().get(cid, ""))
+
+
 def _matches_department(profile: dict[str, Any], concept: dict[str, Any]) -> bool:
-    specialty = _normalized_text(concept.get("specialty"))
+    specialty = _concept_specialty(concept)
     if specialty and any(_normalized_text(term) in specialty for term in profile.get("match_terms") or ()):
         return True
     assessment_terms = {_normalized_text(value) for value in profile.get("assessment_terms") or ()}

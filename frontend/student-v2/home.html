@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>학습 홈 · P:accine</title>
+  <link rel="stylesheet" href="/student-v2/student.css?v=20260716-nav-1">
+</head>
+<body data-student-page="home">
+  <div class="app-shell">
+    <aside class="rail" aria-label="주요 메뉴">
+      <a class="brand" href="/student-v2/home.html"><span class="brand-mark">P</span><span><strong>P:accine</strong><small>부산의대 학습 OS</small></span></a>
+      <div class="student-role-switch" aria-label="사용자 역할 선택"><a href="/#faculty-dashboard">교수</a><a class="is-active" href="/student-v2/home.html" aria-current="page">학생</a></div>
+      <nav class="rail-nav">
+        <span class="rail-label">학습</span>
+        <a class="is-active" href="/student-v2/home.html">학습 홈</a>
+        <a href="/student-v2/">나의 서재</a>
+        <a href="/student-v2/builder.html">문제 풀기</a>
+        <a href="#study-tools">개념 노트</a>
+        <a href="/student-v2/result.html">학습 리포트</a>
+        <span class="rail-label rail-label-secondary">실기</span>
+        <a href="/cpx-osce/">CPX/OSCE</a>
+      </nav>
+      <div class="rail-profile"><span class="avatar">의</span><span><strong>부산의대 학습자</strong><small>학습 문항 라이브러리</small></span></div>
+    </aside>
+
+    <div class="app-area">
+      <header class="topbar">
+        <a class="mobile-brand" href="/student-v2/home.html"><span class="brand-mark">P</span><strong>P:accine</strong></a>
+        <div><p>문항 세트와 풀이 기록</p><h1>학습 홈</h1></div>
+        <div class="student-home-actions"><a href="/student-v2/">과목 선택</a><a class="is-primary" href="/student-v2/builder.html">문제 풀기</a></div>
+      </header>
+
+      <main class="page-content student-home-page">
+        <section class="page-intro student-home-intro">
+          <div><span class="eyebrow">LEARNING WORKSPACE</span><h2>오늘 학습을 이어갈까요?</h2><p>최근 세트를 이어 풀거나 필요한 과목에서 새 세트를 구성하세요.</p></div>
+          <div class="library-stat"><strong id="home-available-count">—</strong><span>학습 문항</span></div>
+        </section>
+
+        <div id="home-status" class="notice" role="status">학습 정보를 불러오는 중입니다.</div>
+
+        <section class="student-home-grid" id="home-content" hidden>
+          <article class="home-resume-card" id="home-resume-card" hidden>
+            <header><div><span class="eyebrow">최근 학습</span><h3>이어서 풀기</h3></div><span class="home-saved-badge" id="home-resume-state">저장됨</span></header>
+            <div class="home-resume-course"><span id="home-resume-icon">P</span><div><strong id="home-resume-title">진행 중인 학습 세트</strong><small id="home-resume-copy">최근 풀이 위치에서 계속합니다.</small></div></div>
+            <div class="home-progress-track"><i id="home-progress-bar"></i></div>
+            <div class="home-progress-meta"><span id="home-progress-copy">진행 0%</span><span id="home-mode-copy">학습 모드</span></div>
+            <a class="primary-button" href="/student-v2/practice.html">최근 세트 이어 풀기</a>
+          </article>
+
+          <article class="home-resume-card home-empty-card" id="home-empty-card">
+            <header><div><span class="eyebrow">첫 학습</span><h3>새 세트로 시작하기</h3></div></header>
+            <div class="home-empty-copy"><span>＋</span><div><strong>아직 진행 중인 세트가 없습니다</strong><p>서재에서 과목을 고르거나 맞춤 세트를 바로 구성할 수 있습니다.</p></div></div>
+            <a class="primary-button" href="/student-v2/builder.html">첫 세트 만들기</a>
+          </article>
+
+          <article class="home-quick-card">
+            <header><span class="eyebrow">바로 시작</span><h3>학습 방식 선택</h3></header>
+            <nav aria-label="빠른 학습 시작">
+              <a href="/student-v2/"><span>과목별</span><strong>서재에서 학습 세트 선택</strong><b>→</b></a>
+              <a href="/student-v2/builder.html"><span>맞춤 세트</span><strong>필요한 범위만 골라 구성</strong><b>→</b></a>
+              <a href="/student-v2/result.html"><span>복습</span><strong>오답·북마크 다시 풀기</strong><b>→</b></a>
+              <a href="/cpx-osce/"><span>실기</span><strong>CPX/OSCE 스테이션 연습</strong><b>→</b></a>
+            </nav>
+          </article>
+        </section>
+
+        <section class="home-metric-strip" aria-label="학습 기록" id="home-metrics" hidden>
+          <article><span>최근 결과</span><strong id="home-score">—</strong><small>정답률</small></article>
+          <article><span>완료 문항</span><strong id="home-completed-count">0</strong><small>최근 세션</small></article>
+          <article><span>북마크</span><strong id="home-bookmark-count">0</strong><small>다시 볼 문항</small></article>
+          <article><span>학습 시간</span><strong id="home-time">00:00</strong><small>최근 세션</small></article>
+        </section>
+
+        <section class="home-tools-section" id="study-tools">
+          <div><span class="eyebrow">STUDY TOOLS</span><h3>개념 노트와 복습 도구</h3><p>문항 제출 후 확인한 근거와 선택한 문항을 학습 기록으로 이어갑니다.</p></div>
+          <div class="home-tool-list">
+            <a href="/student-v2/result.html"><span>개념 노트</span><strong>풀이 결과에서 승인 해설 다시 보기</strong><b>→</b></a>
+            <a href="/student-v2/result.html"><span>Anki</span><strong>제출한 문항을 선택해 카드로 내보내기</strong><b>→</b></a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <nav class="mobile-tabbar" aria-label="모바일 학습 메뉴"><a class="is-active" href="/student-v2/home.html">홈</a><a href="/student-v2/">서재</a><a href="/student-v2/builder.html">문제 풀기</a><a href="/student-v2/result.html">리포트</a></nav>
+  <script src="/student-v2/student.js?v=20260716-nav-1" defer></script>
+</body>
+</html>

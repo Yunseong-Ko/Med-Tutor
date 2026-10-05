@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>세션 결과 · P:accine</title>
+  <link rel="stylesheet" href="/student-v2/student.css?v=20260716-nav-1">
+</head>
+<body data-student-page="result">
+  <div class="app-shell">
+    <aside class="rail" aria-label="주요 메뉴">
+      <a class="brand" href="/student-v2/home.html"><span class="brand-mark">P</span><span><strong>P:accine</strong><small>부산의대 학습 OS</small></span></a>
+      <div class="student-role-switch" aria-label="사용자 역할 선택"><a href="/#faculty-dashboard">교수</a><a class="is-active" href="/student-v2/home.html" aria-current="page">학생</a></div>
+      <nav class="rail-nav"><span class="rail-label">학습</span><a href="/student-v2/home.html">학습 홈</a><a href="/student-v2/">나의 서재</a><a href="/student-v2/builder.html">문제 풀기</a><a href="/student-v2/home.html#study-tools">개념 노트</a><a class="is-active" href="/student-v2/result.html">학습 리포트</a><span class="rail-label rail-label-secondary">실기</span><a href="/cpx-osce/">CPX/OSCE</a></nav>
+      <div class="rail-profile"><span class="avatar">의</span><span><strong>부산의대 학습자</strong><small>학습 문항 라이브러리</small></span></div>
+    </aside>
+    <div class="app-area">
+      <header class="topbar"><a class="mobile-brand" href="/student-v2/home.html"><span class="brand-mark">P</span><strong>P:accine</strong></a><div><p>학습 리포트</p><h1>세션 결과</h1></div><a class="text-link" href="/student-v2/builder.html">새 세트 만들기</a></header>
+      <main class="page-content result-page">
+        <div id="result-empty" class="empty-state" hidden><span>기록 없음</span><h2>완료된 세션이 아직 없습니다</h2><p>학습 문항으로 첫 세트를 시작해보세요.</p><a class="primary-button" href="/student-v2/builder.html">세트 구성하기</a></div>
+        <div id="result-content" hidden>
+          <div id="result-save-status" class="result-save-status" role="status"><span>●</span> <b id="result-save-copy">학습 기록이 저장되었습니다.</b><button id="retry-result-save" type="button" hidden>다시 저장</button></div>
+          <section class="result-hero"><div><span id="result-eyebrow" class="eyebrow">SESSION COMPLETE</span><h2>세션 결과</h2><p id="result-title">학습 세트를 완료했습니다.</p></div><div class="score-ring"><strong id="result-score">0</strong><span>/ 100</span></div></section>
+          <section class="metric-grid"><article><span>정답률</span><strong id="correct-rate">0%</strong><small id="wrong-count">오답 0문항</small></article><article><span>풀이 시간</span><strong id="result-time">00:00</strong><small id="average-time">평균 0초</small></article><article><span>완료 문항</span><strong id="answered-count">0 / 0</strong><small id="bookmark-count">북마크 0문항</small></article></section>
+          <div class="result-grid">
+            <section class="result-list-card">
+              <div class="result-list-header"><div><h3>문항별 결과</h3><p>문항을 선택하면 제출 후 해설을 다시 확인할 수 있습니다.</p></div><div id="result-filters" class="filter-pills"><button class="is-selected" data-filter="all" type="button">전체</button><button data-filter="wrong" type="button">오답</button><button data-filter="bookmark" type="button">북마크</button></div></div>
+              <label class="result-select-all"><input id="result-select-all" type="checkbox"> <span>표시된 문항 전체 선택</span><strong id="result-selected-count">0문항 선택</strong></label>
+              <div id="result-list" class="result-list"></div>
+            </section>
+            <aside class="result-side">
+              <section class="weak-card"><span class="eyebrow">WEAK AREA</span><h3>이번 세션 학습 영역</h3><div id="weak-area"></div></section>
+              <section class="retry-card"><h3>다시 풀기</h3><button id="retry-wrong" type="button"><span class="retry-count wrong">0</span><span><b>오답만 다시 풀기</b><small>틀린 문항으로 새 세트</small></span><strong>→</strong></button><button id="retry-bookmarks" type="button"><span class="retry-count bookmark">★</span><span><b>북마크만 다시 풀기</b><small id="retry-bookmark-label">표시한 0문항</small></span><strong>→</strong></button></section>
+              <section class="anki-card"><div><span class="eyebrow">CLOZE + BASIC</span><h3>Anki 카드 내보내기</h3><p>선택한 문항 중 실제로 제출한 학습 문항만 카드로 만듭니다.</p></div><button id="export-anki" type="button">선택 문항 Anki 만들기 <span>→</span></button><p id="anki-status" role="status"></p></section>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <nav class="mobile-tabbar" aria-label="모바일 학습 메뉴"><a href="/student-v2/home.html">홈</a><a href="/student-v2/">서재</a><a href="/student-v2/builder.html">문제 풀기</a><a class="is-active" href="/student-v2/result.html">리포트</a></nav>
+  <script src="/student-v2/student.js?v=20260716-nav-1" defer></script>
+</body>
+</html>

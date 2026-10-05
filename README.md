@@ -58,14 +58,17 @@ Streamlit과 별도로 교수용 Studio UI를 확인하려면 FastAPI 기반 프
 python -m uvicorn api_server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-브라우저에서 `http://127.0.0.1:8000`으로 접속하면 강의자료 업로드, 기출 유형 참고, 승인 근거자료 업로드, PMA식 문항 초안 생성을 확인할 수 있습니다.
-API 키가 없으면 `프롬프트만 생성` 모드로 추출 텍스트와 생성 프롬프트를 `data_private/studio/` 아래에 저장합니다.
-모델 제공자는 `자동`, `Claude Code 계정`, `Claude API`, `OpenAI API`, `Google Gemini`, `프롬프트만 생성` 중 선택할 수 있습니다.
-`Claude Code 계정`은 로컬에 로그인된 `claude` CLI를 사용하고, API 방식은 각각 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` 환경변수를 사용합니다.
-교수용 이미지 문항 제작은 `Media Bank`를 중심으로 동작합니다. 환자 사진, CT/MRI/X-ray, 초음파, 병리 슬라이드, ECG/EEG 등을 먼저 저장한 뒤 문항 생성 시 선택하거나 설명을 붙여 사용할 수 있습니다.
+브라우저에서 `/login`으로 접속한 뒤 `학생 학습` 또는 `교수 스튜디오`를 선택합니다. 학생 최신 화면은 `/student/`, 교수 최신 화면은 `/faculty-studio-v2/`에서 시작합니다. 구형 통합 홈과 `/student-v2/`는 최신 역할별 화면으로 리다이렉트됩니다. 교수 화면에서는 `새 문항 → 문항 가져오기 → 검토·승인 → 가이드라인 검토 → 근거·미디어 → 내보내기` 흐름을 확인할 수 있습니다.
+생성 엔진은 P:accine이 서버 연결 상태에 맞춰 자동 선택하며, 제품 화면에서 외부 도구·모델을 직접 고르지 않습니다. 시험지 가져오기는 HWP/PDF와 선택적 XLSX 정답지를 자체 구조화하는 흐름입니다.
+교수용 이미지 문항 제작은 미디어 보관함을 중심으로 동작합니다. 환자 사진, CT/MRI/X-ray, 초음파, 병리 슬라이드, ECG/EEG 등을 먼저 저장한 뒤 문항 생성 시 선택하거나 설명을 붙여 사용할 수 있습니다.
+최신 UIUX·백엔드 기준과 남은 프로덕션 과제는 [`docs/PACCINE_V6_IMPLEMENTATION_HANDOFF_20260716.md`](docs/PACCINE_V6_IMPLEMENTATION_HANDOFF_20260716.md)에서 시작합니다.
 로컬 저장 구조와 향후 SQLite/Postgres 확장 모델은 `docs/Studio_Data_Model.md`에 정리되어 있습니다.
 DB 전환 시 기준이 되는 초기 테이블 설계는 `schemas/axioma_studio_schema.sql`에 두었습니다.
 교수/학생 역할 분리, 분과별 서재, 개념/레퍼런스 연결 계획은 `docs/Role_Based_Learning_OS_Plan.md`에 정리되어 있습니다.
+
+### Ontology Development
+
+임상의학 Ontology의 최신 상태, 파일 지도, 변경 이력은 [`docs/ontology/README.md`](docs/ontology/README.md)에서 시작합니다. 그래프 구축 완료, 의학 승인 완료, 학생 공개 가능 상태를 서로 구분해 기록합니다.
 
 ### Mobile Version (iOS/Android WebView)
 1. 이 방식은 웹 UI를 앱 컨테이너(WebView)로 여는 방식입니다. 핵심 화면/기능은 웹과 동일합니다.

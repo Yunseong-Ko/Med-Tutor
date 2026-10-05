@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520" role="img" aria-labelledby="title desc">
+  <title id="title">T-tube drainage after common bile duct exploration</title>
+  <desc id="desc">Original educational schematic comparing surgical T-tube drainage with endoscopic stenting for biliary disease.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fffaf5"/>
+      <stop offset="1" stop-color="#f4f8fb"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0b1f3a" flood-opacity=".12"/>
+    </filter>
+  </defs>
+  <rect width="920" height="520" rx="28" fill="url(#bg)"/>
+  <rect x="36" y="34" width="848" height="452" rx="24" fill="#fff" stroke="#d7e4ef" filter="url(#softShadow)"/>
+
+  <text x="64" y="78" font-family="Pretendard, Arial, sans-serif" font-size="24" font-weight="800" fill="#0b1f3a">T-tube drainage: surgical external drainage</text>
+  <text x="64" y="110" font-family="Pretendard, Arial, sans-serif" font-size="15" fill="#5f6f82">Useful after open common bile duct exploration, but too invasive as first-line treatment for cystic duct stump leak.</text>
+
+  <path d="M220 170 C165 192 145 251 166 303 C188 357 246 377 297 350 C344 326 369 276 352 226 C335 177 278 146 220 170Z" fill="#f0b34f" stroke="#98651e" stroke-width="4"/>
+  <path d="M354 249 C420 254 476 268 536 300" fill="none" stroke="#f0b34f" stroke-width="30" stroke-linecap="round"/>
+  <path d="M354 249 C420 254 476 268 536 300" fill="none" stroke="#98651e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M536 300 C594 330 648 326 692 300" fill="none" stroke="#f0b34f" stroke-width="30" stroke-linecap="round"/>
+  <path d="M536 300 C594 330 648 326 692 300" fill="none" stroke="#98651e" stroke-width="4" stroke-linecap="round"/>
+  <text x="383" y="224" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#26323f">Common bile duct</text>
+
+  <path d="M472 270 L472 192" stroke="#315f91" stroke-width="18" stroke-linecap="round"/>
+  <path d="M416 228 L530 228" stroke="#315f91" stroke-width="18" stroke-linecap="round"/>
+  <path d="M472 192 C472 142 532 138 574 126" fill="none" stroke="#315f91" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="576" cy="126" r="8" fill="#315f91"/>
+  <text x="585" y="132" font-family="Pretendard, Arial, sans-serif" font-size="14" font-weight="800" fill="#315f91">External bile bag</text>
+  <text x="407" y="180" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#315f91">T-tube</text>
+
+  <rect x="78" y="380" width="348" height="72" rx="16" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="100" y="407" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#a45a08">When it fits</text>
+  <text x="100" y="433" font-family="Pretendard, Arial, sans-serif" font-size="14" fill="#26323f">After surgical CBD exploration, selected duct injury, or when operative drainage is required.</text>
+
+  <rect x="460" y="380" width="382" height="72" rx="16" fill="#fff1f1" stroke="#fecaca"/>
+  <text x="482" y="407" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#b42318">Why not here first</text>
+  <text x="482" y="433" font-family="Pretendard, Arial, sans-serif" font-size="14" fill="#26323f">Cystic duct stump leak is usually decompressed endoscopically with ERCP stent first.</text>
+</svg>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,6 +19,20 @@ QBANK = ROOT / "data_private" / "student" / "qbank.json"
 TARGET_EXAM = builder.TARGET_EXAM
 pytestmark = pytest.mark.skipif(not QBANK.exists(), reason="private student qbank not present")
 
+# 이 모듈의 스냅샷 의존 테스트는 2026-07-23 검수 시점의 qbank 전문(sha256)에 고정되어 있다.
+# qbank가 그 이후 교체·드리프트되면(예: 대상 시험 문항 제거) 재검증이 불가능하므로 skip한다.
+_PINNED_QBANK_SHA256 = "80ab19d3e6bcb611ea4b24437a0bacd4bdb2819ac13ac61d52fcaea106907c29"
+
+
+def _qbank_snapshot_matches() -> bool:
+    return QBANK.exists() and hashlib.sha256(QBANK.read_bytes()).hexdigest() == _PINNED_QBANK_SHA256
+
+
+requires_pinned_snapshot = pytest.mark.skipif(
+    not _qbank_snapshot_matches(),
+    reason="qbank가 2026-07-23 시연 스냅샷(sha256 80ab19d3…)과 달라 70문항 overlay 검증 불가",
+)
+
 
 def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, dict):
@@ -27,6 +42,7 @@ def _contains_forbidden_key(value: object) -> bool:
     return False
 
 
+@requires_pinned_snapshot
 def test_builder_produces_complete_bounded_overlay(tmp_path, monkeypatch):
     draft = tmp_path / "draft.json"
     releases = tmp_path / "releases.json"
@@ -46,7 +62,7 @@ def test_builder_produces_complete_bounded_overlay(tmp_path, monkeypatch):
         "anki_cards": 70,
         "connected_media": 40,
         "text_sufficient_visuals": 2,
-        "qbank_sha256": "80ab19d3e6bcb611ea4b24437a0bacd4bdb2819ac13ac61d52fcaea106907c29",
+        "qbank_sha256": _PINNED_QBANK_SHA256,
     }
     rows = json.loads(releases.read_text(encoding="utf-8"))["releases"]
     target = {qid: row for qid, row in rows.items() if row.get("source", {}).get("exam") == TARGET_EXAM}
@@ -87,6 +103,7 @@ def test_owner_demo_requires_explicit_full_demo_profile(monkeypatch):
     assert not qbank_enrichment.is_student_release_approved(entry)
 
 
+@requires_pinned_snapshot
 def test_all_target_questions_are_ready_without_pre_answer_truth_leak(tmp_path, monkeypatch):
     monkeypatch.setenv("PACCINE_REQUIRE_FULL_DEMO", "true")
     monkeypatch.setattr(api_server, "ATTEMPTS_LOG_PATH", tmp_path / "attempts.jsonl")

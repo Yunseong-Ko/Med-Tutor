@@ -17,6 +17,9 @@ AUTH_VARIABLES = (
     "APP_ALLOWED_EMAIL",
     "APP_AUTH_PASSWORD",
     "APP_SESSION_SECRET",
+    "APP_FACULTY_EMAILS",
+    # 가입 승인 계정(교수 검토 콘솔 F2)·로스터 계정의 초기 비밀번호 파생 키. 없으면 승인은 되지만 학생 로그인이 영구 불가.
+    "APP_ROSTER_SECRET",
 )
 AI_KEY_VARIABLES = (
     "ANTHROPIC_API_KEY",
@@ -25,8 +28,36 @@ AI_KEY_VARIABLES = (
 )
 
 
+TRUE_VALUES = {"1", "true", "yes", "on"}
+PRODUCTION_VALUES = {"prod", "production"}
+RAILWAY_MARKERS = (
+    "RAILWAY_PROJECT_ID",
+    "RAILWAY_SERVICE_ID",
+    "RAILWAY_ENVIRONMENT_ID",
+    "RAILWAY_DEPLOYMENT_ID",
+)
+
+
+def deployment_guard_required(environment: dict[str, str]) -> bool:
+    """Return whether missing deployment secrets must stop the process."""
+
+    full_demo = environment.get("PACCINE_REQUIRE_FULL_DEMO", "").strip().lower()
+    environment_name = (
+        environment.get("ENV")
+        or environment.get("ENVIRONMENT")
+        or environment.get("APP_ENV")
+        or environment.get("RAILWAY_ENVIRONMENT_NAME")
+        or ""
+    ).strip().lower()
+    return bool(
+        full_demo in TRUE_VALUES
+        or environment_name in PRODUCTION_VALUES
+        or any(environment.get(name, "").strip() for name in RAILWAY_MARKERS)
+    )
+
+
 def validate_environment(environment: dict[str, str]) -> list[str]:
-    if environment.get("PACCINE_REQUIRE_FULL_DEMO", "").strip() != "1":
+    if not deployment_guard_required(environment):
         return []
 
     errors: list[str] = []
@@ -41,6 +72,22 @@ def validate_environment(environment: dict[str, str]) -> list[str]:
     session_secret = environment.get("APP_SESSION_SECRET", "")
     if session_secret and len(session_secret) < 32:
         errors.append("APP_SESSION_SECRET must contain at least 32 characters")
+
+    roster_secret = environment.get("APP_ROSTER_SECRET", "")
+    if roster_secret and len(roster_secret) < 16:
+        errors.append("APP_ROSTER_SECRET must contain at least 16 characters")
+
+    allowed_email = environment.get("APP_ALLOWED_EMAIL", "").strip().lower()
+    faculty_emails = {
+        value.strip().lower()
+        for value in environment.get("APP_FACULTY_EMAILS", "").split(",")
+        if value.strip()
+    }
+    if allowed_email and faculty_emails and allowed_email not in faculty_emails:
+        errors.append(
+            "APP_ALLOWED_EMAIL must be listed in APP_FACULTY_EMAILS "
+            "for the single-account faculty demo"
+        )
 
     if not any(environment.get(name, "").strip() for name in AI_KEY_VARIABLES):
         errors.append("missing AI provider key: set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY")

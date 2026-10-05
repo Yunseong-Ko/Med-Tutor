@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f2a29">
+  <title>가입 신청 · P:accine</title>
+  <!-- 공개 경로(/signup)라 게이트 밖에서도 완전히 렌더되도록 외부 정적 자산을 참조하지 않는다.
+       시안: design_handoff/received_faculty_student_ops_20260905/Student_Reader_Updates.dc.html #2d (S5). -->
+  <style>
+    :root { --deep: #0f2a29; --deep2: #134f4d; --teal: #0e7c7b; --teal-ink: #0b6f73; --ink: #12211f; --body: #3a4a47; --muted: #8a968f; --line: #e6e2d8; --coral: #d9603f; --coral-ink: #b23a1c; --coral-soft: #f7e2da; --amber-soft: #f6ebd6; --amber-ink: #b06f18; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(160deg, var(--deep), var(--deep2)); color: var(--ink); font-family: Pretendard, "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; letter-spacing: -0.01em; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+    .shell { width: min(440px, 100%); display: flex; flex-direction: column; gap: 22px; }
+    .hero { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+    .mark { width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, .08); border: 1.5px solid rgba(157, 196, 193, .5); display: grid; place-items: center; color: #eaf4f3; font-weight: 800; font-size: 24px; }
+    .hero b { font-size: 22px; color: #eaf4f3; font-weight: 800; letter-spacing: -0.02em; }
+    .hero span { font-size: 13px; color: #9dc4c1; line-height: 1.5; }
+    .card { background: #fff; border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 30px 80px -50px rgba(0, 0, 0, .6); }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+    label .req { color: var(--coral); }
+    label .opt { color: var(--muted); font-weight: 400; }
+    input { border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; font-size: 14px; font: inherit; width: 100%; color: var(--ink); background: #fff; }
+    input.mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+    input:focus { outline: 0; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14, 124, 123, .15); }
+    .err { display: none; background: var(--coral-soft); color: var(--coral-ink); border-radius: 10px; padding: 9px 12px; font-size: 12.5px; line-height: 1.5; }
+    .err.show { display: block; }
+    .submit { background: var(--teal); color: #fff; border: 0; font-weight: 700; font-size: 15px; padding: 14px; border-radius: 13px; cursor: pointer; box-shadow: 0 12px 26px -12px rgba(14, 124, 123, .72); font-family: inherit; }
+    .submit:disabled { opacity: .65; cursor: wait; box-shadow: none; }
+    .foot { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.6; }
+    .foot a { color: var(--teal-ink); font-weight: 700; text-decoration: none; }
+    .foot a:hover { text-decoration: underline; }
+    .done { display: none; align-items: center; text-align: center; gap: 12px; padding: 28px 22px; }
+    .done.show { display: flex; }
+    .done .icon { width: 56px; height: 56px; border-radius: 50%; background: var(--amber-soft); display: grid; place-items: center; color: var(--amber-ink); font-size: 22px; }
+    .done b { font-size: 17px; }
+    .done .msg { font-size: 13.5px; color: var(--body); line-height: 1.6; }
+    .done .meta { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
+    .done .again { background: transparent; border: 0; color: var(--teal-ink); font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .privacy { font-size: 11px; color: #9dc4c1; text-align: center; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="hero">
+      <div class="mark" aria-hidden="true">P</div>
+      <b>P:accine 가입 신청</b>
+      <span>담당 교수가 승인하면 안내받은 초기 비밀번호로<br>로그인할 수 있습니다.</span>
+    </div>
+
+    <form class="card" id="signup-form" novalidate>
+      <label>이름 <span class="req">*</span><input id="name" name="name" autocomplete="name" placeholder="실명" required maxlength="40"></label>
+      <label>학번 <span class="req">*</span><input id="student_id" name="student_id" class="mono" inputmode="numeric" autocomplete="off" placeholder="학번" required maxlength="20"></label>
+      <label>이메일 <span class="req">*</span><input id="email" name="email" type="email" autocomplete="email" placeholder="학교 이메일" required maxlength="120"></label>
+      <label>메모 <span class="opt">(선택)</span><input id="note" name="note" placeholder="소속·학년 등" maxlength="200"></label>
+      <div class="err" id="err" role="alert"></div>
+      <button class="submit" id="submit" type="submit">신청 제출</button>
+      <p class="foot">이미 계정이 있나요? <a href="/login">로그인</a></p>
+    </form>
+
+    <section class="card done" id="done" aria-live="polite">
+      <div class="icon" aria-hidden="true">⏳</div>
+      <b>승인 대기 중</b>
+      <span class="msg">신청이 접수되었습니다. 교수 승인 후 안내받은 초기 비밀번호로 <b id="done-email"></b> 계정에 로그인하세요.</span>
+      <span class="meta" id="done-meta"></span>
+      <p class="foot"><a href="/login">로그인 화면으로</a></p>
+      <button class="again" id="again" type="button">다른 정보로 다시 신청</button>
+    </section>
+
+    <p class="privacy">입력한 이름·학번·이메일은 승인 심사를 위해 담당 교수 화면에만 표시됩니다. 비밀번호는 여기서 만들지 않습니다.</p>
+  </main>
+  <script>
+    const form = document.getElementById("signup-form");
+    const done = document.getElementById("done");
+    const err = document.getElementById("err");
+    const submit = document.getElementById("submit");
+    const field = (id) => document.getElementById(id);
+    function showError(message) { err.textContent = message; err.classList.add("show"); }
+    function clearError() { err.textContent = ""; err.classList.remove("show"); }
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+      const payload = {
+        name: field("name").value.trim(),
+        student_id: field("student_id").value.trim(),
+        email: field("email").value.trim(),
+        note: field("note").value.trim(),
+      };
+      if (!payload.name || !payload.student_id || !/^\S+@\S+\.\S+$/.test(payload.email)) {
+        showError("이름·학번·이메일을 확인하세요.");
+        return;
+      }
+      submit.disabled = true;
+      try {
+        const response = await fetch("/api/auth/signup", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(payload)});
+        let body = {};
+        try { body = await response.json(); } catch (_) {}
+        if (response.status === 409) {
+          showError("이미 신청된 이메일입니다. 승인 대기 중이거나 계정이 이미 있습니다 — 담당 교수에게 문의하세요.");
+          return;
+        }
+        if (!response.ok) {
+          showError(body.detail || "신청을 접수하지 못했습니다. 잠시 후 다시 시도하세요.");
+          return;
+        }
+        document.getElementById("done-email").textContent = payload.email.toLowerCase();
+        const submittedAt = body.submitted_at ? new Date(body.submitted_at) : new Date();
+        const when = Number.isNaN(submittedAt.getTime()) ? "" : submittedAt.toLocaleString("ko-KR", {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"});
+        document.getElementById("done-meta").textContent = `${body.request_id || ""}${when ? ` · 접수 ${when}` : ""}`;
+        form.style.display = "none";
+        done.classList.add("show");
+      } catch (_) {
+        showError("네트워크 오류로 접수하지 못했습니다. 잠시 후 다시 시도하세요.");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+    document.getElementById("again").addEventListener("click", () => {
+      done.classList.remove("show");
+      form.reset();
+      form.style.display = "";
+      field("name").focus();
+    });
+  </script>
+</body>
+</html>

@@ -50,6 +50,12 @@ REQUIRED_GLOBS = (
     "course_exams/media/**/*",
     "medlegal/cases/*.case.json",
 )
+# 원본 기출 기반 그룹 — `build_railway_bundle.py --exclude-originals` 번들에는 없다. 시드 루트가 주어지고
+# 그 안에도 없으면(원본 제외 배포) 볼륨에서도 요구하지 않는다(새 볼륨·스테이징에서 부팅 실패 방지).
+ORIGINALS_GLOBS = (
+    "studio/question_bank/*.question_set.json",
+    "course_exams/extracted/*.json",
+)
 
 MUTABLE_DIRECTORIES = (
     "anki_exports",
@@ -74,6 +80,43 @@ MUTABLE_DIRECTORIES = (
     "studio/review_sets",
     "studio/uploads",
 )
+
+
+# 볼륨 시딩은 "없는 파일만" 복사한다(운영 데이터 보호). 그래서 문항 콘텐츠를 갱신해도
+# 재배포만으로는 반영되지 않는다. 아래 경로는 **콘텐츠 배포물**이라 매 부팅 시 덮어쓴다.
+# APP_SEED_REFRESH=0 으로 끌 수 있다.
+REFRESH_PATHS = (
+    "student/qbank.json",
+    "student/qbank_enrichment.releases.json",
+    "student/qbank_enrichment.draft.json",
+    "course_exams/media/SYNTH_GENERATED",
+)
+
+
+def _refresh_content(seed_root: Path, data_root: Path) -> tuple[int, int]:
+    """콘텐츠 배포 경로를 시드본으로 덮어쓴다(학습 로그·검수 로그는 건드리지 않는다)."""
+    files = total = 0
+    for relative in REFRESH_PATHS:
+        source = seed_root / relative
+        target = data_root / relative
+        if not source.exists():
+            continue
+        if source.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            for path in sorted(source.rglob("*")):
+                if not path.is_file():
+                    continue
+                dst = target / path.relative_to(source)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, dst)
+                files += 1
+                total += path.stat().st_size
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            files += 1
+            total += source.stat().st_size
+    return files, total
 
 
 def _copy_missing_tree(source: Path, destination: Path) -> tuple[int, int]:
@@ -217,9 +260,15 @@ def _sync_qbank_overlays(seed_root: Path, data_root: Path) -> tuple[int, int]:
     return synced_files, synced_bytes
 
 
-def verify_runtime(data_root: Path) -> dict[str, object]:
+def verify_runtime(data_root: Path, seed_root: Path | None = None) -> dict[str, object]:
     missing = [relative for relative in REQUIRED_FILES if not (data_root / relative).is_file()]
-    empty_globs = [pattern for pattern in REQUIRED_GLOBS if not any(data_root.glob(pattern))]
+    skipped_originals = [
+        pattern
+        for pattern in ORIGINALS_GLOBS
+        if seed_root is not None and not any(seed_root.glob(pattern))
+    ]
+    required_globs = [pattern for pattern in REQUIRED_GLOBS if pattern not in skipped_originals]
+    empty_globs = [pattern for pattern in required_globs if not any(data_root.glob(pattern))]
     if missing or empty_globs:
         details = []
         if missing:
@@ -240,6 +289,7 @@ def verify_runtime(data_root: Path) -> dict[str, object]:
         "question_set_count": len(list(data_root.glob("studio/question_bank/*.question_set.json"))),
         "course_exam_count": len(list(data_root.glob("course_exams/extracted/*.json"))),
         "medlegal_case_count": len(list(data_root.glob("medlegal/cases/*.case.json"))),
+        "originals_present": not skipped_originals,
     }
 
 
@@ -276,19 +326,28 @@ def main() -> int:
     seed_root = args.seed_root.resolve()
     data_root = args.data_root.resolve()
     marker: dict[str, object] = {"copied_files": 0, "copied_bytes": 0}
+    refreshed = 0
     if not args.verify_only:
         if seed_root.exists():
             marker = seed_runtime(seed_root, data_root)
+            # 볼륨에 이미 있는 파일은 시딩이 건너뛰므로, 문항 콘텐츠는 따로 덮어쓴다.
+            if os.environ.get("APP_SEED_REFRESH", "1").strip().lower() not in {"0", "false", "no", "off"}:
+                refreshed, _ = _refresh_content(seed_root, data_root)
         else:
             for relative in MUTABLE_DIRECTORIES:
                 (data_root / relative).mkdir(parents=True, exist_ok=True)
-    status = verify_runtime(data_root) if args.verify or args.verify_only else {"ready": None}
+    status = (
+        verify_runtime(data_root, seed_root if seed_root.exists() else None)
+        if args.verify or args.verify_only
+        else {"ready": None}
+    )
     print(
         json.dumps(
             {
                 "event": "paccine_runtime_seed",
                 "data_root": str(data_root),
                 "copied_files": marker.get("copied_files", 0),
+                "refreshed_content_files": refreshed,
                 "copied_mib": round(int(marker.get("copied_bytes", 0)) / 1024 / 1024, 2),
                 "synced_overlays": marker.get("synced_overlays", 0),
                 **status,

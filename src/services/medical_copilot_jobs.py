@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from src.services.kr_guideline_library import guideline_privacy_preflight
-from src.services.medical_copilot import build_medical_copilot_response
+from src.services.medical_copilot import (
+    _default_entailment_judge,
+    build_medical_copilot_response,
+)
 
 
 _JOB_ID_PATTERN = re.compile(r"^mcj_[0-9TZ]+_[0-9a-f]{16}$")
@@ -167,15 +170,20 @@ def _run_job(
             error=None,
         )
     try:
+        builder_kwargs = {
+            "mode": request["mode"],
+            "concept_id": request["concept_id"],
+            "specialty": request["specialty"],
+            "case_text": request["case_text"],
+            "history": request["history"],
+            "progress_callback": update_stage,
+            "generate_answer": request["generate_answer"],
+        }
+        if builder is build_medical_copilot_response:
+            builder_kwargs["entailment_judge"] = _default_entailment_judge
         result = builder(
             request["query"],
-            mode=request["mode"],
-            concept_id=request["concept_id"],
-            specialty=request["specialty"],
-            case_text=request["case_text"],
-            history=request["history"],
-            progress_callback=update_stage,
-            generate_answer=request["generate_answer"],
+            **builder_kwargs,
         )
     except Exception as exc:  # The public endpoint returns a safe failure state.
         with _LOCK:

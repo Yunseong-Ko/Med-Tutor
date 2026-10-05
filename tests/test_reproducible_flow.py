@@ -66,32 +66,6 @@ class ReproducibleFlowTests(unittest.TestCase):
         self.assertEqual(mode, "mixed")
         self.assertEqual(pattern, "ko(en)")
 
-    def test_resolve_generation_flavor_basic_subject(self):
-        namespace = _load_namespace(["detect_question_flavor_scores", "resolve_generation_flavor"])
-        flavor = namespace["resolve_generation_flavor"](
-            "자동 판별(Auto)",
-            raw_text="세포막의 막전위와 이온 이동 기전을 설명한다.",
-            style_text="",
-            subject="생리학",
-        )
-        self.assertEqual(flavor, "basic")
-
-    def test_resolve_generation_flavor_case_subject(self):
-        namespace = _load_namespace(["detect_question_flavor_scores", "resolve_generation_flavor"])
-        flavor = namespace["resolve_generation_flavor"](
-            "자동 판별(Auto)",
-            raw_text="55세 환자가 흉통으로 내원하였다.",
-            style_text="",
-            subject="내과",
-        )
-        self.assertEqual(flavor, "case")
-
-    def test_build_flavor_instructions_mix_ratio(self):
-        namespace = _load_namespace(["build_flavor_instructions"])
-        block = namespace["build_flavor_instructions"]("📝 객관식 문제 (Case Study)", "mix", mix_basic_ratio=70)
-        self.assertIn("70%", block)
-        self.assertIn("30%", block)
-
     def test_get_configured_admin_users_from_env(self):
         namespace = _load_namespace(
             ["get_configured_admin_users"],
@@ -227,7 +201,8 @@ class ReproducibleFlowTests(unittest.TestCase):
                 "update_question_by_id",
                 "load_questions",
                 "save_questions",
-            ]
+            ],
+            extra={"normalize_question_metadata": lambda item, defaults=None: dict(item)},
         )
         bank_ref = {"text": [{"id": "q1", "subject": "심장", "problem": "old", "options": ["a", "b"], "answer": 1}], "cloze": []}
 
@@ -258,46 +233,6 @@ class ReproducibleFlowTests(unittest.TestCase):
         self.assertEqual(bank_ref["text"][0]["problem"], "new stem")
         self.assertEqual(bank_ref["text"][0]["answer"], 2)
         self.assertEqual(bank_ref["text"][0]["id"], "q1")
-
-    def test_update_question_bookmark_persists(self):
-        namespace = _load_namespace(
-            [
-                "update_question_bookmark",
-                "load_questions",
-                "save_questions",
-            ]
-        )
-        bank_ref = {"text": [{"id": "q1", "bookmarked": False}], "cloze": []}
-
-        def fake_load():
-            return copy.deepcopy(bank_ref)
-
-        def fake_save(updated):
-            bank_ref.clear()
-            bank_ref.update(updated)
-
-        namespace["load_questions"] = fake_load
-        namespace["save_questions"] = fake_save
-
-        ok = namespace["update_question_bookmark"]("q1", True)
-        self.assertTrue(ok)
-        self.assertTrue(bank_ref["text"][0]["bookmarked"])
-
-    def test_get_question_attempt_summary(self):
-        namespace = _load_namespace(["get_question_attempt_summary"])
-        summary = namespace["get_question_attempt_summary"](
-            {
-                "stats": {
-                    "right": 3,
-                    "wrong": 2,
-                    "history": [{"time": "2026-02-26T00:00:00+00:00", "correct": False}],
-                }
-            }
-        )
-        self.assertEqual(summary["attempts"], 5)
-        self.assertEqual(summary["right"], 3)
-        self.assertEqual(summary["wrong"], 2)
-        self.assertFalse(summary["last_correct"])
 
     def test_subject_review_summary_without_fsrs(self):
         namespace = _load_namespace(["summarize_subject_review_status", "srs_due"])

@@ -1418,6 +1418,21 @@
   }
 
   function bindStaticEvents() {
+    const navMenuButton = document.getElementById("nav-menu-button");
+    const facultyNav = document.getElementById("faculty-nav");
+    if (navMenuButton && facultyNav) {
+      navMenuButton.addEventListener("click", () => {
+        const open = !facultyNav.classList.contains("is-open");
+        facultyNav.classList.toggle("is-open", open);
+        navMenuButton.setAttribute("aria-expanded", String(open));
+      });
+      facultyNav.addEventListener("click", (event) => {
+        if (event.target.closest("a")) {
+          facultyNav.classList.remove("is-open");
+          navMenuButton.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
     document.addEventListener("click", (event) => {
       const anchor = event.target.closest("a[href]");
       if (!anchor || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.target === "_blank" || anchor.hasAttribute("download")) return;

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520" role="img" aria-labelledby="title desc">
+  <title id="title">ERCP biliary stent for cystic duct stump bile leak</title>
+  <desc id="desc">Original educational schematic showing a cystic duct stump bile leak after cholecystectomy and endoscopic transpapillary biliary stent decompression.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#eef8f4"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0d8d72"/>
+    </marker>
+    <marker id="redArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#c43d3d"/>
+    </marker>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0b1f3a" flood-opacity=".12"/>
+    </filter>
+  </defs>
+  <rect width="920" height="520" rx="28" fill="url(#bg)"/>
+  <rect x="36" y="34" width="848" height="452" rx="24" fill="#fff" stroke="#d7e4ef" filter="url(#softShadow)"/>
+
+  <text x="64" y="78" font-family="Pretendard, Arial, sans-serif" font-size="24" font-weight="800" fill="#0b1f3a">Post-cholecystectomy bile leak: ERCP stent decompression</text>
+  <text x="64" y="110" font-family="Pretendard, Arial, sans-serif" font-size="15" fill="#5f6f82">Stent lowers pressure across the papilla, so bile preferentially drains into the duodenum and the leak closes.</text>
+
+  <path d="M176 162 C120 184 101 248 122 302 C142 356 198 374 250 350 C300 327 326 276 310 224 C294 174 235 140 176 162Z" fill="#f0b34f" stroke="#98651e" stroke-width="4"/>
+  <path d="M195 183 C161 193 144 230 154 264 C166 304 208 315 239 292 C268 270 268 226 241 202 C228 190 211 180 195 183Z" fill="#f7ca6b" opacity=".85"/>
+  <text x="151" y="396" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#26323f">Liver</text>
+
+  <path d="M304 247 C360 251 408 261 462 292" fill="none" stroke="#f0b34f" stroke-width="30" stroke-linecap="round"/>
+  <path d="M304 247 C360 251 408 261 462 292" fill="none" stroke="#98651e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M462 292 C526 325 591 327 646 297" fill="none" stroke="#f0b34f" stroke-width="34" stroke-linecap="round"/>
+  <path d="M462 292 C526 325 591 327 646 297" fill="none" stroke="#98651e" stroke-width="4" stroke-linecap="round"/>
+  <text x="333" y="224" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#26323f">Common bile duct</text>
+
+  <path d="M390 243 C373 219 354 206 330 204" fill="none" stroke="#f0b34f" stroke-width="18" stroke-linecap="round"/>
+  <path d="M390 243 C373 219 354 206 330 204" fill="none" stroke="#98651e" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="319" cy="203" r="13" fill="#fff" stroke="#c43d3d" stroke-width="4"/>
+  <path d="M318 203 C291 183 270 178 248 184" fill="none" stroke="#c43d3d" stroke-width="4" stroke-dasharray="8 8" marker-end="url(#redArrow)"/>
+  <text x="251" y="159" font-family="Pretendard, Arial, sans-serif" font-size="14" font-weight="800" fill="#c43d3d">Cystic duct stump leak</text>
+
+  <path d="M646 297 C686 278 723 291 744 322 C769 358 749 408 704 421 C664 432 621 415 604 382 C586 348 605 316 646 297Z" fill="#fff3df" stroke="#b87c2a" stroke-width="4"/>
+  <path d="M625 326 C660 346 702 347 731 328" fill="none" stroke="#e0a85b" stroke-width="9" stroke-linecap="round"/>
+  <text x="650" y="452" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#26323f">Duodenum</text>
+
+  <path d="M455 286 C502 304 559 306 623 291" fill="none" stroke="#0d8d72" stroke-width="12" stroke-linecap="round"/>
+  <path d="M455 286 C502 304 559 306 623 291" fill="none" stroke="#0b5f4e" stroke-width="3" stroke-dasharray="10 8"/>
+  <path d="M330 286 C380 286 420 286 457 288" fill="none" stroke="#0d8d72" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="482" y="263" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#0d8d72">Transpapillary biliary stent</text>
+
+  <path d="M444 356 C492 370 551 367 609 336" fill="none" stroke="#0d8d72" stroke-width="4" stroke-dasharray="8 8" marker-end="url(#arrow)"/>
+  <text x="437" y="390" font-family="Pretendard, Arial, sans-serif" font-size="14" fill="#0d8d72">Bile flow is diverted into bowel</text>
+
+  <rect x="64" y="420" width="520" height="42" rx="14" fill="#e7fbf4" stroke="#bfe7da"/>
+  <text x="84" y="447" font-family="Pretendard, Arial, sans-serif" font-size="15" font-weight="800" fill="#0d6b56">Key point</text>
+  <text x="166" y="447" font-family="Pretendard, Arial, sans-serif" font-size="15" fill="#26323f">ERCP stent = internal drainage + pressure reduction, not external surgery.</text>
+</svg>

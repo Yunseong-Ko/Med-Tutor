@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ontology 문항 생성 작업실 · P:accine Faculty</title>
   <link rel="stylesheet" href="/tokens.css" />
-  <link rel="stylesheet" href="/faculty-studio-v3/app.css?v=20260723-leave-guard-v1" />
+  <link rel="stylesheet" href="/faculty-studio-v3/app.css?v=20260906-mobile-nav-v1" />
   <link rel="stylesheet" href="/faculty-studio-v3/generation-job.css?v=20260718-1" />
 </head>
 <body>
@@ -15,15 +15,17 @@
         <span class="brand-mark">P</span>
         <span><b>P:accine</b><small>FACULTY STUDIO · ONTOLOGY</small></span>
       </a>
-      <nav aria-label="교수 메뉴">
+      <nav id="faculty-nav" aria-label="교수 메뉴">
         <a class="active" href="/faculty-studio-v2/">새 문항 만들기</a>
         <a href="/faculty-studio-v2/import.html">문항 가져오기</a>
         <a href="/faculty-studio-v2/review.html">검토·승인</a>
         <a href="/faculty-studio-v2/guideline-claims.html">가이드라인 검토</a>
         <a href="/faculty-studio-v2/evidence-media.html">근거·미디어</a>
         <a href="/faculty-studio-v2/archive.html">내보내기</a>
+        <a href="/faculty-review-console/" title="AI 생성 문항 확정 · 가입 승인 · 세트 리포트">검토 콘솔</a>
       </nav>
       <div class="top-actions">
+        <button id="nav-menu-button" class="nav-menu-button" type="button" aria-controls="faculty-nav" aria-expanded="false">메뉴</button>
         <span id="save-state" class="save-state">현재 작업</span>
         <button id="copilot-toggle" class="copilot-button" type="button" aria-expanded="false">✳ Copilot</button>
         <button id="logout-button" class="logout-button" type="button">로그아웃</button>
@@ -198,6 +200,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="/faculty-studio-v3/app.js?v=20260723-leave-guard-v1"></script>
+  <script src="/faculty-studio-v3/app.js?v=20260906-mobile-nav-v1"></script>
 </body>
 </html>

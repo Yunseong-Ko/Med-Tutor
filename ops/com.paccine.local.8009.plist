@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.paccine.local.8009</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/anaconda3/bin/python3</string>
+    <string>-m</string>
+    <string>uvicorn</string>
+    <string>api_server:app</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8009</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/goyunseong/Documents/AI Projects/Med-Tutor</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/paccine-local-8009.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/paccine-local-8009.err.log</string>
+</dict>
+</plist>

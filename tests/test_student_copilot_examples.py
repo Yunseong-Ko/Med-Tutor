@@ -49,7 +49,7 @@ class StudentCopilotExampleTests(unittest.TestCase):
     def test_student_bundle_cache_key_changes_with_example_release(self):
         html = INDEX_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("/student-v3/app.js?v=20260724-railway-perf-v1", html)
+        self.assertIn("/student-v3/app.js?v=20260927-home-v2", html)
 
     def test_citation_click_is_scoped_to_its_own_answer_card(self):
         text = APP_PATH.read_text(encoding="utf-8")
@@ -103,7 +103,8 @@ class StudentCopilotExampleTests(unittest.TestCase):
         css = READER_CSS_PATH.read_text(encoding="utf-8")
         html = READER_HTML_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("reader.css?v=20260723-compact-reader-v1", html)
+        # 캐시 버스터는 학생 업데이트(2026-09-06)로 갱신 — 컴팩트 레이아웃 규칙 자체는 아래 CSS 단언이 지킨다
+        self.assertIn("reader.css?v=20261005-motion-v2", html)
         self.assertIn("font-size: clamp(15px, 1.35vw, 18px)", css)
         self.assertIn("justify-content: center", css)
         self.assertIn("max-height: clamp(200px, 30vh, 300px)", css)

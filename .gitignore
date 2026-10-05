@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.pyc
 *.pyo
 *.pyd
@@ -27,15 +28,20 @@ test.pdf
 
 # Secrets
 Gemini_API_Key.md
+ops/presentation.env
 
 # Backups
 app_backup_*.py
 app_old*.py
+*.bak
+*.bak_*
 _archive/
 
 # Misc
 .DS_Store
 *.log
+tmp/
+.claude/worktrees/
 
 user_settings.json
 

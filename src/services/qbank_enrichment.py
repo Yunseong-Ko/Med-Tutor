@@ -14,9 +14,11 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import hashlib
 import json
 import os
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -315,59 +317,72 @@ def record_faculty_review(
     if not qid or not reviewer_id or reviewer_id.startswith("demo:") or not reviewed_at:
         raise ValueError("실제 reviewer_id와 reviewed_at이 필요합니다.")
 
-    drafts_payload = _load(DRAFT_PATH)
-    drafts = drafts_payload.get("drafts") if isinstance(drafts_payload.get("drafts"), dict) else {}
-    draft = drafts.get(qid)
-    if not isinstance(draft, dict):
-        raise KeyError(qid)
-    current_sha = _sha256(QBANK_PATH)
-    draft_sha = str(drafts_payload.get("built_against_sha256") or "")
-    if not current_sha or not draft_sha or current_sha != draft_sha:
-        raise ValueError("원본 checksum과 draft 기준 checksum이 일치하지 않습니다.")
-    if decision == "approve" and (medical_approval is not True or draft.get("release_eligible") is not True):
-        raise ValueError("교수 medical_approval과 release_eligible=true가 모두 필요합니다.")
-
-    payload = copy.deepcopy(_load(RELEASES_PATH))
-    payload["schema_version"] = "paccine.qbank_enrichment.releases.v1"
-    payload["built_against_sha256"] = current_sha
-    payload["notice"] = "실제 교수 medical approval을 통과한 release만 학생에게 노출합니다."
-    releases = payload.setdefault("releases", {})
-    if decision == "approve":
-        entry = {
-            "approved": True,
-            "medical_approval": True,
-            "demo_release": False,
-            "needs_real_faculty_review": False,
-            "review_status": "faculty_approved",
-            "reviewer_id": reviewer_id,
-            "reviewed_at": reviewed_at,
-            "review_note": review_note,
-            **{
-                field: draft.get(field)
-                for field in RELEASE_OVERLAY_FIELDS
-                if field in draft
-            },
-            "source": draft.get("source"),
-            "provenance": draft.get("provenance"),
-        }
-    else:
-        entry = {
-            "approved": False,
-            "medical_approval": False,
-            "demo_release": False,
-            "needs_real_faculty_review": True,
-            "review_status": "rejected",
-            "reviewer_id": reviewer_id,
-            "reviewed_at": reviewed_at,
-            "review_note": review_note,
-        }
-    releases[qid] = entry
-
     RELEASES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = RELEASES_PATH.with_name(f".{RELEASES_PATH.name}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
-    os.replace(tmp, RELEASES_PATH)
-    return dict(entry)
+    lock_path = RELEASES_PATH.with_name(f".{RELEASES_PATH.name}.lock")
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            # Keep validation and the release read-modify-write in one
+            # serialized critical section so concurrent faculty decisions
+            # cannot overwrite one another with stale snapshots.
+            drafts_payload = _load(DRAFT_PATH)
+            drafts = drafts_payload.get("drafts") if isinstance(drafts_payload.get("drafts"), dict) else {}
+            draft = drafts.get(qid)
+            if not isinstance(draft, dict):
+                raise KeyError(qid)
+            current_sha = _sha256(QBANK_PATH)
+            draft_sha = str(drafts_payload.get("built_against_sha256") or "")
+            if not current_sha or not draft_sha or current_sha != draft_sha:
+                raise ValueError("원본 checksum과 draft 기준 checksum이 일치하지 않습니다.")
+            if decision == "approve" and (
+                medical_approval is not True or draft.get("release_eligible") is not True
+            ):
+                raise ValueError("교수 medical_approval과 release_eligible=true가 모두 필요합니다.")
+
+            payload = copy.deepcopy(_load(RELEASES_PATH))
+            payload["schema_version"] = "paccine.qbank_enrichment.releases.v1"
+            payload["built_against_sha256"] = current_sha
+            payload["notice"] = "실제 교수 medical approval을 통과한 release만 학생에게 노출합니다."
+            releases = payload.setdefault("releases", {})
+            if decision == "approve":
+                entry = {
+                    "approved": True,
+                    "medical_approval": True,
+                    "demo_release": False,
+                    "needs_real_faculty_review": False,
+                    "review_status": "faculty_approved",
+                    "reviewer_id": reviewer_id,
+                    "reviewed_at": reviewed_at,
+                    "review_note": review_note,
+                    **{
+                        field: draft.get(field)
+                        for field in RELEASE_OVERLAY_FIELDS
+                        if field in draft
+                    },
+                    "source": draft.get("source"),
+                    "provenance": draft.get("provenance"),
+                }
+            else:
+                entry = {
+                    "approved": False,
+                    "medical_approval": False,
+                    "demo_release": False,
+                    "needs_real_faculty_review": True,
+                    "review_status": "rejected",
+                    "reviewer_id": reviewer_id,
+                    "reviewed_at": reviewed_at,
+                    "review_note": review_note,
+                }
+            releases[qid] = entry
+
+            tmp = RELEASES_PATH.with_name(
+                f".{RELEASES_PATH.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+            )
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+            os.replace(tmp, RELEASES_PATH)
+            return dict(entry)
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def enrichment_status() -> dict[str, int]:
